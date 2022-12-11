@@ -409,8 +409,16 @@ paths:
                 items:
                   $ref: "#/components/schemas/transfer"
 
-  # /plan:
+  # /plan: CRUDL
 
-  # /meme:
+  # /meme: CRD
 
-  # /gene:
+  # /meme/cap: CRUDL
+
+  # /meme/tag: CRUDL
+
+  # /gene: RX
+
+  # /meme/cap: CRUDL
+
+  # /meme/tag: CRUDL
