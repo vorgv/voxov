@@ -1,4 +1,4 @@
-package graph
+package api
 
 // This file will be automatically regenerated based on the schema, any resolver implementations
 // will be copied through when generating and any unknown code will be moved to the end.
@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vorgv/voxov/graph/model"
+	"github.com/vorgv/voxov/api/model"
 )
 
 // CreateTodo is the resolver for the createTodo field.

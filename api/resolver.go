@@ -1,4 +1,4 @@
-package graph
+package api
 
 // This file will not be regenerated automatically.
 //
