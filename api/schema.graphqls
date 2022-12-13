@@ -1,28 +1,95 @@
-# GraphQL schema example
-#
-# https://gqlgen.com/getting-started/
+# Zero value is null
 
-type Todo {
-  id: ID!
-  text: String!
-  done: Boolean!
-  user: User!
+enum SessionMethod {
+    START
+    AUTH
+    KEEP
+    EXTEND
+    REFRESH
+    END
 }
 
-type User {
-  id: ID!
-  name: String!
+type Auth {
+    sid: ID!
+    pid: ID!
+    ttl: String!
+    method: SessionMethod!
 }
 
-type Query {
-  todos: [Todo!]!
+type Cost {
+    kin: String!
+    pot: String!
 }
 
-input NewTodo {
-  text: String!
-  userId: String!
+type Union {
+    url: String!
 }
 
-type Mutation {
-  createTodo(input: NewTodo!): Todo!
+type Result {
+    ok: Boolean!
+    msg: String!
+}
+
+type Header {
+    auth: Auth!
+    cost: Cost!
+    union: Union!
+    result: Result!
+}
+
+type Person {
+    pid: ID!
+    hid: ID!
+    balance: String!
+    phone: String!
+    pname: String!
+    id_doc: String!
+    dlimit: String!
+    created: String!
+    last_in: String!
+}
+
+type Device {
+    did: ID!
+    dtoken: ID!
+    dname: String!
+    dinfo: String!
+    pid: ID!
+    created: String!
+    last_in: String!
+}
+
+type Transfer {
+    tid: ID!
+    from_pid: ID!
+    to_pid: ID!
+    volume: String!
+    note: String!
+    ttime: String!
+}
+
+type Plan {
+    plan_id: ID!
+    pid: ID!
+    gene: ID!
+    vlimit: String!
+    billing: String!
+}
+
+enum RepliconType {
+    GENE
+    MEME
+}
+
+type Replicon {
+    type: RepliconType!
+    hash: ID!
+    cost: [String!]!
+    meta: [String!]!
+    body: String!
+}
+
+input Sms {
+    tel: String!
+    msg: String!
 }

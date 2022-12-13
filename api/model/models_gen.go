@@ -2,19 +2,178 @@
 
 package model
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
+import (
+	"fmt"
+	"io"
+	"strconv"
+)
+
+type Auth struct {
+	Sid    string        `json:"sid"`
+	Pid    string        `json:"pid"`
+	TTL    string        `json:"ttl"`
+	Method SessionMethod `json:"method"`
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
+type Cost struct {
+	Kin string `json:"kin"`
+	Pot string `json:"pot"`
 }
 
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type Device struct {
+	Did     string `json:"did"`
+	Dtoken  string `json:"dtoken"`
+	Dname   string `json:"dname"`
+	Dinfo   string `json:"dinfo"`
+	Pid     string `json:"pid"`
+	Created string `json:"created"`
+	LastIn  string `json:"last_in"`
+}
+
+type Header struct {
+	Auth   *Auth   `json:"auth"`
+	Cost   *Cost   `json:"cost"`
+	Union  *Union  `json:"union"`
+	Result *Result `json:"result"`
+}
+
+type Person struct {
+	Pid     string `json:"pid"`
+	Hid     string `json:"hid"`
+	Balance string `json:"balance"`
+	Phone   string `json:"phone"`
+	Pname   string `json:"pname"`
+	IDDoc   string `json:"id_doc"`
+	Dlimit  string `json:"dlimit"`
+	Created string `json:"created"`
+	LastIn  string `json:"last_in"`
+}
+
+type Plan struct {
+	PlanID  string `json:"plan_id"`
+	Pid     string `json:"pid"`
+	Gene    string `json:"gene"`
+	Vlimit  string `json:"vlimit"`
+	Billing string `json:"billing"`
+}
+
+type Replicon struct {
+	Type RepliconType `json:"type"`
+	Hash string       `json:"hash"`
+	Cost []string     `json:"cost"`
+	Meta []string     `json:"meta"`
+	Body string       `json:"body"`
+}
+
+type Result struct {
+	Ok  bool   `json:"ok"`
+	Msg string `json:"msg"`
+}
+
+type Sms struct {
+	Tel string `json:"tel"`
+	Msg string `json:"msg"`
+}
+
+type Transfer struct {
+	Tid     string `json:"tid"`
+	FromPid string `json:"from_pid"`
+	ToPid   string `json:"to_pid"`
+	Volume  string `json:"volume"`
+	Note    string `json:"note"`
+	Ttime   string `json:"ttime"`
+}
+
+type Union struct {
+	URL string `json:"url"`
+}
+
+type RepliconType string
+
+const (
+	RepliconTypeGene RepliconType = "GENE"
+	RepliconTypeMeme RepliconType = "MEME"
+)
+
+var AllRepliconType = []RepliconType{
+	RepliconTypeGene,
+	RepliconTypeMeme,
+}
+
+func (e RepliconType) IsValid() bool {
+	switch e {
+	case RepliconTypeGene, RepliconTypeMeme:
+		return true
+	}
+	return false
+}
+
+func (e RepliconType) String() string {
+	return string(e)
+}
+
+func (e *RepliconType) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RepliconType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RepliconType", str)
+	}
+	return nil
+}
+
+func (e RepliconType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type SessionMethod string
+
+const (
+	SessionMethodStart   SessionMethod = "START"
+	SessionMethodAuth    SessionMethod = "AUTH"
+	SessionMethodKeep    SessionMethod = "KEEP"
+	SessionMethodExtend  SessionMethod = "EXTEND"
+	SessionMethodRefresh SessionMethod = "REFRESH"
+	SessionMethodEnd     SessionMethod = "END"
+)
+
+var AllSessionMethod = []SessionMethod{
+	SessionMethodStart,
+	SessionMethodAuth,
+	SessionMethodKeep,
+	SessionMethodExtend,
+	SessionMethodRefresh,
+	SessionMethodEnd,
+}
+
+func (e SessionMethod) IsValid() bool {
+	switch e {
+	case SessionMethodStart, SessionMethodAuth, SessionMethodKeep, SessionMethodExtend, SessionMethodRefresh, SessionMethodEnd:
+		return true
+	}
+	return false
+}
+
+func (e SessionMethod) String() string {
+	return string(e)
+}
+
+func (e *SessionMethod) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SessionMethod(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SessionMethod", str)
+	}
+	return nil
+}
+
+func (e SessionMethod) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
 }
