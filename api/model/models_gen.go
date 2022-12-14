@@ -8,20 +8,36 @@ import (
 	"strconv"
 )
 
+type Argument struct {
+	Option *string `json:"option"`
+	Value  *string `json:"value"`
+}
+
 type Auth struct {
+	Method AuthMethod `json:"method"`
 	Sid    *string    `json:"sid"`
 	Sms    *Sms       `json:"sms"`
 	TTL    *string    `json:"ttl"`
 	Person *Person    `json:"person"`
 	Device *Device    `json:"device"`
-	Method AuthMethod `json:"method"`
+}
+
+type AuthOutput struct {
+	Auth *Auth  `json:"auth"`
+	Err  *Error `json:"err"`
 }
 
 type Cost struct {
+	Auth     *Auth     `json:"auth"`
 	Kin      string    `json:"kin"`
 	Pot      string    `json:"pot"`
 	Plan     *Plan     `json:"plan"`
 	Transfer *Transfer `json:"transfer"`
+}
+
+type CostOutput struct {
+	Cost *Cost  `json:"cost"`
+	Err  *Error `json:"err"`
 }
 
 type Device struct {
@@ -32,6 +48,15 @@ type Device struct {
 	Pid     *string `json:"pid"`
 	Created *string `json:"created"`
 	LastIn  *string `json:"last_in"`
+}
+
+type Error struct {
+	Msg *string `json:"msg"`
+}
+
+type Metadata struct {
+	Key   string  `json:"key"`
+	Value *string `json:"value"`
 }
 
 type Person struct {
@@ -54,17 +79,26 @@ type Plan struct {
 	Billing string `json:"billing"`
 }
 
-type Replicon struct {
-	Type *RepliconType `json:"type"`
-	Rid  *string       `json:"rid"`
-	Pot  []string      `json:"pot"`
-	Meta []string      `json:"meta"`
-	Body *string       `json:"body"`
+type Potential struct {
+	From  *string `json:"from"`
+	To    *string `json:"to"`
+	Value *string `json:"value"`
 }
 
-type Result struct {
-	Ok  bool     `json:"ok"`
-	Msg []string `json:"msg"`
+type Replicon struct {
+	Cost   *Union          `json:"cost"`
+	Method *RepliconMethod `json:"method"`
+	Rid    *string         `json:"rid"`
+	Type   *RepliconType   `json:"type"`
+	Pots   []*Potential    `json:"pots"`
+	Metas  []*Metadata     `json:"metas"`
+	Args   []*Argument     `json:"args"`
+	Body   *string         `json:"body"`
+}
+
+type RepliconOutput struct {
+	Replicon *Replicon `json:"replicon"`
+	Err      *Error    `json:"err"`
 }
 
 type Sms struct {
@@ -82,7 +116,14 @@ type Transfer struct {
 }
 
 type Union struct {
-	URL *string `json:"url"`
+	Cost *Cost   `json:"cost"`
+	URL  *string `json:"url"`
+	Info *string `json:"info"`
+}
+
+type UnionOutput struct {
+	Union *Union `json:"union"`
+	Err   *Error `json:"err"`
 }
 
 type AuthMethod string

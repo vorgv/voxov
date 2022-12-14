@@ -87,6 +87,7 @@ type Cost {
 type Union {
     cost: Cost! # chaining
     url: String
+    info: String
 }
 
 ## Replicon layer
@@ -104,30 +105,70 @@ enum RepliconMethod {
     ALL
 }
 
+# null is everyone
+# zero-value is no one
+type Potential {
+    from: String    # payer
+    to: String      # receiver
+    value: String
+}
+
+type Metadata {
+    key: String!
+    value: String
+}
+
+type Argument {
+    option: String
+    value: String
+}
+
 type Replicon {
-    cost: Cost! # chaining
+    cost: Union! # chaining
     method: RepliconMethod
     rid: ID
     type: RepliconType
-    pot: [String!]
-    meta: [String!]
+    pots: [Potential!]
+    metas: [Metadata!]
+    args: [Argument!]
     body: String
 }
 
-## Result
-# borrowed from Rust
+## Input
 
-type Result {
-    ok: Boolean!
-    msg: [String!]
+# TODO flat input types
+
+## Output
+
+type Error {
+    msg: String
+}
+
+type AuthOutput {
+    auth: Auth!
+    err: Error
+}
+
+type CostOutput {
+    cost: Cost!
+    err: Error
+}
+
+type UnionOutput {
+    union: Union!
+    err: Error
+}
+
+type RepliconOutput {
+    replicon: Replicon!
+    err: Error
 }
 
 ## Query
 
 type Query {
-    auth: Auth
-    cost: Cost
-    union: Union
-    result: Result
-    replicon: Replicon
+    auth: AuthOutput
+    cost: CostOutput
+    union:  UnionOutput
+    replicon:  RepliconOutput
 }
