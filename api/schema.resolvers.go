@@ -11,6 +11,32 @@ import (
 	"github.com/vorgv/voxov/api/model"
 )
 
-func (r *Resolver) Auth(ctx context.Context, input model.Auth) (*model.Auth, error) {
-	panic(fmt.Errorf("not implemented: CreateSession"))
+// Auth is the resolver for the auth field.
+func (r *queryResolver) Auth(ctx context.Context) (*model.Auth, error) {
+	panic(fmt.Errorf("not implemented: Auth - auth"))
 }
+
+// Cost is the resolver for the cost field.
+func (r *queryResolver) Cost(ctx context.Context) (*model.Cost, error) {
+	panic(fmt.Errorf("not implemented: Cost - cost"))
+}
+
+// Union is the resolver for the union field.
+func (r *queryResolver) Union(ctx context.Context) (*model.Union, error) {
+	panic(fmt.Errorf("not implemented: Union - union"))
+}
+
+// Result is the resolver for the result field.
+func (r *queryResolver) Result(ctx context.Context) (*model.Result, error) {
+	panic(fmt.Errorf("not implemented: Result - result"))
+}
+
+// Replicon is the resolver for the replicon field.
+func (r *queryResolver) Replicon(ctx context.Context) (*model.Replicon, error) {
+	panic(fmt.Errorf("not implemented: Replicon - replicon"))
+}
+
+// Query returns QueryResolver implementation.
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+
+type queryResolver struct{ *Resolver }

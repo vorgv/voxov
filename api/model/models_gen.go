@@ -9,65 +9,62 @@ import (
 )
 
 type Auth struct {
-	Sid    string        `json:"sid"`
-	Pid    string        `json:"pid"`
-	TTL    string        `json:"ttl"`
-	Method SessionMethod `json:"method"`
+	Sid    *string    `json:"sid"`
+	Sms    *Sms       `json:"sms"`
+	TTL    *string    `json:"ttl"`
+	Person *Person    `json:"person"`
+	Device *Device    `json:"device"`
+	Method AuthMethod `json:"method"`
 }
 
 type Cost struct {
-	Kin string `json:"kin"`
-	Pot string `json:"pot"`
+	Kin      string    `json:"kin"`
+	Pot      string    `json:"pot"`
+	Plan     *Plan     `json:"plan"`
+	Transfer *Transfer `json:"transfer"`
 }
 
 type Device struct {
-	Did     string `json:"did"`
-	Dtoken  string `json:"dtoken"`
-	Dname   string `json:"dname"`
-	Dinfo   string `json:"dinfo"`
-	Pid     string `json:"pid"`
-	Created string `json:"created"`
-	LastIn  string `json:"last_in"`
-}
-
-type Header struct {
-	Auth   *Auth   `json:"auth"`
-	Cost   *Cost   `json:"cost"`
-	Union  *Union  `json:"union"`
-	Result *Result `json:"result"`
+	Did     *string `json:"did"`
+	Dtoken  *string `json:"dtoken"`
+	Dname   *string `json:"dname"`
+	Dinfo   *string `json:"dinfo"`
+	Pid     *string `json:"pid"`
+	Created *string `json:"created"`
+	LastIn  *string `json:"last_in"`
 }
 
 type Person struct {
-	Pid     string `json:"pid"`
-	Hid     string `json:"hid"`
-	Balance string `json:"balance"`
-	Phone   string `json:"phone"`
-	Pname   string `json:"pname"`
-	IDDoc   string `json:"id_doc"`
-	Dlimit  string `json:"dlimit"`
-	Created string `json:"created"`
-	LastIn  string `json:"last_in"`
+	Pid     *string `json:"pid"`
+	Hid     *string `json:"hid"`
+	Balance *string `json:"balance"`
+	Phone   *string `json:"phone"`
+	Pname   *string `json:"pname"`
+	IDDoc   *string `json:"id_doc"`
+	Dlimit  *string `json:"dlimit"`
+	Created *string `json:"created"`
+	LastIn  *string `json:"last_in"`
 }
 
 type Plan struct {
 	PlanID  string `json:"plan_id"`
 	Pid     string `json:"pid"`
-	Gene    string `json:"gene"`
+	Rid     string `json:"rid"`
 	Vlimit  string `json:"vlimit"`
 	Billing string `json:"billing"`
 }
 
 type Replicon struct {
-	Type RepliconType `json:"type"`
-	Hash string       `json:"hash"`
-	Cost []string     `json:"cost"`
-	Meta []string     `json:"meta"`
-	Body string       `json:"body"`
+	Type *RepliconType `json:"type"`
+	Rid  *string       `json:"rid"`
+	Pot  []string      `json:"pot"`
+	Meta []string      `json:"meta"`
+	Body *string       `json:"body"`
 }
 
 type Result struct {
-	Ok  bool   `json:"ok"`
-	Msg string `json:"msg"`
+	Ok  bool     `json:"ok"`
+	Msg []string `json:"msg"`
 }
 
 type Sms struct {
@@ -76,16 +73,108 @@ type Sms struct {
 }
 
 type Transfer struct {
-	Tid     string `json:"tid"`
-	FromPid string `json:"from_pid"`
-	ToPid   string `json:"to_pid"`
-	Volume  string `json:"volume"`
-	Note    string `json:"note"`
-	Ttime   string `json:"ttime"`
+	Tid     *string `json:"tid"`
+	FromPid *string `json:"from_pid"`
+	ToPid   *string `json:"to_pid"`
+	Volume  *string `json:"volume"`
+	Note    *string `json:"note"`
+	Ttime   *string `json:"ttime"`
 }
 
 type Union struct {
-	URL string `json:"url"`
+	URL *string `json:"url"`
+}
+
+type AuthMethod string
+
+const (
+	AuthMethodStart   AuthMethod = "START"
+	AuthMethodAuth    AuthMethod = "AUTH"
+	AuthMethodKeep    AuthMethod = "KEEP"
+	AuthMethodExtend  AuthMethod = "EXTEND"
+	AuthMethodRefresh AuthMethod = "REFRESH"
+	AuthMethodEnd     AuthMethod = "END"
+)
+
+var AllAuthMethod = []AuthMethod{
+	AuthMethodStart,
+	AuthMethodAuth,
+	AuthMethodKeep,
+	AuthMethodExtend,
+	AuthMethodRefresh,
+	AuthMethodEnd,
+}
+
+func (e AuthMethod) IsValid() bool {
+	switch e {
+	case AuthMethodStart, AuthMethodAuth, AuthMethodKeep, AuthMethodExtend, AuthMethodRefresh, AuthMethodEnd:
+		return true
+	}
+	return false
+}
+
+func (e AuthMethod) String() string {
+	return string(e)
+}
+
+func (e *AuthMethod) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = AuthMethod(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid AuthMethod", str)
+	}
+	return nil
+}
+
+func (e AuthMethod) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type RepliconMethod string
+
+const (
+	RepliconMethodHeader RepliconMethod = "HEADER"
+	RepliconMethodBody   RepliconMethod = "BODY"
+	RepliconMethodAll    RepliconMethod = "ALL"
+)
+
+var AllRepliconMethod = []RepliconMethod{
+	RepliconMethodHeader,
+	RepliconMethodBody,
+	RepliconMethodAll,
+}
+
+func (e RepliconMethod) IsValid() bool {
+	switch e {
+	case RepliconMethodHeader, RepliconMethodBody, RepliconMethodAll:
+		return true
+	}
+	return false
+}
+
+func (e RepliconMethod) String() string {
+	return string(e)
+}
+
+func (e *RepliconMethod) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RepliconMethod(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RepliconMethod", str)
+	}
+	return nil
+}
+
+func (e RepliconMethod) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 type RepliconType string
@@ -126,54 +215,5 @@ func (e *RepliconType) UnmarshalGQL(v interface{}) error {
 }
 
 func (e RepliconType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type SessionMethod string
-
-const (
-	SessionMethodStart   SessionMethod = "START"
-	SessionMethodAuth    SessionMethod = "AUTH"
-	SessionMethodKeep    SessionMethod = "KEEP"
-	SessionMethodExtend  SessionMethod = "EXTEND"
-	SessionMethodRefresh SessionMethod = "REFRESH"
-	SessionMethodEnd     SessionMethod = "END"
-)
-
-var AllSessionMethod = []SessionMethod{
-	SessionMethodStart,
-	SessionMethodAuth,
-	SessionMethodKeep,
-	SessionMethodExtend,
-	SessionMethodRefresh,
-	SessionMethodEnd,
-}
-
-func (e SessionMethod) IsValid() bool {
-	switch e {
-	case SessionMethodStart, SessionMethodAuth, SessionMethodKeep, SessionMethodExtend, SessionMethodRefresh, SessionMethodEnd:
-		return true
-	}
-	return false
-}
-
-func (e SessionMethod) String() string {
-	return string(e)
-}
-
-func (e *SessionMethod) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = SessionMethod(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid SessionMethod", str)
-	}
-	return nil
-}
-
-func (e SessionMethod) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }

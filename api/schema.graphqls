@@ -1,95 +1,133 @@
-# Zero value is null
+## Auth layer
 
-enum SessionMethod {
-    START
-    AUTH
-    KEEP
-    EXTEND
-    REFRESH
-    END
-}
-
-type Auth {
-    sid: ID!
-    pid: ID!
-    ttl: String!
-    method: SessionMethod!
-}
-
-type Cost {
-    kin: String!
-    pot: String!
-}
-
-type Union {
-    url: String!
-}
-
-type Result {
-    ok: Boolean!
+# User sent SMS auth pair
+type Sms {
+    tel: String!
     msg: String!
 }
 
-type Header {
-    auth: Auth!
-    cost: Cost!
-    union: Union!
-    result: Result!
-}
-
+# Human or organization
 type Person {
-    pid: ID!
-    hid: ID!
-    balance: String!
-    phone: String!
-    pname: String!
-    id_doc: String!
-    dlimit: String!
-    created: String!
-    last_in: String!
+    pid: ID
+    hid: ID
+    balance: String
+    phone: String
+    pname: String
+    id_doc: String
+    dlimit: String
+    created: String
+    last_in: String
 }
 
+# Hold by the person
 type Device {
-    did: ID!
-    dtoken: ID!
-    dname: String!
-    dinfo: String!
-    pid: ID!
-    created: String!
-    last_in: String!
+    did: ID
+    dtoken: ID
+    dname: String
+    dinfo: String
+    # Not using graph here, because
+    # one can only see their owns
+    pid: ID
+    created: String
+    last_in: String
 }
+
+# Do what?
+enum AuthMethod {
+    START   # session
+    AUTH    # via sms
+    KEEP    # this session and do...
+    EXTEND  # ttl
+    REFRESH # sid aka token
+    END     # session
+}
+
+# Summarize
+type Auth {
+    method: AuthMethod!
+    sid: ID
+    sms: Sms
+    ttl: String
+    person: Person
+    device: Device
+}
+
+## Cost layer
+# aka pay-as-you-go layer
 
 type Transfer {
-    tid: ID!
-    from_pid: ID!
-    to_pid: ID!
-    volume: String!
-    note: String!
-    ttime: String!
+    tid: ID
+    from_pid: ID
+    to_pid: ID
+    volume: String
+    note: String
+    ttime: String
 }
 
 type Plan {
     plan_id: ID!
     pid: ID!
-    gene: ID!
+    rid: ID!
     vlimit: String!
     billing: String!
 }
+
+type Cost {
+    auth: Auth! # chaining
+    kin: String!
+    pot: String!
+    plan: Plan
+    transfer: Transfer
+}
+
+## Union layer
+# null is local
+# nonnull is distributed
+
+type Union {
+    cost: Cost! # chaining
+    url: String
+}
+
+## Replicon layer
+# a file is a meme
+# a command is a gene
 
 enum RepliconType {
     GENE
     MEME
 }
 
-type Replicon {
-    type: RepliconType!
-    hash: ID!
-    cost: [String!]!
-    meta: [String!]!
-    body: String!
+enum RepliconMethod {
+    HEADER  # rid, type, pot
+    BODY
+    ALL
 }
 
-input Sms {
-    tel: String!
-    msg: String!
+type Replicon {
+    cost: Cost! # chaining
+    method: RepliconMethod
+    rid: ID
+    type: RepliconType
+    pot: [String!]
+    meta: [String!]
+    body: String
+}
+
+## Result
+# borrowed from Rust
+
+type Result {
+    ok: Boolean!
+    msg: [String!]
+}
+
+## Query
+
+type Query {
+    auth: Auth
+    cost: Cost
+    union: Union
+    result: Result
+    replicon: Replicon
 }
