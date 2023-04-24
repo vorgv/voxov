@@ -15,7 +15,7 @@ fn connect_redis(addr: &str) -> Result<Connection, RedisError> {
 impl Database {
     pub fn new(config: &Config) -> Database {
         Database {
-            connection: match connect_redis(&config.redis_addr()) {
+            connection: match connect_redis(&config.redis_addr) {
                 Ok(con) => con,
                 Err(_) => panic!("connection failed, todo trace"),
             },

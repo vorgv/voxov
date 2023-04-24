@@ -7,8 +7,6 @@ pub struct Meme {
 
 impl Meme {
     pub fn new(_config: &Config, database: Database) -> Meme {
-        Meme {
-            database,
-        }
+        Meme { database }
     }
 }

@@ -1,16 +1,18 @@
-mod config;
-mod database;
-mod meme;
-mod gene;
-mod fed;
-mod cost;
-mod auth;
+#![feature(addr_parse_ascii)]
 mod api;
+mod auth;
+mod config;
+mod cost;
+mod database;
+mod fed;
+mod gene;
+mod meme;
 
 extern crate tokio;
+use std::error::Error;
 
 #[tokio::main]
-pub async fn main() {
+pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Config: collect ENV
     let config = config::Config::new();
     // Database: database operations
@@ -28,5 +30,5 @@ pub async fn main() {
     // API: GraphQL & Static
     let api = api::Api::new(&config, auth);
     // Serve
-    api.serve();
+    api.serve().await
 }
