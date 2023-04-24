@@ -1,0 +1,20 @@
+[package]
+name = "voxov"
+version = "0.1.0"
+authors = ["Celio Grand <celiogrand@outlook.com>"]
+edition = "2021"
+license = "AGPL-3.0-or-later"
+rust-version = "1.68"
+description = "A Pay-as-You-Go Backend-as-a-Service server"
+#TODO documentation
+readme = "README.md"
+#TODO homepage
+#TODO repository
+keywords = ["payg", "baas"]
+categories = ["web-programming"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "*", features = ["full"] }
+redis = { version = "*", features = ["tokio-comp"] }
