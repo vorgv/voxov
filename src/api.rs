@@ -1,13 +1,13 @@
 extern crate http_body_util;
 
+use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
-use std::convert::Infallible;
 
+use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::server::conn::http1;
-use hyper::{body::Bytes, service::service_fn, Request, Response};
+use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
 use tokio::net::TcpListener;
-use http_body_util::Full;
 
 use crate::auth::Auth;
 use crate::config::Config;
@@ -26,9 +26,10 @@ impl Api {
     }
     /// Open end points
     pub async fn serve(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.serve_static().await
+        let future_static = self.serve_static();
         //TODO serve metadata
         //TODO serve config
+        future_static.await
     }
     /// Serve static big files
     async fn serve_static(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -37,17 +38,40 @@ impl Api {
             let (stream, _) = listener.accept().await?;
             tokio::task::spawn(async move {
                 if let Err(err) = http1::Builder::new()
-                    .serve_connection(stream, service_fn(Self::hello))
+                    .serve_connection(stream, service_fn(handle_static))
                     .await
                 {
                     println!("Error serving: {:?}", err);
                 }
             });
         }
-        // SET file
-        // GET file
     }
-    async fn hello(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
-        Ok(Response::new(Full::new(Bytes::from("Hello World!"))))
+}
+
+async fn handle_static(
+    req: Request<hyper::body::Incoming>,
+) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
+    match req.method() {
+        // Ping server
+        &Method::GET => Ok(Response::new(full("PONG"))),
+        // Everything has side effect, so this is POST-only.
+        &Method::POST => Ok(Response::new(full("POST"))),
+        _ => {
+            let mut not_found = Response::new(empty());
+            *not_found.status_mut() = StatusCode::NOT_FOUND;
+            Ok(not_found)
+        }
     }
+}
+
+// Utility functions to make Empty and Full bodies
+fn empty() -> BoxBody<Bytes, Infallible> {
+    Empty::<Bytes>::new()
+        .map_err(|never| match never {})
+        .boxed()
+}
+fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
+    Full::new(chunk.into())
+        .map_err(|never| match never {})
+        .boxed()
 }

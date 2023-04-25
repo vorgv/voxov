@@ -8,6 +8,8 @@ pub struct Config {
     pub static_addr: SocketAddr,
 }
 
+const STATIC_PORT: u16 = 8080;
+
 impl Config {
     pub fn new() -> Config {
         Config {
@@ -17,7 +19,7 @@ impl Config {
             },
             static_addr: match env::var("STATIC_ADDR") {
                 Ok(var) => SocketAddr::parse_ascii(var.as_bytes()).unwrap(),
-                Err(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+                Err(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), STATIC_PORT),
             },
         }
     }
