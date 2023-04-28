@@ -1,4 +1,5 @@
 #![feature(addr_parse_ascii)]
+mod message;
 mod api;
 mod auth;
 mod config;

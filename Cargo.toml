@@ -9,14 +9,15 @@ description = "A Pay-as-You-Go Backend-as-a-Service server"
 #TODO documentation
 readme = "README.md"
 #TODO homepage
-#TODO repository
+repository = "https://github.com/vorgv/voxov/"
 keywords = ["payg", "baas"]
 categories = ["web-programming"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Keys defined at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { version = "*", features = ["full"] }
 redis = { version = "*", features = ["tokio-comp"] }
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
 http-body-util = "0.1.0-rc.2"
+serde_json = "1.0"
