@@ -1,9 +1,9 @@
-extern crate http_body_util;
-
 use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
+extern crate http_body_util;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::server::conn::http1;
 use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
@@ -13,14 +13,14 @@ use crate::auth::Auth;
 use crate::config::Config;
 
 pub struct Api {
-    auth: Auth,
+    auth: Arc<Auth>,
     static_addr: SocketAddr,
 }
 
 impl Api {
     pub fn new(config: &Config, auth: Auth) -> Api {
         Api {
-            auth,
+            auth: Arc::new(auth),
             static_addr: config.static_addr,
         }
     }
@@ -35,10 +35,15 @@ impl Api {
     async fn serve_static(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let listener = TcpListener::bind(self.static_addr).await?;
         loop {
+            let auth = Arc::clone(&self.auth);
             let (stream, _) = listener.accept().await?;
             tokio::task::spawn(async move {
+                let auth = Arc::clone(&auth);
                 if let Err(err) = http1::Builder::new()
-                    .serve_connection(stream, service_fn(handle_static))
+                    .serve_connection(
+                        stream,
+                        service_fn(move |req| handle_static(req, Arc::clone(&auth))),
+                    )
                     .await
                 {
                     println!("Error serving: {:?}", err);
@@ -50,12 +55,16 @@ impl Api {
 
 async fn handle_static(
     req: Request<hyper::body::Incoming>,
+    auth: Arc<Auth>,
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
     match req.method() {
         // Ping server
         &Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
-        &Method::POST => Ok(Response::new(full("POST"))),
+        &Method::POST => {
+            //TODO build request IR
+            Ok(Response::new(full("POST")))
+        }
         _ => {
             let mut not_found = Response::new(empty());
             *not_found.status_mut() = StatusCode::NOT_FOUND;
