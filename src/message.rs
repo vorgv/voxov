@@ -6,21 +6,21 @@ use std::convert::Infallible;
 use std::str::FromStr;
 use std::u128;
 
-struct Id(u128);
-type Int = i64;
-type Hash = [u8; 32]; // SHA-256 = SHA-8*32
+pub struct Id(u128);
+pub type Int = i64;
+pub type Hash = [u8; 32]; // SHA-256 = SHA-8*32
 
-struct Cost {
+pub struct Cost {
     time: Int,
     space: Int,
     tips: Int,
 }
-struct Head {
+pub struct Head {
     access: Id,
     cost: Cost,
     fed: Option<Id>,
 }
-struct Upload {
+pub struct Upload {
     raw: Box<[u8]>,
     time: Int,
 }
@@ -127,15 +127,15 @@ impl std::error::Error for Error {}
 impl TryFrom<&Request<Incoming>> for Query {
     type Error = Error;
     fn try_from(req: &Request<Incoming>) -> Result<Self, Self::Error> {
-        match retrieve(&req, "type") {
+        match retrieve(req, "type") {
             Ok(v) => match v {
                 "AuthSessionStart" => Ok(Query::AuthSessionStart),
                 "AuthSessionRefresh" => Ok(Query::AuthSessionRefresh {
-                    refresh: Id::try_get(&req, "refresh")?,
+                    refresh: Id::try_get(req, "refresh")?,
                 }),
                 "AuthSessionEnd" => Ok(Query::AuthSessionEnd {
-                    access: Id::try_get(&req, "access")?,
-                    refresh: Id::opt(&req, "refresh"),
+                    access: Id::try_get(req, "access")?,
+                    refresh: Id::opt(req, "refresh"),
                 }),
                 _ => Err(Error::Api),
             },
@@ -147,7 +147,7 @@ impl TryFrom<&Request<Incoming>> for Query {
 impl FromStr for Id {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match u128::from_str_radix(&s, 16) {
+        match u128::from_str_radix(s, 16) {
             Ok(u) => Ok(Id(u)),
             Err(_) => Err(Error::Api),
         }
@@ -156,10 +156,10 @@ impl FromStr for Id {
 
 impl Id {
     fn try_get(req: &Request<Incoming>, key: &str) -> Result<Self, Error> {
-        Id::from_str(retrieve(&req, key)?)
+        Id::from_str(retrieve(req, key)?)
     }
     fn opt(req: &Request<Incoming>, key: &str) -> Option<Self> {
-        match Id::try_get(&req, key) {
+        match Id::try_get(req, key) {
             Ok(v) => Some(v),
             Err(_) => None,
         }
@@ -173,11 +173,11 @@ fn retrieve<'a>(req: &'a Request<Incoming>, key: &'a str) -> Result<&'a str, Err
             return Ok(s);
         }
     }
-    return Err(Error::Api);
+    Err(Error::Api)
 }
 
 impl Reply {
-    pub fn to_response(self: &Self) -> Response<BoxBody<Bytes, Infallible>> {
+    pub fn to_response(&self) -> Response<BoxBody<Bytes, Infallible>> {
         use crate::api::full;
         Response::new(full("PONG"))
     }

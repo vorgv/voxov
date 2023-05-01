@@ -10,7 +10,7 @@ impl Auth {
     pub fn new(_config: &Config, cost: Cost) -> Auth {
         Auth { cost }
     }
-    pub fn handle(self: &Self, q: &Query) -> Reply {
+    pub fn handle(&self, q: &Query) -> Reply {
         Reply::Unknown
     }
 }

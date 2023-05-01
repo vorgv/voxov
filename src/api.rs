@@ -58,11 +58,11 @@ async fn handle_static(
     req: Request<hyper::body::Incoming>,
     auth: Arc<Auth>,
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
-    match req.method() {
+    match *req.method() {
         // Ping server
-        &Method::GET => Ok(Response::new(full("PONG"))),
+        Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
-        &Method::POST => match Query::try_from(&req) {
+        Method::POST => match Query::try_from(&req) {
             Ok(q) => Ok(auth.handle(&q).to_response()),
             Err(_) => Ok(not_found()),
         },
