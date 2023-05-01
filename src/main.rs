@@ -1,5 +1,4 @@
 #![feature(addr_parse_ascii)]
-mod message;
 mod api;
 mod auth;
 mod config;
@@ -8,6 +7,7 @@ mod database;
 mod fed;
 mod gene;
 mod meme;
+mod message;
 
 extern crate tokio;
 use std::error::Error;

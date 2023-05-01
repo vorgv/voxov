@@ -11,7 +11,7 @@ use tokio::net::TcpListener;
 
 use crate::auth::Auth;
 use crate::config::Config;
-use crate::message;
+use crate::message::Query;
 
 pub struct Api {
     auth: Arc<Auth>,
@@ -62,15 +62,11 @@ async fn handle_static(
         // Ping server
         &Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
-        &Method::POST => {
-            //TODO build request IR
-            Ok(Response::new(full("POST")))
-        }
-        _ => {
-            let mut not_found = Response::new(empty());
-            *not_found.status_mut() = StatusCode::NOT_FOUND;
-            Ok(not_found)
-        }
+        &Method::POST => match Query::try_from(&req) {
+            Ok(q) => Ok(auth.handle(&q).to_response()),
+            Err(_) => Ok(not_found()),
+        },
+        _ => Ok(not_found()),
     }
 }
 
@@ -80,8 +76,13 @@ fn empty() -> BoxBody<Bytes, Infallible> {
         .map_err(|never| match never {})
         .boxed()
 }
-fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
+pub fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
     Full::new(chunk.into())
         .map_err(|never| match never {})
         .boxed()
+}
+fn not_found() -> Response<BoxBody<Bytes, Infallible>> {
+    let mut not_found = Response::new(empty());
+    *not_found.status_mut() = StatusCode::NOT_FOUND;
+    not_found
 }
