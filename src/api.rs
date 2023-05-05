@@ -11,18 +11,21 @@ use tokio::net::TcpListener;
 
 use crate::auth::Auth;
 use crate::config::Config;
+use crate::database::Database;
 use crate::message::Query;
 
 pub struct Api {
     auth: Arc<Auth>,
     static_addr: SocketAddr,
+    db: &'static Database,
 }
 
 impl Api {
-    pub fn new(config: &Config, auth: Auth) -> Api {
+    pub fn new(config: &Config, db: &'static Database, auth: Auth) -> Api {
         Api {
             auth: Arc::new(auth),
             static_addr: config.static_addr,
+            db,
         }
     }
     /// Open end points

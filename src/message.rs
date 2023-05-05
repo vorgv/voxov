@@ -20,7 +20,7 @@ pub struct Head {
     cost: Cost,
     fed: Option<Id>,
 }
-pub struct Upload {
+pub struct Raw {
     raw: Box<[u8]>,
     time: Int,
 }
@@ -49,10 +49,14 @@ pub enum Query {
         head: Head,
         key: Hash,
     },
-    MemeRaw {
+    MemeRawPut {
         head: Head,
         key: Hash,
-        upload: Option<Upload>,
+        raw: Raw,
+    },
+    MemeRawGet {
+        head: Head,
+        key: Hash,
     },
     GeneMeta {
         head: Head,
@@ -92,9 +96,13 @@ pub enum Reply {
         cost: Cost,
         meta: Result<String, Error>,
     },
-    MemeRaw {
+    MemeRawPut {
         cost: Cost,
-        download: Result<Option<Box<[u8]>>, Error>,
+        key: Hash,
+    },
+    MemeRawGet {
+        cost: Cost,
+        raw: Result<Box<[u8]>, Error>,
     },
     GeneMeta {
         cost: Cost,
