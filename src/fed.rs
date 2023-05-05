@@ -4,7 +4,7 @@ use crate::gene::Gene;
 
 pub struct Fed {
     gene: Gene,
-    db: &'static Database
+    db: &'static Database,
 }
 
 impl Fed {

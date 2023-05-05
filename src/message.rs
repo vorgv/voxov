@@ -26,51 +26,21 @@ pub struct Raw {
 }
 
 pub enum Query {
-    Unknown,
     AuthSessionStart,
-    AuthSessionRefresh {
-        refresh: Id,
-    },
-    AuthSessionEnd {
-        access: Id,
-        refresh: Option<Id>,
-    },
-    AuthSmsSendTo {
-        access: Id,
-    },
-    AuthSmsSent {
-        access: Id,
-    },
-    Pay {
-        access: Id,
-        vendor: Id,
-    },
-    MemeMeta {
-        head: Head,
-        key: Hash,
-    },
-    MemeRawPut {
-        head: Head,
-        key: Hash,
-        raw: Raw,
-    },
-    MemeRawGet {
-        head: Head,
-        key: Hash,
-    },
-    GeneMeta {
-        head: Head,
-        id: Id,
-    },
-    GeneCall {
-        head: Head,
-        id: Id,
-        arg: Box<[u8]>,
-    },
+    AuthSessionRefresh { refresh: Id },
+    AuthSessionEnd { access: Id, refresh: Option<Id> },
+    AuthSmsSendTo { access: Id },
+    AuthSmsSent { access: Id },
+    Pay { access: Id, vendor: Id },
+    MemeMeta { head: Head, key: Hash },
+    MemeRawPut { head: Head, key: Hash, raw: Raw },
+    MemeRawGet { head: Head, key: Hash },
+    GeneMeta { head: Head, id: Id },
+    GeneCall { head: Head, id: Id, arg: Box<[u8]> },
 }
 
 pub enum Reply {
-    Unknown,
+    Unimplemented,
     AuthSessionStart {
         access: Id,
         refresh: Id,
@@ -79,8 +49,7 @@ pub enum Reply {
         access: Id,
     },
     AuthSessionEnd {
-        access: Option<Id>,
-        refresh: Option<Id>,
+        result: Result<(), Error>,
     },
     AuthSmsSendTo {
         phone: String,
@@ -88,6 +57,9 @@ pub enum Reply {
     },
     AuthSmsSent {
         pid: Id,
+    },
+    AuthError {
+        error: Error,
     },
     Pay {
         uri: String,
@@ -116,7 +88,6 @@ pub enum Reply {
 
 #[derive(Debug)]
 pub enum Error {
-    Unknown,
     Api,
     Auth,
     Cost,
@@ -187,6 +158,9 @@ fn retrieve<'a>(req: &'a Request<Incoming>, key: &'a str) -> Result<&'a str, Err
 impl Reply {
     pub fn to_response(&self) -> Response<BoxBody<Bytes, Infallible>> {
         use crate::api::full;
-        Response::new(full("PONG"))
+        match self {
+            Reply::Unimplemented => Response::new(full("Unimplemented")),
+            _ => Response::new(full("to_response unimplemented")),
+        }
     }
 }

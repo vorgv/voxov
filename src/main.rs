@@ -9,9 +9,9 @@ mod gene;
 mod meme;
 mod message;
 
-use tokio::sync::OnceCell;
 use config::Config;
 use database::Database;
+use tokio::sync::OnceCell;
 
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
 
@@ -22,7 +22,8 @@ async fn get_config() -> &'static Config {
 static DB: OnceCell<Database> = OnceCell::const_new();
 
 async fn get_db() -> &'static Database {
-    DB.get_or_init(|| async { Database::new(get_config().await) }).await
+    DB.get_or_init(|| async { Database::new(get_config().await) })
+        .await
 }
 
 extern crate tokio;
