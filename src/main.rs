@@ -22,7 +22,7 @@ async fn get_config() -> &'static Config {
 static DB: OnceCell<Database> = OnceCell::const_new();
 
 async fn get_db() -> &'static Database {
-    DB.get_or_init(|| async { Database::new(get_config().await) })
+    DB.get_or_init(|| async { Database::new(get_config().await).await })
         .await
 }
 

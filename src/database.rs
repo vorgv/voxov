@@ -1,24 +1,48 @@
 extern crate redis;
 
 use crate::config::Config;
-use redis::{Connection, RedisError};
+use crate::message::Error;
+use redis::{aio::Connection, RedisError};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub struct Database {
-    connection: redis::Connection,
+    rc: Arc<Mutex<Connection>>,
 }
 
-fn connect_redis(addr: &str) -> Result<Connection, RedisError> {
+async fn connect_redis(addr: &str) -> Result<Connection, RedisError> {
     let client = redis::Client::open(addr).unwrap();
-    client.get_connection()
+    client.get_async_connection().await
 }
 
+use redis::{cmd, ToRedisArgs};
 impl Database {
-    pub fn new(config: &Config) -> Database {
+    pub async fn new(config: &Config) -> Database {
         Database {
-            connection: match connect_redis(&config.redis_addr) {
-                Ok(con) => con,
+            rc: match connect_redis(&config.redis_addr).await {
+                Ok(con) => Arc::new(Mutex::new(con)),
                 Err(_) => panic!("connection failed, todo trace"),
             },
+        }
+    }
+    /// Set key-value pair with TTL by seconds
+    pub async fn set<K: ToRedisArgs, V: ToRedisArgs>(
+        &self,
+        key: K,
+        value: V,
+        seconds: usize,
+    ) -> Result<(), Error> {
+        let clone = Arc::clone(&self.rc);
+        let mut lock = clone.lock().await;
+        match cmd("SETEX")
+            .arg(key)
+            .arg(seconds)
+            .arg(value)
+            .query_async::<Connection, ()>(&mut lock)
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error::Redis),
         }
     }
 }

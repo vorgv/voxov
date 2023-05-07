@@ -4,9 +4,8 @@ use hyper::Response;
 use hyper::{body::Incoming, Request};
 use std::convert::Infallible;
 use std::str::FromStr;
-use std::u128;
 
-pub struct Id(u128);
+pub struct Id(pub [u8; 16]);
 pub type Int = i64;
 pub type Hash = [u8; 32]; // SHA-256 = SHA-8*32
 
@@ -94,6 +93,7 @@ pub enum Error {
     Fed,
     Gene,
     Meme,
+    Redis,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -123,10 +123,11 @@ impl TryFrom<&Request<Incoming>> for Query {
     }
 }
 
+use hex::FromHex;
 impl FromStr for Id {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match u128::from_str_radix(s, 16) {
+        match <[u8; 16]>::from_hex(s) {
             Ok(u) => Ok(Id(u)),
             Err(_) => Err(Error::Api),
         }

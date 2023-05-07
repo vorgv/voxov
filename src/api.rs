@@ -66,7 +66,7 @@ async fn handle_static(
         Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
         Method::POST => match Query::try_from(&req) {
-            Ok(q) => Ok(auth.handle(&q).to_response()),
+            Ok(q) => Ok(auth.handle(&q).await.to_response()),
             Err(_) => Ok(not_found()),
         },
         _ => Ok(not_found()),
