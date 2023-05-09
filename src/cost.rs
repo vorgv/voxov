@@ -12,7 +12,7 @@ impl Cost {
     pub fn new(_config: &Config, db: &'static Database, fed: Fed) -> Cost {
         Cost { fed, db }
     }
-    pub fn handle(&self, uid: &Id, query: &Query) -> Reply {
+    pub fn handle(&self, _uid: &Id, _query: &Query) -> Reply {
         Reply::Unimplemented
     }
 }

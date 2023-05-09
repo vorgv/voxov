@@ -40,8 +40,8 @@ impl Auth {
                 Ok(r) => r,
                 Err(e) => Reply::AuthError { error: e },
             },
-            Query::AuthSmsSendTo { access } => Reply::Unimplemented,
-            Query::AuthSmsSent { access } => Reply::Unimplemented,
+            Query::AuthSmsSendTo { access: _ } => Reply::Unimplemented,
+            Query::AuthSmsSent { access: _ } => Reply::Unimplemented,
             // Authenticate and pass to next layer
             q => {
                 let access = q.get_access();
