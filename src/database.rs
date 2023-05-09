@@ -77,11 +77,24 @@ impl Database {
             Err(_) => Err(Error::Redis),
         }
     }
+    /// Delete key
+    pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
+        let clone = Arc::clone(&self.rc);
+        let mut lock = clone.lock().await;
+        match cmd("DEL")
+            .arg(key)
+            .query_async::<Connection, ()>(&mut lock)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(_) => Err(Error::Redis),
+        }
+    }
 }
 
 /// Namespace for keys
 pub mod namespace {
-    pub const HIDDEN: u8 = 0;
+    pub const _HIDDEN: u8 = 0;
     pub const ACCESS: u8 = 1;
     pub const REFRESH: u8 = 2;
 }

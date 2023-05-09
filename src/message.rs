@@ -5,38 +5,88 @@ use hyper::{Response, StatusCode};
 use std::convert::Infallible;
 use std::str::FromStr;
 
-pub const IDL: usize = 16;
-pub struct Id(pub [u8; IDL]);
 pub type Int = i64;
 pub type Hash = [u8; 32]; // SHA-256 = SHA-8*32
 
+pub const IDL: usize = 16;
+
+#[derive(Debug)]
+pub struct Id(pub [u8; IDL]);
+
+#[derive(Debug)]
 pub struct Cost {
     time: Int,
     space: Int,
     tips: Int,
 }
+#[derive(Debug)]
 pub struct Head {
     access: Id,
     cost: Cost,
     fed: Option<Id>,
 }
+#[derive(Debug)]
 pub struct Raw {
     raw: Box<[u8]>,
     time: Int,
 }
 
+#[derive(Debug)]
 pub enum Query {
     AuthSessionStart,
-    AuthSessionRefresh { refresh: Id },
-    AuthSessionEnd { access: Id, refresh: Option<Id> },
-    AuthSmsSendTo { access: Id },
-    AuthSmsSent { access: Id },
-    Pay { access: Id, vendor: Id },
-    MemeMeta { head: Head, key: Hash },
-    MemeRawPut { head: Head, key: Hash, raw: Raw },
-    MemeRawGet { head: Head, key: Hash },
-    GeneMeta { head: Head, id: Id },
-    GeneCall { head: Head, id: Id, arg: Box<[u8]> },
+    AuthSessionRefresh {
+        refresh: Id,
+    },
+    AuthSessionEnd {
+        access: Id,
+        option_refresh: Option<Id>,
+    },
+    AuthSmsSendTo {
+        access: Id,
+    },
+    AuthSmsSent {
+        access: Id,
+    },
+    Pay {
+        access: Id,
+        vendor: Id,
+    },
+    MemeMeta {
+        head: Head,
+        key: Hash,
+    },
+    MemeRawPut {
+        head: Head,
+        key: Hash,
+        raw: Raw,
+    },
+    MemeRawGet {
+        head: Head,
+        key: Hash,
+    },
+    GeneMeta {
+        head: Head,
+        id: Id,
+    },
+    GeneCall {
+        head: Head,
+        id: Id,
+        arg: Box<[u8]>,
+    },
+}
+
+impl Query {
+    pub fn get_access(&self) -> &Id {
+        match self {
+            Query::Pay { access, .. } => access,
+            Query::MemeMeta { head, .. } => &head.access,
+            Query::MemeRawPut { head, .. } => &head.access,
+            Query::MemeRawGet { head, .. } => &head.access,
+            Query::GeneMeta { head, .. } => &head.access,
+            Query::GeneCall { head, .. } => &head.access,
+            _ => panic!("Query not passed through Auth: {:?}", self),
+        }
+    }
 }
 
 pub enum Reply {
@@ -48,9 +98,7 @@ pub enum Reply {
     AuthSessionRefresh {
         access: Id,
     },
-    AuthSessionEnd {
-        result: Result<(), Error>,
-    },
+    AuthSessionEnd,
     AuthSmsSendTo {
         phone: String,
         message: String,
@@ -96,6 +144,8 @@ pub enum Error {
     Meme,
     Redis,
     Os,
+    Logical,
+    NotFound,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -116,7 +166,7 @@ impl TryFrom<&Request<Incoming>> for Query {
                 }),
                 "AuthSessionEnd" => Ok(Query::AuthSessionEnd {
                     access: Id::try_get(req, "access")?,
-                    refresh: Id::opt(req, "refresh"),
+                    option_refresh: Id::opt(req, "refresh"),
                 }),
                 _ => Err(Error::Api),
             },
@@ -143,9 +193,26 @@ impl ToString for Id {
     }
 }
 
+use std::convert::TryInto;
+
+impl TryFrom<Vec<u8>> for Id {
+    type Error = Error;
+    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
+        let _: [u8; 16] = match v.try_into() {
+            Ok(a) => return Ok(Id(a)),
+            Err(_) => return Err(Error::Logical),
+        };
+    }
+}
+
+impl PartialEq for Id {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 use rand::{rngs::ThreadRng, Fill};
 
-use crate::api::{empty, not_implemented};
 const ID0: [u8; 16] = [0_u8; 16];
 impl Id {
     pub fn zero() -> Self {
@@ -182,19 +249,30 @@ fn retrieve<'a>(req: &'a Request<Incoming>, key: &'a str) -> Result<&'a str, Err
     Err(Error::Api)
 }
 
+use crate::api::{empty, not_implemented, ok};
+
 impl Reply {
     pub fn to_response(&self) -> Response<BoxBody<Bytes, Infallible>> {
         match self {
             Reply::Unimplemented => not_implemented(),
             Reply::AuthSessionStart { access, refresh } => Response::builder()
+                .header("type", "AuthSessionStart")
                 .header("access", access.to_string())
                 .header("refresh", refresh.to_string())
                 .status(StatusCode::OK)
                 .body(empty())
                 .unwrap(),
             Reply::AuthSessionRefresh { access } => Response::builder()
+                .header("type", "AuthSessionRefresh")
                 .header("access", access.to_string())
                 .status(StatusCode::OK)
+                .body(empty())
+                .unwrap(),
+            Reply::AuthSessionEnd => ok(),
+            Reply::AuthError { error } => Response::builder()
+                .header("type", "AuthError")
+                .header("error", error.to_string())
+                .status(StatusCode::UNAUTHORIZED)
                 .body(empty())
                 .unwrap(),
             _ => not_implemented(),

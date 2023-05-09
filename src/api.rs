@@ -95,3 +95,6 @@ fn not_found() -> Response<BoxBody<Bytes, Infallible>> {
 pub fn not_implemented() -> Response<BoxBody<Bytes, Infallible>> {
     empty_with_code(StatusCode::NOT_IMPLEMENTED)
 }
+pub fn ok() -> Response<BoxBody<Bytes, Infallible>> {
+    empty_with_code(StatusCode::OK)
+}
