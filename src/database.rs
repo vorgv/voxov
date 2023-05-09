@@ -1,8 +1,8 @@
 extern crate redis;
+use redis::{aio::Connection, RedisError};
 
 use crate::config::Config;
 use crate::message::Error;
-use redis::{aio::Connection, RedisError};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
