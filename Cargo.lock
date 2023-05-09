@@ -635,6 +635,7 @@ dependencies = [
 name = "voxov"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "hex",
  "http-body-util",
  "hyper",

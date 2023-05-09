@@ -74,7 +74,7 @@ async fn handle_static(
 }
 
 // Utility functions to make Empty and Full bodies
-fn empty() -> BoxBody<Bytes, Infallible> {
+pub fn empty() -> BoxBody<Bytes, Infallible> {
     Empty::<Bytes>::new()
         .map_err(|never| match never {})
         .boxed()
@@ -84,8 +84,14 @@ pub fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
         .map_err(|never| match never {})
         .boxed()
 }
+fn empty_with_code(status_code: StatusCode) -> Response<BoxBody<Bytes, Infallible>> {
+    let mut response = Response::new(empty());
+    *response.status_mut() = status_code;
+    response
+}
 fn not_found() -> Response<BoxBody<Bytes, Infallible>> {
-    let mut not_found = Response::new(empty());
-    *not_found.status_mut() = StatusCode::NOT_FOUND;
-    not_found
+    empty_with_code(StatusCode::NOT_FOUND)
+}
+pub fn not_implemented() -> Response<BoxBody<Bytes, Infallible>> {
+    empty_with_code(StatusCode::NOT_IMPLEMENTED)
 }

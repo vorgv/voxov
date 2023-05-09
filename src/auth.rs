@@ -1,37 +1,32 @@
 use crate::config::Config;
 use crate::cost::Cost;
-use crate::database::Database;
-use crate::message::{Error, Id, Query, Reply};
+use crate::database::{namespace::ACCESS, namespace::REFRESH, Database};
+use crate::message::{Error, Id, Query, Reply, IDL};
+use bytes::{Buf, Bytes};
 
 pub struct Auth {
     cost: Cost,
     db: &'static Database,
+    access_ttl: usize,
+    refresh_ttl: usize,
 }
 
 impl Auth {
-    pub fn new(_config: &Config, db: &'static Database, cost: Cost) -> Auth {
-        Auth { cost, db }
+    pub fn new(config: &Config, db: &'static Database, cost: Cost) -> Auth {
+        Auth {
+            cost,
+            db,
+            access_ttl: config.access_ttl,
+            refresh_ttl: config.refresh_ttl,
+        }
     }
     pub async fn handle(&self, query: &Query) -> Reply {
         match query {
             // Session management
-            Query::AuthSessionStart => {
-                let access = [1; 16];
-                let refresh = [1; 16];
-                let value = 2;
-                let seconds = 3;
-                if let Ok(()) = self.db.set(&access, value, seconds).await {
-                    if let Ok(()) = self.db.set(&refresh, value, seconds).await {
-                        return Reply::AuthSessionStart {
-                            access: Id(access),
-                            refresh: Id(refresh),
-                        };
-                    }
-                }
-                Reply::AuthError {
-                    error: Error::Redis,
-                }
-            }
+            Query::AuthSessionStart => match self.handle_session_start(query).await {
+                Ok(r) => r,
+                Err(e) => Reply::AuthError { error: e },
+            },
             Query::AuthSessionRefresh { refresh } => Reply::Unimplemented,
             Query::AuthSessionEnd { access, refresh } => Reply::Unimplemented,
             Query::AuthSmsSendTo { access } => Reply::Unimplemented,
@@ -43,4 +38,20 @@ impl Auth {
             }
         }
     }
+    async fn handle_session_start(&self, _query: &Query) -> Result<Reply, Error> {
+        let (access, refresh) = {
+            let mut rng = rand::thread_rng();
+            (Id::rand(&mut rng)?, Id::rand(&mut rng)?)
+        }; // drop rng before await
+        let pid = Id::zero();
+        let a = ns(ACCESS, &access);
+        self.db.set(&a[..], &pid.0, self.access_ttl).await?;
+        let r = ns(REFRESH, &refresh);
+        self.db.set(&r[..], &pid.0, self.refresh_ttl).await?;
+        Ok(Reply::AuthSessionStart { access, refresh })
+    }
+}
+
+fn ns(n: u8, id: &Id) -> Bytes {
+    ([n][..]).chain(&id.0[..]).copy_to_bytes(1 + IDL)
 }

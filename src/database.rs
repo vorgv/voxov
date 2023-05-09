@@ -46,3 +46,10 @@ impl Database {
         }
     }
 }
+
+/// Namespace for keys
+pub mod namespace {
+    pub const HIDDEN: u8 = 0;
+    pub const ACCESS: u8 = 1;
+    pub const REFRESH: u8 = 2;
+}
