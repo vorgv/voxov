@@ -15,7 +15,7 @@ async fn connect_redis(addr: &str) -> Result<Connection, RedisError> {
     client.get_async_connection().await
 }
 
-use redis::{cmd, ToRedisArgs};
+use redis::{cmd, FromRedisValue, ToRedisArgs};
 impl Database {
     pub async fn new(config: &Config) -> Database {
         Database {
@@ -42,6 +42,38 @@ impl Database {
             .await
         {
             Ok(_) => Ok(()),
+            Err(_) => Err(Error::Redis),
+        }
+    }
+    /// Get value by key
+    pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
+        let clone = Arc::clone(&self.rc);
+        let mut lock = clone.lock().await;
+        match cmd("GET")
+            .arg(key)
+            .query_async::<Connection, V>(&mut lock)
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(_) => Err(Error::Redis),
+        }
+    }
+    /// Get value by key and set TTL
+    pub async fn getex<K: ToRedisArgs, V: FromRedisValue>(
+        &self,
+        key: K,
+        seconds: usize,
+    ) -> Result<V, Error> {
+        let clone = Arc::clone(&self.rc);
+        let mut lock = clone.lock().await;
+        match cmd("GETEX")
+            .arg(key)
+            .arg("EX")
+            .arg(seconds)
+            .query_async::<Connection, V>(&mut lock)
+            .await
+        {
+            Ok(v) => Ok(v),
             Err(_) => Err(Error::Redis),
         }
     }

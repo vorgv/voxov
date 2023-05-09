@@ -23,11 +23,16 @@ impl Auth {
     pub async fn handle(&self, query: &Query) -> Reply {
         match query {
             // Session management
-            Query::AuthSessionStart => match self.handle_session_start(query).await {
+            Query::AuthSessionStart => match self.handle_session_start().await {
                 Ok(r) => r,
                 Err(e) => Reply::AuthError { error: e },
             },
-            Query::AuthSessionRefresh { refresh } => Reply::Unimplemented,
+            Query::AuthSessionRefresh { refresh } => {
+                match self.handle_session_refresh(refresh).await {
+                    Ok(r) => r,
+                    Err(e) => Reply::AuthError { error: e },
+                }
+            }
             Query::AuthSessionEnd { access, refresh } => Reply::Unimplemented,
             Query::AuthSmsSendTo { access } => Reply::Unimplemented,
             Query::AuthSmsSent { access } => Reply::Unimplemented,
@@ -38,7 +43,7 @@ impl Auth {
             }
         }
     }
-    async fn handle_session_start(&self, _query: &Query) -> Result<Reply, Error> {
+    async fn handle_session_start(&self) -> Result<Reply, Error> {
         let (access, refresh) = {
             let mut rng = rand::thread_rng();
             (Id::rand(&mut rng)?, Id::rand(&mut rng)?)
@@ -49,6 +54,15 @@ impl Auth {
         let r = ns(REFRESH, &refresh);
         self.db.set(&r[..], &pid.0, self.refresh_ttl).await?;
         Ok(Reply::AuthSessionStart { access, refresh })
+    }
+    async fn handle_session_refresh(&self, refresh: &Id) -> Result<Reply, Error> {
+        let r = ns(REFRESH, refresh);
+        self.db.getex(&r[..], self.refresh_ttl).await?;
+        let access = {
+            let mut rng = rand::thread_rng();
+            Id::rand(&mut rng)?
+        };
+        Ok(Reply::AuthSessionRefresh { access })
     }
 }
 

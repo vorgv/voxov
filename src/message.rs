@@ -187,8 +187,13 @@ impl Reply {
         match self {
             Reply::Unimplemented => not_implemented(),
             Reply::AuthSessionStart { access, refresh } => Response::builder()
-                .header("acess", access.to_string())
+                .header("access", access.to_string())
                 .header("refresh", refresh.to_string())
+                .status(StatusCode::OK)
+                .body(empty())
+                .unwrap(),
+            Reply::AuthSessionRefresh { access } => Response::builder()
+                .header("access", access.to_string())
                 .status(StatusCode::OK)
                 .body(empty())
                 .unwrap(),
