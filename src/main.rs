@@ -26,7 +26,6 @@ async fn get_db() -> &'static Database {
         .await
 }
 
-extern crate tokio;
 use std::error::Error;
 
 #[tokio::main]

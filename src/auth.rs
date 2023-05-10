@@ -36,8 +36,8 @@ impl Auth {
                 access,
                 option_refresh,
             } => self.handle_session_end(access, option_refresh).await,
-            Query::AuthSmsSendTo { access } => self.handle_sms_send_to(&access).await,
-            Query::AuthSmsSent { access, refresh } => self.handle_sms_sent(&access, &refresh).await,
+            Query::AuthSmsSendTo { access } => self.handle_sms_send_to(access).await,
+            Query::AuthSmsSent { access, refresh } => self.handle_sms_sent(access, refresh).await,
             // Authenticate and pass to next layer
             q => {
                 let access = q.get_access();

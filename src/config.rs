@@ -37,7 +37,7 @@ impl Config {
             },
             auth_phones: Arc::new(match env::var("AUTH_PHONES") {
                 Ok(var) => {
-                    let ap: Vec<_> = var.split(":").map(String::from).collect();
+                    let ap: Vec<_> = var.split(':').map(String::from).collect();
                     let max_bytes = ap.iter().map(|s| s.as_bytes().len()).max().unwrap();
                     if max_bytes > PHONE_MAX_BYTES {
                         panic!("Phone number too long")
@@ -47,5 +47,11 @@ impl Config {
                 Err(_) => vec!["12345".to_string(), "67890".to_string()],
             }),
         }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config::new()
     }
 }

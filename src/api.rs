@@ -3,7 +3,6 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-extern crate http_body_util;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::server::conn::http1;
 use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
