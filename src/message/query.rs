@@ -16,6 +16,7 @@ pub enum Query {
     },
     AuthSmsSent {
         access: Id,
+        refresh: Id,
     },
     Pay {
         access: Id,

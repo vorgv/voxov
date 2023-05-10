@@ -1,4 +1,5 @@
 use super::{Error, Query};
+use core::fmt;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};
 use rand::{rngs::ThreadRng, Fill};
@@ -21,9 +22,9 @@ impl FromStr for Id {
     }
 }
 
-impl ToString for Id {
-    fn to_string(&self) -> String {
-        hex::encode(self.0)
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
     }
 }
 

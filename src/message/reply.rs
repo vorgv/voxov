@@ -17,10 +17,10 @@ pub enum Reply {
     AuthSessionEnd,
     AuthSmsSendTo {
         phone: String,
-        message: String,
+        message: Id,
     },
     AuthSmsSent {
-        pid: Id,
+        uid: Id,
     },
     AuthError {
         error: Error,
@@ -72,6 +72,12 @@ impl Reply {
                 .header("type", "AuthError")
                 .header("error", error.to_string())
                 .status(StatusCode::UNAUTHORIZED)
+                .body(empty())
+                .unwrap(),
+            Reply::AuthSmsSendTo { phone, message } => Response::builder()
+                .header("type", "AuthSmsSendTo")
+                .header("phone", phone)
+                .header("message", message.to_string())
                 .body(empty())
                 .unwrap(),
             _ => not_implemented(),

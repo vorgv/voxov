@@ -1,6 +1,7 @@
 use std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
 };
 
 pub struct Config {
@@ -8,9 +9,12 @@ pub struct Config {
     pub static_addr: SocketAddr,
     pub access_ttl: usize,
     pub refresh_ttl: usize,
+    pub auth_phones: Arc<Vec<String>>,
 }
 
 const STATIC_PORT: u16 = 8080;
+/// Changing this invalidates the old auth phones
+pub const PHONE_MAX_BYTES: usize = 16;
 
 impl Config {
     pub fn new() -> Config {
@@ -31,6 +35,17 @@ impl Config {
                 Ok(var) => var.parse().unwrap(),
                 Err(_) => 60 * 60 * 24 * 30, // one month
             },
+            auth_phones: Arc::new(match env::var("AUTH_PHONES") {
+                Ok(var) => {
+                    let ap: Vec<_> = var.split(":").map(String::from).collect();
+                    let max_bytes = ap.iter().map(|s| s.as_bytes().len()).max().unwrap();
+                    if max_bytes > PHONE_MAX_BYTES {
+                        panic!("Phone number too long")
+                    }
+                    ap
+                }
+                Err(_) => vec!["12345".to_string(), "67890".to_string()],
+            }),
         }
     }
 }

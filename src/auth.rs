@@ -1,14 +1,20 @@
 use crate::config::Config;
+use crate::config::PHONE_MAX_BYTES;
 use crate::cost::Cost;
-use crate::database::{namespace::ACCESS, namespace::REFRESH, Database};
+use crate::database::namespace::ACCESS;
+use crate::database::namespace::REFRESH;
+use crate::database::namespace::SMSSENDTO;
+use crate::database::Database;
 use crate::message::{Error, Id, Query, Reply, IDL};
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use std::sync::Arc;
 
 pub struct Auth {
     cost: Cost,
     db: &'static Database,
     access_ttl: usize,
     refresh_ttl: usize,
+    phones: Arc<Vec<String>>,
 }
 
 impl Auth {
@@ -18,39 +24,38 @@ impl Auth {
             db,
             access_ttl: config.access_ttl,
             refresh_ttl: config.refresh_ttl,
+            phones: Arc::clone(&config.auth_phones),
         }
     }
     pub async fn handle(&self, query: &Query) -> Reply {
-        match query {
+        let result = match query {
             // Session management
-            Query::AuthSessionStart => match self.handle_session_start().await {
-                Ok(r) => r,
-                Err(e) => Reply::AuthError { error: e },
-            },
-            Query::AuthSessionRefresh { refresh } => {
-                match self.handle_session_refresh(refresh).await {
-                    Ok(r) => r,
-                    Err(e) => Reply::AuthError { error: e },
-                }
-            }
+            Query::AuthSessionStart => self.handle_session_start().await,
+            Query::AuthSessionRefresh { refresh } => self.handle_session_refresh(refresh).await,
             Query::AuthSessionEnd {
                 access,
                 option_refresh,
-            } => match self.handle_session_end(access, option_refresh).await {
-                Ok(r) => r,
-                Err(e) => Reply::AuthError { error: e },
-            },
-            Query::AuthSmsSendTo { access: _ } => Reply::Unimplemented,
-            Query::AuthSmsSent { access: _ } => Reply::Unimplemented,
+            } => self.handle_session_end(access, option_refresh).await,
+            Query::AuthSmsSendTo { access } => self.handle_sms_send_to(&access).await,
+            Query::AuthSmsSent { access, refresh } => self.handle_sms_sent(&access, &refresh).await,
             // Authenticate and pass to next layer
             q => {
                 let access = q.get_access();
                 let uid = match self.authenticate(access).await {
                     Ok(u) => u,
-                    Err(e) => return Reply::AuthError { error: e },
+                    Err(error) => return Reply::AuthError { error },
                 };
-                self.cost.handle(&uid, q)
+                if uid.is_zero() {
+                    return Reply::AuthError {
+                        error: Error::NotFound,
+                    };
+                }
+                Ok(self.cost.handle(&uid, q))
             }
+        };
+        match result {
+            Ok(r) => r,
+            Err(error) => Reply::AuthError { error },
         }
     }
     /// Generate two random tokens
@@ -104,20 +109,55 @@ impl Auth {
         }
         Ok(Reply::AuthSessionEnd)
     }
-    /// Query UID from access token
+    /// Query UID from access token, zero is anonymous.
     async fn authenticate(&self, access: &Id) -> Result<Id, Error> {
         let a = ns(ACCESS, access);
         match self.db.get::<_, Option<Vec<u8>>>(&a[..]).await? {
-            Some(uid) => match Id::try_from(uid)? {
-                x if x.is_zero() => Err(Error::Auth),
-                x => Ok(x),
-            },
+            Some(uid) => Ok(Id::try_from(uid)?),
             None => Err(Error::NotFound),
         }
+    }
+    /// Send what to who to authenticate
+    async fn handle_sms_send_to(&self, access: &Id) -> Result<Reply, Error> {
+        self.authenticate(access).await?;
+        let (phone, message) = {
+            let mut rng = rand::thread_rng();
+            use rand::seq::SliceRandom;
+            (
+                (*self.phones)[..].choose(&mut rng).unwrap(),
+                Id::rand(&mut rng)?,
+            )
+        };
+        let key = nspm(SMSSENDTO, phone, &message);
+        self.db
+            .set(&key[..], &access.0[..], self.access_ttl)
+            .await?;
+        Ok(Reply::AuthSmsSendTo {
+            phone: phone.clone(),
+            message,
+        })
+    }
+    /// If sent, set tokens' value to uid
+    async fn handle_sms_sent(&self, access: &Id, refresh: &Id) -> Result<Reply, Error> {
+        // find user's phone in SMSSENT,phone,message
+        // if not found return error
+        // find user's uid by phone in UIDPHONE
+        // if no uid found, use a free one in UIDPHONE & PHONEUID
+        // return that uid
+        Ok(Reply::Unimplemented)
     }
 }
 
 /// Prepend namespace tag before Id
 fn ns(n: u8, id: &Id) -> Bytes {
     ([n][..]).chain(&id.0[..]).copy_to_bytes(1 + IDL)
+}
+
+/// Build namespaced key from phone and message
+fn nspm(n: u8, phone: &String, message: &Id) -> Bytes {
+    let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES + IDL);
+    buf.put(&[n][..]);
+    buf.put(phone.as_bytes());
+    buf.put(&message.0[..]);
+    buf.into()
 }

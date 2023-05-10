@@ -97,4 +97,6 @@ pub mod namespace {
     pub const _HIDDEN: u8 = 0;
     pub const ACCESS: u8 = 1;
     pub const REFRESH: u8 = 2;
+    pub const SMSSENDTO: u8 = 3;
+    pub const SMSSENT: u8 = 4;
 }

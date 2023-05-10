@@ -29,7 +29,9 @@ pub struct Raw {
     time: Int,
 }
 
-#[derive(Debug)]
+use strum_macros::Display;
+
+#[derive(Display, Debug)]
 pub enum Error {
     Api,
     Auth,
@@ -41,12 +43,6 @@ pub enum Error {
     Os,
     Logical,
     NotFound,
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
-    }
 }
 
 impl std::error::Error for Error {}
