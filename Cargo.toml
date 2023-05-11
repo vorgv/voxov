@@ -1,6 +1,9 @@
 [workspace]
 members = ["cli"]
 
+[workspace.dependencies]
+tokio = { version = "1.27.0", features = ["full"] }
+
 [package]
 name = "voxov"
 version = "0.1.0"
@@ -17,7 +20,7 @@ keywords = ["payg", "baas"]
 categories = ["web-programming"]
 
 [dependencies]
-tokio = { version = "1.27.0", features = ["full"] }
+tokio = { workspace = true }
 bytes = "1.4"
 
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
