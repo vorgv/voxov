@@ -1,5 +1,5 @@
 use super::{Cost, Error, Hash, Id};
-use crate::api::{empty, not_implemented, ok};
+use crate::api::{empty, not_implemented};
 use http_body_util::combinators::BoxBody;
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
@@ -7,6 +7,9 @@ use std::convert::Infallible;
 
 pub enum Reply {
     Unimplemented,
+    Error {
+        error: Error,
+    },
     AuthSessionStart {
         access: Id,
         refresh: Id,
@@ -21,9 +24,6 @@ pub enum Reply {
     },
     AuthSmsSent {
         uid: Id,
-    },
-    AuthError {
-        error: Error,
     },
     Pay {
         uri: String,
@@ -54,6 +54,12 @@ impl Reply {
     pub fn to_response(&self) -> Response<BoxBody<Bytes, Infallible>> {
         match self {
             Reply::Unimplemented => not_implemented(),
+            Reply::Error { error } => Response::builder()
+                .header("type", "Error")
+                .header("error", error.to_string())
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(empty())
+                .unwrap(),
             Reply::AuthSessionStart { access, refresh } => Response::builder()
                 .header("type", "AuthSessionStart")
                 .header("access", access.to_string())
@@ -67,11 +73,9 @@ impl Reply {
                 .status(StatusCode::OK)
                 .body(empty())
                 .unwrap(),
-            Reply::AuthSessionEnd => ok(),
-            Reply::AuthError { error } => Response::builder()
-                .header("type", "AuthError")
-                .header("error", error.to_string())
-                .status(StatusCode::UNAUTHORIZED)
+            Reply::AuthSessionEnd => Response::builder()
+                .header("type", "AuthSessionEnd")
+                .status(StatusCode::OK)
                 .body(empty())
                 .unwrap(),
             Reply::AuthSmsSendTo { phone, message } => Response::builder()

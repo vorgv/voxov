@@ -43,10 +43,10 @@ impl Auth {
                 let access = q.get_access();
                 let uid = match self.authenticate(access).await {
                     Ok(u) => u,
-                    Err(error) => return Reply::AuthError { error },
+                    Err(error) => return Reply::Error { error },
                 };
                 if uid.is_zero() {
-                    return Reply::AuthError {
+                    return Reply::Error {
                         error: Error::NotFound,
                     };
                 }
@@ -55,7 +55,7 @@ impl Auth {
         };
         match result {
             Ok(r) => r,
-            Err(error) => Reply::AuthError { error },
+            Err(error) => Reply::Error { error },
         }
     }
     /// Generate two random tokens
