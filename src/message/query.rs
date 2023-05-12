@@ -17,6 +17,8 @@ pub enum Query {
     AuthSmsSent {
         access: Id,
         refresh: Id,
+        phone: String,
+        message: Id,
     },
     Pay {
         access: Id,
@@ -47,6 +49,7 @@ pub enum Query {
 }
 
 impl Query {
+    /// Get the access token from query
     pub fn get_access(&self) -> &Id {
         match self {
             Query::Pay { access, .. } => access,
@@ -82,6 +85,15 @@ impl TryFrom<&Request<Incoming>> for Query {
                 "AuthSessionEnd" => Ok(Query::AuthSessionEnd {
                     access: Id::try_get(req, "access")?,
                     option_refresh: Id::opt(req, "refresh"),
+                }),
+                "AuthSmsSendTo" => Ok(Query::AuthSmsSendTo {
+                    access: Id::try_get(req, "access")?,
+                }),
+                "AuthSmsSent" => Ok(Query::AuthSmsSent {
+                    access: Id::try_get(req, "access")?,
+                    refresh: Id::try_get(req, "refresh")?,
+                    phone: Query::retrieve(req, "phone")?.to_string(),
+                    message: Id::try_get(req, "message")?,
                 }),
                 _ => Err(Error::Api),
             },

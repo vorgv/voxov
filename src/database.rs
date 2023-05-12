@@ -97,6 +97,8 @@ pub mod namespace {
     pub const REFRESH: u8 = 2;
     pub const SMSSENDTO: u8 = 3;
     pub const SMSSENT: u8 = 4;
+    pub const PHONE2UID: u8 = 5;
+    pub const UID2PHONE: u8 = 6;
 }
 
 use crate::message::id::{Id, IDL};

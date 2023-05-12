@@ -9,6 +9,7 @@ pub struct Config {
     pub static_addr: SocketAddr,
     pub access_ttl: usize,
     pub refresh_ttl: usize,
+    pub user_ttl: usize,
     pub auth_phones: Arc<Vec<String>>,
 }
 
@@ -34,6 +35,10 @@ impl Config {
             refresh_ttl: match env::var("REFRESH_TTL") {
                 Ok(var) => var.parse().unwrap(),
                 Err(_) => 60 * 60 * 24 * 30, // one month
+            },
+            user_ttl: match env::var("USER_TTL") {
+                Ok(var) => var.parse().unwrap(),
+                Err(_) => 60 * 60 * 24 * 365 * 5, // 5 years
             },
             auth_phones: Arc::new(match env::var("AUTH_PHONES") {
                 Ok(var) => {

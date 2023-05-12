@@ -2,8 +2,11 @@ use crate::config::Config;
 use crate::config::PHONE_MAX_BYTES;
 use crate::cost::Cost;
 use crate::database::namespace::ACCESS;
+use crate::database::namespace::PHONE2UID;
 use crate::database::namespace::REFRESH;
 use crate::database::namespace::SMSSENDTO;
+use crate::database::namespace::SMSSENT;
+use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
 use crate::message::{Error, Id, Query, Reply, IDL};
 use bytes::{BufMut, Bytes, BytesMut};
@@ -14,6 +17,7 @@ pub struct Auth {
     db: &'static Database,
     access_ttl: usize,
     refresh_ttl: usize,
+    user_ttl: usize,
     phones: Arc<Vec<String>>,
 }
 
@@ -24,6 +28,7 @@ impl Auth {
             db,
             access_ttl: config.access_ttl,
             refresh_ttl: config.refresh_ttl,
+            user_ttl: config.user_ttl,
             phones: Arc::clone(&config.auth_phones),
         }
     }
@@ -37,7 +42,12 @@ impl Auth {
                 option_refresh,
             } => self.handle_session_end(access, option_refresh).await,
             Query::AuthSmsSendTo { access } => self.handle_sms_send_to(access).await,
-            Query::AuthSmsSent { access, refresh } => self.handle_sms_sent(access, refresh).await,
+            Query::AuthSmsSent {
+                access,
+                refresh,
+                phone,
+                message,
+            } => self.handle_sms_sent(access, refresh, phone, message).await,
             // Authenticate and pass to next layer
             q => {
                 let access = q.get_access();
@@ -129,22 +139,47 @@ impl Auth {
             )
         };
         let key = nspm(SMSSENDTO, phone, &message);
-        self.db
-            .set(&key[..], &access.0[..], self.access_ttl)
-            .await?;
+        self.db.set(&key[..], &access.0, self.access_ttl).await?;
         Ok(Reply::AuthSmsSendTo {
             phone: phone.clone(), //TODO: use index instead
             message,
         })
     }
     /// If sent, set tokens' value to uid
-    async fn handle_sms_sent(&self, access: &Id, refresh: &Id) -> Result<Reply, Error> {
-        // find user's phone in SMSSENT,phone,message
-        // if not found return error
-        // find user's uid by phone in UIDPHONE
-        // if no uid found, use a free one in UIDPHONE & PHONEUID
-        // return that uid
-        Ok(Reply::Unimplemented)
+    async fn handle_sms_sent(
+        &self,
+        access: &Id,
+        refresh: &Id,
+        phone: &String,
+        message: &Id,
+    ) -> Result<Reply, Error> {
+        self.authenticate(access).await?;
+        // Find user's phone in SMSSENT,phone,message
+        let key = nspm(SMSSENT, phone, message);
+        let user_phone: String = match self.db.get(&key[..]).await? {
+            Some(up) => up,
+            None => return Err(Error::NotFound),
+        };
+        // Find user's uid by phone in PHONE2UID
+        let p2u = nsp(PHONE2UID, &user_phone);
+        let uid = match self.db.get::<&[u8], Option<Vec<u8>>>(&p2u[..]).await? {
+            Some(uid) => Id::try_from(uid)?,
+            None => {
+                let mut rng = rand::thread_rng();
+                Id::rand(&mut rng)?
+            }
+        };
+        // Create one in or refresh UID2PHONE & PHONE2UID
+        let u2p = ns(UID2PHONE, &uid);
+        self.db.set(&u2p[..], user_phone, self.user_ttl).await?;
+        self.db.set(&p2u[..], &uid.0, self.user_ttl).await?;
+        // Set uid of auth tokens
+        let a = ns(ACCESS, access);
+        let r = ns(REFRESH, refresh);
+        self.db.set(&a[..], &uid.0, self.access_ttl).await?;
+        self.db.set(&r[..], &uid.0, self.refresh_ttl).await?;
+        // Return that uid
+        Ok(Reply::AuthSmsSent { uid })
     }
 }
 
@@ -154,5 +189,13 @@ pub fn nspm(n: u8, phone: &String, message: &Id) -> Bytes {
     buf.put(&[n][..]);
     buf.put(phone.as_bytes());
     buf.put(&message.0[..]);
+    buf.into()
+}
+
+/// Namespacing phone
+pub fn nsp(n: u8, phone: &String) -> Bytes {
+    let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES);
+    buf.put(&[n][..]);
+    buf.put(phone.as_bytes());
     buf.into()
 }

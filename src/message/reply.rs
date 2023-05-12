@@ -84,6 +84,11 @@ impl Reply {
                 .header("message", message.to_string())
                 .body(empty())
                 .unwrap(),
+            Reply::AuthSmsSent { uid } => Response::builder()
+                .header("type", "AuthSmsSent")
+                .header("uid", uid.to_string())
+                .body(empty())
+                .unwrap(),
             _ => not_implemented(),
         }
     }
