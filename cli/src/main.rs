@@ -1,7 +1,11 @@
 use std::io;
+use std::str::FromStr;
 use tokio::sync::OnceCell;
+use voxov::auth::nspm;
 use voxov::config::Config;
+use voxov::database::namespace::SMSSENT;
 use voxov::database::Database;
+use voxov::message::id::Id;
 
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
 
@@ -49,6 +53,21 @@ impl Command {
             return "".to_string();
         }
         match &self.argv[0] {
+            s if s == "sent" => {
+                let phone = &self.argv[1];
+                println!("'{}'", &self.argv[2]);
+                let message = Id::from_str(format!("{:0>32}", self.argv[2]).as_str()).unwrap();
+                let user_phone = &self.argv[3];
+                let s = nspm(SMSSENT, &phone, &message);
+                match self
+                    .db
+                    .set(&s[..], user_phone, self.config.access_ttl)
+                    .await
+                {
+                    Ok(_) => "Ok".to_string(),
+                    Err(e) => e.to_string(),
+                }
+            }
             unknown => format!("Unknown command: {}", unknown),
         }
     }

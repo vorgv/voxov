@@ -98,3 +98,10 @@ pub mod namespace {
     pub const SMSSENDTO: u8 = 3;
     pub const SMSSENT: u8 = 4;
 }
+
+use crate::message::id::{Id, IDL};
+use bytes::{Buf, Bytes};
+/// Prepend namespace tag before Id
+pub fn ns(n: u8, id: &Id) -> Bytes {
+    ([n][..]).chain(&id.0[..]).copy_to_bytes(1 + IDL)
+}

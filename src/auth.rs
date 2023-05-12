@@ -4,9 +4,9 @@ use crate::cost::Cost;
 use crate::database::namespace::ACCESS;
 use crate::database::namespace::REFRESH;
 use crate::database::namespace::SMSSENDTO;
-use crate::database::Database;
+use crate::database::{ns, Database};
 use crate::message::{Error, Id, Query, Reply, IDL};
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use std::sync::Arc;
 
 pub struct Auth {
@@ -133,7 +133,7 @@ impl Auth {
             .set(&key[..], &access.0[..], self.access_ttl)
             .await?;
         Ok(Reply::AuthSmsSendTo {
-            phone: phone.clone(),
+            phone: phone.clone(), //TODO: use index instead
             message,
         })
     }
@@ -148,13 +148,8 @@ impl Auth {
     }
 }
 
-/// Prepend namespace tag before Id
-fn ns(n: u8, id: &Id) -> Bytes {
-    ([n][..]).chain(&id.0[..]).copy_to_bytes(1 + IDL)
-}
-
 /// Build namespaced key from phone and message
-fn nspm(n: u8, phone: &String, message: &Id) -> Bytes {
+pub fn nspm(n: u8, phone: &String, message: &Id) -> Bytes {
     let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES + IDL);
     buf.put(&[n][..]);
     buf.put(phone.as_bytes());
