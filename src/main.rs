@@ -11,29 +11,14 @@ mod message;
 
 use config::Config;
 use database::Database;
-use tokio::sync::OnceCell;
-
-static CONFIG: OnceCell<Config> = OnceCell::const_new();
-
-async fn get_config() -> &'static Config {
-    CONFIG.get_or_init(|| async { Config::new() }).await
-}
-
-static DB: OnceCell<Database> = OnceCell::const_new();
-
-async fn get_db() -> &'static Database {
-    DB.get_or_init(|| async { Database::new(get_config().await).await })
-        .await
-}
-
 use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Config: collect ENV to global variable only once
-    let c = get_config().await;
+    let c = Box::leak(Box::new(Config::new())) as &'static _;
     // Database: stateless global database struct
-    let db = get_db().await;
+    let db = Box::leak(Box::new(Database::new(c).await)) as &'static _;
     // Meme: data types
     let meme = meme::Meme::new(c, db);
     // Gene: functions

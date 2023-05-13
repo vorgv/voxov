@@ -1,7 +1,6 @@
 use std::{
     env,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::Arc,
 };
 
 pub struct Config {
@@ -10,7 +9,7 @@ pub struct Config {
     pub access_ttl: usize,
     pub refresh_ttl: usize,
     pub user_ttl: usize,
-    pub auth_phones: Arc<Vec<String>>,
+    pub auth_phones: &'static Vec<String>,
 }
 
 const STATIC_PORT: u16 = 8080;
@@ -40,7 +39,7 @@ impl Config {
                 Ok(var) => var.parse().unwrap(),
                 Err(_) => 60 * 60 * 24 * 365 * 5, // 5 years
             },
-            auth_phones: Arc::new(match env::var("AUTH_PHONES") {
+            auth_phones: Box::leak(Box::new(match env::var("AUTH_PHONES") {
                 Ok(var) => {
                     let ap: Vec<_> = var.split(':').map(String::from).collect();
                     let max_bytes = ap.iter().map(|s| s.as_bytes().len()).max().unwrap();
@@ -50,7 +49,7 @@ impl Config {
                     ap
                 }
                 Err(_) => vec!["12345".to_string(), "67890".to_string()],
-            }),
+            })) as &'static _,
         }
     }
 }

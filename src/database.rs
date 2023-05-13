@@ -1,26 +1,24 @@
 use crate::config::Config;
 use crate::message::Error;
-use redis::{aio::Connection, RedisError};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use redis::{aio::ConnectionManager, RedisError};
 
 pub struct Database {
-    rc: Arc<Mutex<Connection>>,
+    cm: ConnectionManager,
 }
 
-async fn connect_redis(addr: &str) -> Result<Connection, RedisError> {
+async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
     let client = redis::Client::open(addr).unwrap();
-    client.get_async_connection().await
+    client.get_tokio_connection_manager().await
 }
 
 use redis::{cmd, FromRedisValue, ToRedisArgs};
 impl Database {
+    /// Connect to Redis, panic on failure
     pub async fn new(config: &Config) -> Database {
         Database {
-            rc: match connect_redis(&config.redis_addr).await {
-                Ok(con) => Arc::new(Mutex::new(con)),
-                Err(_) => panic!("connection failed, todo trace"),
-            },
+            cm: connect_redis(&config.redis_addr)
+                .await
+                .expect("Redis offline?"),
         }
     }
     /// Set key-value pair with TTL by seconds
@@ -30,13 +28,11 @@ impl Database {
         value: V,
         seconds: usize,
     ) -> Result<(), Error> {
-        let clone = Arc::clone(&self.rc);
-        let mut lock = clone.lock().await;
         match cmd("SETEX")
             .arg(key)
             .arg(seconds)
             .arg(value)
-            .query_async::<Connection, ()>(&mut lock)
+            .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
         {
             Ok(_) => Ok(()),
@@ -45,11 +41,9 @@ impl Database {
     }
     /// Get value by key
     pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
-        let clone = Arc::clone(&self.rc);
-        let mut lock = clone.lock().await;
         match cmd("GET")
             .arg(key)
-            .query_async::<Connection, V>(&mut lock)
+            .query_async::<ConnectionManager, V>(&mut self.cm.clone())
             .await
         {
             Ok(v) => Ok(v),
@@ -62,13 +56,11 @@ impl Database {
         key: K,
         seconds: usize,
     ) -> Result<V, Error> {
-        let clone = Arc::clone(&self.rc);
-        let mut lock = clone.lock().await;
         match cmd("GETEX")
             .arg(key)
             .arg("EX")
             .arg(seconds)
-            .query_async::<Connection, V>(&mut lock)
+            .query_async::<ConnectionManager, V>(&mut self.cm.clone())
             .await
         {
             Ok(v) => Ok(v),
@@ -77,11 +69,9 @@ impl Database {
     }
     /// Delete key
     pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
-        let clone = Arc::clone(&self.rc);
-        let mut lock = clone.lock().await;
         match cmd("DEL")
             .arg(key)
-            .query_async::<Connection, ()>(&mut lock)
+            .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
         {
             Ok(()) => Ok(()),

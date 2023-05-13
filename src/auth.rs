@@ -10,7 +10,6 @@ use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
 use crate::message::{Error, Id, Query, Reply, IDL};
 use bytes::{BufMut, Bytes, BytesMut};
-use std::sync::Arc;
 
 pub struct Auth {
     cost: Cost,
@@ -18,7 +17,7 @@ pub struct Auth {
     access_ttl: usize,
     refresh_ttl: usize,
     user_ttl: usize,
-    phones: Arc<Vec<String>>,
+    phones: &'static Vec<String>,
 }
 
 impl Auth {
@@ -29,7 +28,7 @@ impl Auth {
             access_ttl: config.access_ttl,
             refresh_ttl: config.refresh_ttl,
             user_ttl: config.user_ttl,
-            phones: Arc::clone(&config.auth_phones),
+            phones: &config.auth_phones,
         }
     }
     pub async fn handle(&self, query: &Query) -> Reply {
@@ -130,7 +129,7 @@ impl Auth {
     /// Send what to who to authenticate
     async fn handle_sms_send_to(&self, access: &Id) -> Result<Reply, Error> {
         self.authenticate(access).await?;
-        let (phone, message) = {
+        let (phone, message): (&'static _, _) = {
             let mut rng = rand::thread_rng();
             use rand::seq::SliceRandom;
             (
@@ -140,10 +139,7 @@ impl Auth {
         };
         let key = nspm(SMSSENDTO, phone, &message);
         self.db.set(&key[..], &access.0, self.access_ttl).await?;
-        Ok(Reply::AuthSmsSendTo {
-            phone: phone.clone(), //TODO: use index instead
-            message,
-        })
+        Ok(Reply::AuthSmsSendTo { phone, message })
     }
     /// If sent, set tokens' value to uid
     async fn handle_sms_sent(

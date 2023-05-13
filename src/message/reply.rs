@@ -19,7 +19,7 @@ pub enum Reply {
     },
     AuthSessionEnd,
     AuthSmsSendTo {
-        phone: String,
+        phone: &'static String,
         message: Id,
     },
     AuthSmsSent {
@@ -80,7 +80,7 @@ impl Reply {
                 .unwrap(),
             Reply::AuthSmsSendTo { phone, message } => Response::builder()
                 .header("type", "AuthSmsSendTo")
-                .header("phone", phone)
+                .header("phone", *phone)
                 .header("message", message.to_string())
                 .body(empty())
                 .unwrap(),
