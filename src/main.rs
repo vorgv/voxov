@@ -9,28 +9,32 @@ mod gene;
 mod meme;
 mod message;
 
-use config::Config;
-use database::Database;
 use std::error::Error;
+
+macro_rules! to_static {
+    ($e:expr) => {
+        Box::leak(Box::new($e)) as &'static _
+    };
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Config: collect ENV to global variable only once
-    let c = Box::leak(Box::new(Config::new())) as &'static _;
+    let c = to_static!(config::Config::new());
     // Database: stateless global database struct
-    let db = Box::leak(Box::new(Database::new(c).await)) as &'static _;
+    let db = to_static!(database::Database::new(c).await);
     // Meme: data types
-    let meme = meme::Meme::new(c, db);
+    let meme = to_static!(meme::Meme::new(c, db));
     // Gene: functions
-    let gene = gene::Gene::new(c, db, meme);
+    let gene = to_static!(gene::Gene::new(c, db, meme));
     // Fed: call other instances
-    let fed = fed::Fed::new(c, db, gene);
+    let fed = to_static!(fed::Fed::new(c, db, gene));
     // Cost: set spacetime limit
-    let cost = cost::Cost::new(c, db, fed);
+    let cost = to_static!(cost::Cost::new(c, db, fed));
     // Auth: authentication
-    let auth = auth::Auth::new(c, db, cost);
+    let auth = to_static!(auth::Auth::new(c, db, cost));
     // API: GraphQL & Static
-    let api = api::Api::new(c, db, auth);
+    let api: &'static api::Api = to_static!(api::Api::new(c, db, auth));
     // Serve
     api.serve().await
 }

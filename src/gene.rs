@@ -3,12 +3,12 @@ use crate::database::Database;
 use crate::meme::Meme;
 
 pub struct Gene {
-    meme: Meme,
+    meme: &'static Meme,
     db: &'static Database,
 }
 
 impl Gene {
-    pub fn new(_config: &Config, db: &'static Database, meme: Meme) -> Gene {
+    pub fn new(_config: &Config, db: &'static Database, meme: &'static Meme) -> Gene {
         Gene { meme, db }
     }
 }

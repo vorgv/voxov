@@ -1,7 +1,6 @@
 use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::server::conn::http1;
@@ -14,39 +13,34 @@ use crate::database::Database;
 use crate::message::Query;
 
 pub struct Api {
-    auth: Arc<Auth>,
+    auth: &'static Auth,
     static_addr: SocketAddr,
     db: &'static Database,
 }
 
 impl Api {
-    pub fn new(config: &Config, db: &'static Database, auth: Auth) -> Api {
+    pub fn new(config: &Config, db: &'static Database, auth: &'static Auth) -> Api {
         Api {
-            auth: Arc::new(auth),
+            auth,
             static_addr: config.static_addr,
             db,
         }
     }
     /// Open end points
-    pub async fn serve(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn serve(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let future_static = self.serve_static();
         //TODO serve metadata
         //TODO serve config
         future_static.await
     }
     /// Serve static big files
-    async fn serve_static(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn serve_static(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let listener = TcpListener::bind(self.static_addr).await?;
         loop {
-            let auth = Arc::clone(&self.auth);
             let (stream, _) = listener.accept().await?;
             tokio::task::spawn(async move {
-                let auth = Arc::clone(&auth);
                 if let Err(err) = http1::Builder::new()
-                    .serve_connection(
-                        stream,
-                        service_fn(move |req| handle_static(req, Arc::clone(&auth))),
-                    )
+                    .serve_connection(stream, service_fn(move |req| handle_static(req, self.auth)))
                     .await
                 {
                     println!("Error serving: {:?}", err);
@@ -58,7 +52,7 @@ impl Api {
 
 async fn handle_static(
     req: Request<hyper::body::Incoming>,
-    auth: Arc<Auth>,
+    auth: &'static Auth,
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
     match *req.method() {
         // Ping server

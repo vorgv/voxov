@@ -12,7 +12,7 @@ use crate::message::{Error, Id, Query, Reply, IDL};
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {
-    cost: Cost,
+    cost: &'static Cost,
     db: &'static Database,
     access_ttl: usize,
     refresh_ttl: usize,
@@ -21,14 +21,14 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn new(config: &Config, db: &'static Database, cost: Cost) -> Auth {
+    pub fn new(config: &Config, db: &'static Database, cost: &'static Cost) -> Auth {
         Auth {
             cost,
             db,
             access_ttl: config.access_ttl,
             refresh_ttl: config.refresh_ttl,
             user_ttl: config.user_ttl,
-            phones: &config.auth_phones,
+            phones: config.auth_phones,
         }
     }
     pub async fn handle(&self, query: &Query) -> Reply {

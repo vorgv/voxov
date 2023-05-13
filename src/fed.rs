@@ -3,12 +3,12 @@ use crate::database::Database;
 use crate::gene::Gene;
 
 pub struct Fed {
-    gene: Gene,
+    gene: &'static Gene,
     db: &'static Database,
 }
 
 impl Fed {
-    pub fn new(_config: &Config, db: &'static Database, gene: Gene) -> Fed {
+    pub fn new(_config: &Config, db: &'static Database, gene: &'static Gene) -> Fed {
         Fed { gene, db }
     }
 }
