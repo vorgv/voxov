@@ -10,12 +10,7 @@ mod meme;
 mod message;
 
 use std::error::Error;
-
-macro_rules! to_static {
-    ($e:expr) => {
-        Box::leak(Box::new($e)) as &'static _
-    };
-}
+use voxov::to_static;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

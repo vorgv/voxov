@@ -8,3 +8,12 @@ pub mod fed;
 pub mod gene;
 pub mod meme;
 pub mod message;
+
+pub mod macros {
+    #[macro_export]
+    macro_rules! to_static {
+        ($e:expr) => {
+            Box::leak(Box::new($e)) as &'static _
+        };
+    }
+}

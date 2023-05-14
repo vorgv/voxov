@@ -1,34 +1,21 @@
 use std::io;
 use std::str::FromStr;
-use tokio::sync::OnceCell;
 use voxov::auth::nspm;
 use voxov::config::Config;
 use voxov::database::namespace::SMSSENT;
 use voxov::database::Database;
 use voxov::message::id::Id;
-
-static CONFIG: OnceCell<Config> = OnceCell::const_new();
-
-async fn get_config() -> &'static Config {
-    CONFIG.get_or_init(|| async { Config::new() }).await
-}
-
-static DB: OnceCell<Database> = OnceCell::const_new();
-
-async fn get_db() -> &'static Database {
-    DB.get_or_init(|| async { Database::new(get_config().await).await })
-        .await
-}
+use voxov::to_static;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let config = get_config().await;
-    let db = get_db().await;
+    let c = to_static!(Config::new());
+    let db = to_static!(Database::new(c).await);
     let mut line_buffer = String::new();
     loop {
         line_buffer.clear();
         io::stdin().read_line(&mut line_buffer)?;
-        let command = Command::new(&line_buffer, config, db);
+        let command = Command::new(&line_buffer, c, db);
         let output = command.execute().await;
         println!("{}", output);
     }
