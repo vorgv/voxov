@@ -11,9 +11,9 @@ pub use reply::Reply;
 
 #[derive(Debug)]
 pub struct Cost {
-    time: Int,
-    space: Int,
-    tips: Int,
+    pub time: Int,
+    pub space: Int,
+    pub tips: Int,
 }
 
 #[derive(Debug)]

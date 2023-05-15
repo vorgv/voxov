@@ -12,6 +12,7 @@ async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
 }
 
 use redis::{cmd, FromRedisValue, ToRedisArgs};
+
 impl Database {
     /// Connect to Redis, panic on failure
     pub async fn new(config: &Config) -> Database {
@@ -93,6 +94,7 @@ pub mod namespace {
 
 use crate::message::id::{Id, IDL};
 use bytes::{Buf, Bytes};
+
 /// Prepend namespace tag before Id
 pub fn ns(n: u8, id: &Id) -> Bytes {
     ([n][..]).chain(&id.0[..]).copy_to_bytes(1 + IDL)

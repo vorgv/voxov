@@ -12,7 +12,18 @@ impl Cost {
     pub fn new(_config: &Config, db: &'static Database, fed: &'static Fed) -> Cost {
         Cost { fed, db }
     }
-    pub fn handle(&self, _uid: &Id, _query: &Query) -> Reply {
-        Reply::Unimplemented
+    pub async fn handle(&self, uid: &Id, query: &Query) -> Reply {
+        match query {
+            Query::Pay { access: _, vendor } => Reply::Pay {
+                uri: format!("Not implemented: {}, {}", vendor, uid),
+            },
+            _ => {
+                let cost = query.get_cost();
+                //TODO: timeout context
+                tokio::select! {
+                    r = async { self.fed.handle(uid, &cost.space, query).await } => {r}
+                }
+            }
+        }
     }
 }

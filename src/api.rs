@@ -28,19 +28,17 @@ impl Api {
     }
     /// Open end points
     pub async fn serve(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let future_static = self.serve_static();
-        //TODO serve metadata
-        //TODO serve config
-        future_static.await
+        self.serve_http().await
+        //TODO tokio::spawn serve_graphql
     }
     /// Serve static big files
-    async fn serve_static(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn serve_http(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let listener = TcpListener::bind(self.static_addr).await?;
         loop {
             let (stream, _) = listener.accept().await?;
             tokio::task::spawn(async move {
                 if let Err(err) = http1::Builder::new()
-                    .serve_connection(stream, service_fn(move |req| handle_static(req, self.auth)))
+                    .serve_connection(stream, service_fn(move |req| handle_http(req, self.auth)))
                     .await
                 {
                     println!("Error serving: {:?}", err);
@@ -50,7 +48,7 @@ impl Api {
     }
 }
 
-async fn handle_static(
+async fn handle_http(
     req: Request<hyper::body::Incoming>,
     auth: &'static Auth,
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
@@ -91,4 +89,8 @@ fn not_found() -> Response<BoxBody<Bytes, Infallible>> {
 
 pub fn not_implemented() -> Response<BoxBody<Bytes, Infallible>> {
     empty_with_code(StatusCode::NOT_IMPLEMENTED)
+}
+
+pub fn request_timeout() -> Response<BoxBody<Bytes, Infallible>> {
+    empty_with_code(StatusCode::REQUEST_TIMEOUT)
 }

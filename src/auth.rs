@@ -59,7 +59,7 @@ impl Auth {
                         error: Error::NotFound,
                     };
                 }
-                Ok(self.cost.handle(&uid, q))
+                Ok(self.cost.handle(&uid, q).await)
             }
         };
         match result {
