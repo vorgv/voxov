@@ -2,35 +2,62 @@
 
 ## Layers
 
-- api
+- api (stateless)
     - static: large files
-    - graphql: metadata
-- auth
+    - graphql: nested metadata
+- auth (redis)
     - user
-        - signup, login, pay
+        - signup, login/logout, pay
     - fed
         - graphql: reduce trips
     - alien
-        - static: reduce throughput
-- cost
+        - static: reduce inter-cluster traffic
+- cost (redis with logs)
     - time cost
     - space cost
     - tips
-- fed
-    - jwt
-    - exchange rate
-- gene
+- fed (static only)
+    - optional jwt (for untrusted nodes)
+    - exchange rate (static range, local currency)
+        - stay stable to avoid financialization
+        - changing rate
+            - extend range and wait for adaption
+            - shrink to complete shift
+- gene (mongodb)
     - metadata
-    - static data
     - censor
-        - publish
-        - report
-- meme
+        - publish: at least 6 months remaining
+        - argue/report: do expensive publish
+        - human verification
+    - channels (buffer/cursor)
+        - new/delete
+        - push
+        - pull
+        - application: notification, chat, forum
+    - fs
+        - directories (pure links to memes)
+        - tags
+    - likes
+        - pay to get
+        - spend credit to give
+        - leaderboard
+    - geological AR tools
+        - ads
+        - social
+    - wiki
+        - 1:1 server-author likes
+    - recommandation system
+        - index all public memes
+- meme (mongodb)
     - metadata
     - static data
 - database
     - redis
         - set, get
-        - list
+    - mongodb
+        - meme, gene metadata
+        - meme raw (grid fs)
+- logs
+    - mongodb
 - config
-    - RwLock
+    - fully static
