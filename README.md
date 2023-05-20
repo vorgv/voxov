@@ -37,6 +37,7 @@
     - fs
         - directories (pure links to memes)
         - tags
+        - keep-alive
     - likes
         - pay to get
         - spend credit to give

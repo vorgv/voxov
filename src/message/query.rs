@@ -1,4 +1,4 @@
-use super::{Cost, Error, Hash, Head, Id, Raw};
+use super::{Costs, Error, Hash, Head, Id, Raw};
 use hyper::{body::Incoming, Request};
 
 #[derive(Debug)]
@@ -62,13 +62,13 @@ impl Query {
         }
     }
     /// Get the cost struct from query
-    pub fn get_cost(&self) -> &Cost {
+    pub fn get_cost(&self) -> &Costs {
         match self {
-            Query::MemeMeta { head, .. } => &head.cost,
-            Query::MemeRawPut { head, .. } => &head.cost,
-            Query::MemeRawGet { head, .. } => &head.cost,
-            Query::GeneMeta { head, .. } => &head.cost,
-            Query::GeneCall { head, .. } => &head.cost,
+            Query::MemeMeta { head, .. } => &head.costs,
+            Query::MemeRawPut { head, .. } => &head.costs,
+            Query::MemeRawGet { head, .. } => &head.costs,
+            Query::GeneMeta { head, .. } => &head.costs,
+            Query::GeneCall { head, .. } => &head.costs,
             _ => panic!("Query not passed through Cost: {:?}", self),
         }
     }

@@ -1,9 +1,17 @@
 use crate::config::Config;
 use crate::message::Error;
+use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
 
 pub struct Database {
+    /// Redis connection manager with auto retry
     cm: ConnectionManager,
+    /// Gene metadata collection
+    gm: mongodb::Collection<Document>, //TODO: custom struct
+    /// Meme metadata collection
+    mm: mongodb::Collection<Document>, //TODO: custom struct
+    /// Meme raw data collection
+    mr: (), //TODO: s3
 }
 
 async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
@@ -11,15 +19,28 @@ async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
     client.get_tokio_connection_manager().await
 }
 
+async fn connect_mongo(addr: &str) -> Result<mongodb::Database, mongodb::error::Error> {
+    let mut client_options = ClientOptions::parse(addr).await?;
+    client_options.app_name = Some("VOxOV".to_string());
+    let client = mongodb::Client::with_options(client_options)?;
+    Ok(client.database("voxov"))
+}
+
 use redis::{cmd, FromRedisValue, ToRedisArgs};
 
 impl Database {
     /// Connect to Redis, panic on failure
     pub async fn new(config: &Config) -> Database {
+        let mdb = connect_mongo(&config.mongo_addr)
+            .await
+            .expect("MongoDB offline?");
         Database {
             cm: connect_redis(&config.redis_addr)
                 .await
                 .expect("Redis offline?"),
+            gm: mdb.collection::<Document>("gm"),
+            mm: mdb.collection::<Document>("mm"),
+            mr: (),
         }
     }
     /// Set key-value pair with TTL by seconds

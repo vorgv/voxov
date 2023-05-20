@@ -10,7 +10,7 @@ pub use query::Query;
 pub use reply::Reply;
 
 #[derive(Debug)]
-pub struct Cost {
+pub struct Costs {
     pub time: Int,
     pub space: Int,
     pub tips: Int,
@@ -19,7 +19,7 @@ pub struct Cost {
 #[derive(Debug)]
 pub struct Head {
     access: Id,
-    cost: Cost,
+    costs: Costs,
     fed: Option<Id>,
 }
 

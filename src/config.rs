@@ -5,6 +5,7 @@ use std::{
 
 pub struct Config {
     pub redis_addr: String,
+    pub mongo_addr: String,
     pub static_addr: SocketAddr,
     pub access_ttl: usize,
     pub refresh_ttl: usize,
@@ -22,6 +23,10 @@ impl Config {
             redis_addr: match env::var("REDIS_ADDR") {
                 Ok(var) => var,
                 Err(_) => String::from("redis://localhost/"),
+            },
+            mongo_addr: match env::var("MONGO_ADDR") {
+                Ok(var) => var,
+                Err(_) => String::from("mongodb://127.0.0.1:27017/"),
             },
             static_addr: match env::var("STATIC_ADDR") {
                 Ok(var) => SocketAddr::parse_ascii(var.as_bytes()).unwrap(),

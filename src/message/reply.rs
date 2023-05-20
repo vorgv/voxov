@@ -1,4 +1,4 @@
-use super::{Cost, Error, Hash, Id};
+use super::{Costs, Error, Hash, Id};
 use crate::api::{empty, not_implemented};
 use http_body_util::combinators::BoxBody;
 use hyper::body::Bytes;
@@ -29,23 +29,23 @@ pub enum Reply {
         uri: String,
     },
     MemeMeta {
-        cost: Cost,
+        cost: Costs,
         meta: Result<String, Error>,
     },
     MemeRawPut {
-        cost: Cost,
+        cost: Costs,
         key: Hash,
     },
     MemeRawGet {
-        cost: Cost,
+        cost: Costs,
         raw: Result<Box<[u8]>, Error>,
     },
     GeneMeta {
-        cost: Cost,
+        cost: Costs,
         meta: Result<String, Error>,
     },
     GeneCall {
-        cost: Cost,
+        cost: Costs,
         result: Result<Option<Box<[u8]>>, Error>,
     },
 }
