@@ -6,8 +6,6 @@ use redis::{aio::ConnectionManager, RedisError};
 pub struct Database {
     /// Redis connection manager with auto retry
     cm: ConnectionManager,
-    /// Gene metadata collection
-    gm: mongodb::Collection<Document>, //TODO: custom struct
     /// Meme metadata collection
     mm: mongodb::Collection<Document>, //TODO: custom struct
     /// Meme raw data collection
@@ -38,7 +36,6 @@ impl Database {
             cm: connect_redis(&config.redis_addr)
                 .await
                 .expect("Redis offline?"),
-            gm: mdb.collection::<Document>("gm"),
             mm: mdb.collection::<Document>("mm"),
             mr: (),
         }

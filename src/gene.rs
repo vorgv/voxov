@@ -12,3 +12,8 @@ impl Gene {
         Gene { meme, db }
     }
 }
+
+pub struct GeneMeta {
+    name: String,
+    version: (), //TODO: semver
+}

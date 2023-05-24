@@ -14,7 +14,7 @@ use crate::message::Query;
 
 pub struct Api {
     auth: &'static Auth,
-    static_addr: SocketAddr,
+    http_addr: SocketAddr,
     db: &'static Database,
 }
 
@@ -22,7 +22,7 @@ impl Api {
     pub fn new(config: &Config, db: &'static Database, auth: &'static Auth) -> Api {
         Api {
             auth,
-            static_addr: config.static_addr,
+            http_addr: config.http_addr,
             db,
         }
     }
@@ -33,7 +33,7 @@ impl Api {
     }
     /// Serve static big files
     async fn serve_http(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let listener = TcpListener::bind(self.static_addr).await?;
+        let listener = TcpListener::bind(self.http_addr).await?;
         loop {
             let (stream, _) = listener.accept().await?;
             tokio::task::spawn(async move {
