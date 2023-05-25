@@ -2,14 +2,19 @@ use crate::config::Config;
 use crate::message::Error;
 use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
+use s3::creds::Credentials;
+use s3::region::Region;
+use s3::Bucket;
 
 pub struct Database {
     /// Redis connection manager with auto retry
     cm: ConnectionManager,
+
     /// Meme metadata collection
     mm: mongodb::Collection<Document>, //TODO: custom struct
+
     /// Meme raw data collection
-    mr: (), //TODO: s3
+    mr: Bucket, //TODO: s3
 }
 
 async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
@@ -19,7 +24,7 @@ async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
 
 async fn connect_mongo(addr: &str) -> Result<mongodb::Database, mongodb::error::Error> {
     let mut client_options = ClientOptions::parse(addr).await?;
-    client_options.app_name = Some("VOxOV".to_string());
+    client_options.app_name = Some("voxov".to_string());
     let client = mongodb::Client::with_options(client_options)?;
     Ok(client.database("voxov"))
 }
@@ -37,9 +42,18 @@ impl Database {
                 .await
                 .expect("Redis offline?"),
             mm: mdb.collection::<Document>("mm"),
-            mr: (),
+            mr: Bucket::new(
+                "voxov",
+                Region::Custom {
+                    region: config.s3_region.clone(),
+                    endpoint: config.s3_addr.clone(),
+                },
+                Credentials::default().unwrap(),
+            )
+            .expect("S3 offline?"),
         }
     }
+
     /// Set key-value pair with TTL by seconds
     pub async fn set<K: ToRedisArgs, V: ToRedisArgs>(
         &self,
@@ -58,6 +72,7 @@ impl Database {
             Err(_) => Err(Error::Redis),
         }
     }
+
     /// Get value by key
     pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
         match cmd("GET")
@@ -69,6 +84,7 @@ impl Database {
             Err(_) => Err(Error::Redis),
         }
     }
+
     /// Get value by key and set TTL
     pub async fn getex<K: ToRedisArgs, V: FromRedisValue>(
         &self,
@@ -86,6 +102,7 @@ impl Database {
             Err(_) => Err(Error::Redis),
         }
     }
+
     /// Delete key
     pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
         match cmd("DEL")
