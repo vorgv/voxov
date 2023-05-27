@@ -1,3 +1,4 @@
+use crate::message::Uint;
 use crate::{gene::GeneMeta, to_static};
 use std::net::IpAddr;
 use std::{
@@ -25,13 +26,16 @@ pub struct Config {
 
     // graphql_addr
     /// Seconds before access token expire.
-    pub access_ttl: usize,
+    pub access_ttl: Uint,
 
     /// Seconds before refresh token expire.
-    pub refresh_ttl: usize,
+    pub refresh_ttl: Uint,
 
     /// Seconds before user account expire.
-    pub user_ttl: usize,
+    pub user_ttl: Uint,
+
+    /// Cost per millisecond
+    pub time_cost: Uint,
 
     /// SMS receivers for authentication.
     pub auth_phones: &'static Vec<String>,
@@ -47,28 +51,26 @@ const DEFAULT_HTTP_PORT: u16 = 8080;
 /// Changing this constant invalidates all phone numbers!!
 pub const PHONE_MAX_BYTES: usize = 16;
 
+/// Set an entry by environment variable, or use the default.
+macro_rules! env_or {
+    ($e:literal, $d:expr) => {
+        match env::var($e) {
+            Ok(var) => var.parse().unwrap(),
+            Err(_) => $d.into(),
+        }
+    };
+}
+
 impl Config {
     pub fn new() -> Config {
         Config {
-            redis_addr: match env::var("REDIS_ADDR") {
-                Ok(var) => var,
-                Err(_) => String::from("redis://localhost/"),
-            },
+            redis_addr: env_or!("REDIS_ADDR", "redis://localhost/"),
 
-            mongo_addr: match env::var("MONGO_ADDR") {
-                Ok(var) => var,
-                Err(_) => String::from("mongodb://127.0.0.1:27017/"),
-            },
+            mongo_addr: env_or!("MONGO_ADDR", "mongodb://127.0.0.1:27017/"),
 
-            s3_addr: match env::var("S3_ADDR") {
-                Ok(var) => var,
-                Err(_) => String::from("http://127.0.0.1:9000/"),
-            },
+            s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000/"),
 
-            s3_region: match env::var("S3_REGION") {
-                Ok(var) => var,
-                Err(_) => String::from("develop"),
-            },
+            s3_region: env_or!("S3_REGION", "develop"),
 
             http_addr: match env::var("HTTP_ADDR") {
                 Ok(var) => SocketAddr::parse_ascii(var.as_bytes()).unwrap(),
@@ -77,22 +79,15 @@ impl Config {
                 }
             },
 
-            access_ttl: match env::var("ACCESS_TTL") {
-                Ok(var) => var.parse().unwrap(),
-                Err(_) => 60 * 60, // one hour
-            },
+            access_ttl: env_or!("ACCESS_TTL", 60 * 60 as Uint), // one hour
 
-            refresh_ttl: match env::var("REFRESH_TTL") {
-                Ok(var) => var.parse().unwrap(),
-                Err(_) => 60 * 60 * 24 * 30, // one month
-            },
+            refresh_ttl: env_or!("REFRESH_TTL", 60 * 60 * 24 * 30 as Uint), // one month
 
-            user_ttl: match env::var("USER_TTL") {
-                Ok(var) => var.parse().unwrap(),
-                Err(_) => 60 * 60 * 24 * 365 * 5, // 5 years
-            },
+            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5 as Uint), // 5 years
 
-            auth_phones: Box::leak(Box::new(match env::var("AUTH_PHONES") {
+            time_cost: env_or!("TIME_COST", 1000 as Uint),
+
+            auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {
                     let ap: Vec<_> = var.split(':').map(String::from).collect();
                     let max_bytes = ap.iter().map(|s| s.as_bytes().len()).max().unwrap();
@@ -102,7 +97,7 @@ impl Config {
                     ap
                 }
                 Err(_) => vec!["12345".to_string(), "67890".to_string()],
-            })) as &'static _,
+            }),
 
             //TODO: load external genes.
             gene_metas: to_static!(vec![]),

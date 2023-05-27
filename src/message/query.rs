@@ -62,7 +62,7 @@ impl Query {
         }
     }
     /// Get the cost struct from query
-    pub fn get_cost(&self) -> &Costs {
+    pub fn get_costs(&self) -> &Costs {
         match self {
             Query::MemeMeta { head, .. } => &head.costs,
             Query::MemeRawPut { head, .. } => &head.costs,

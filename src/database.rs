@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::message::Error;
+use crate::{config::Config, message::Uint};
 use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
 use s3::creds::Credentials;
@@ -11,10 +11,10 @@ pub struct Database {
     cm: ConnectionManager,
 
     /// Meme metadata collection
-    mm: mongodb::Collection<Document>, //TODO: custom struct
+    mm: mongodb::Collection<Document>,
 
     /// Meme raw data collection
-    mr: Bucket, //TODO: s3
+    mr: Bucket,
 }
 
 async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
@@ -59,7 +59,7 @@ impl Database {
         &self,
         key: K,
         value: V,
-        seconds: usize,
+        seconds: Uint,
     ) -> Result<(), Error> {
         match cmd("SETEX")
             .arg(key)
@@ -89,7 +89,7 @@ impl Database {
     pub async fn getex<K: ToRedisArgs, V: FromRedisValue>(
         &self,
         key: K,
-        seconds: usize,
+        seconds: Uint,
     ) -> Result<V, Error> {
         match cmd("GETEX")
             .arg(key)

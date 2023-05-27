@@ -8,15 +8,16 @@ use crate::database::namespace::SMSSENDTO;
 use crate::database::namespace::SMSSENT;
 use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
+use crate::message::Uint;
 use crate::message::{Error, Id, Query, Reply, IDL};
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {
     cost: &'static Cost,
     db: &'static Database,
-    access_ttl: usize,
-    refresh_ttl: usize,
-    user_ttl: usize,
+    access_ttl: Uint,
+    refresh_ttl: Uint,
+    user_ttl: Uint,
     phones: &'static Vec<String>,
 }
 
@@ -59,7 +60,7 @@ impl Auth {
                         error: Error::NotFound,
                     };
                 }
-                Ok(self.cost.handle(&uid, q).await)
+                Ok(self.cost.handle(q, &uid).await)
             }
         };
         match result {
