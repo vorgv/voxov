@@ -15,7 +15,7 @@ pub struct Costs {
     pub time: Uint,
     pub space: Uint,
     pub traffic: Uint,
-    pub tips: Int,
+    pub tips: Uint,
 }
 
 #[derive(Debug)]
@@ -29,4 +29,10 @@ pub struct Head {
 pub struct Raw {
     raw: Box<[u8]>,
     time: Int,
+}
+
+impl Costs {
+    pub fn sum(&self) -> Uint {
+        self.time + self.space + self.traffic + self.tips
+    }
 }

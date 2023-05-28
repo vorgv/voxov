@@ -1,8 +1,9 @@
 use crate::config::Config;
-use crate::database::Database;
+use crate::database::namespace::UID2CREDIT;
+use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::fed::Fed;
-use crate::message::{Id, Query, Reply, Uint};
+use crate::message::{Id, Int, Query, Reply, Uint};
 use tokio_util::sync::CancellationToken;
 
 pub struct Cost {
@@ -25,7 +26,18 @@ impl Cost {
                 uri: format!("Not implemented: {}, {}", vendor, uid),
             },
             _ => {
+                // Check if cost exceed credit.
                 let costs = query.get_costs();
+                let u2p = ns(UID2CREDIT, uid);
+                let credit = match self.db.get::<&[u8], Int>(&u2p).await {
+                    Ok(i) => i,
+                    Err(_) => return Reply::Error { error: Error::Cost },
+                };
+                if costs.sum() as Int > credit {
+                    return Reply::Error { error: Error::Cost };
+                }
+
+                // Set time limit as connection costs.
                 let token = CancellationToken::new();
                 let cloned_token = token.clone();
                 let deadline = costs.time * self.time_cost;

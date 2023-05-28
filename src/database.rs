@@ -32,7 +32,7 @@ async fn connect_mongo(addr: &str) -> Result<mongodb::Database, mongodb::error::
 use redis::{cmd, FromRedisValue, ToRedisArgs};
 
 impl Database {
-    /// Connect to Redis, panic on failure
+    /// Connect to Redis, panic on failure.
     pub async fn new(config: &Config) -> Database {
         let mdb = connect_mongo(&config.mongo_addr)
             .await
@@ -54,7 +54,7 @@ impl Database {
         }
     }
 
-    /// Set key-value pair with TTL by seconds
+    /// Set key-value pair with TTL by seconds.
     pub async fn set<K: ToRedisArgs, V: ToRedisArgs>(
         &self,
         key: K,
@@ -73,7 +73,7 @@ impl Database {
         }
     }
 
-    /// Get value by key
+    /// Get value by key.
     pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
         match cmd("GET")
             .arg(key)
@@ -85,7 +85,7 @@ impl Database {
         }
     }
 
-    /// Get value by key and set TTL
+    /// Get value by key and set TTL.
     pub async fn getex<K: ToRedisArgs, V: FromRedisValue>(
         &self,
         key: K,
@@ -103,7 +103,20 @@ impl Database {
         }
     }
 
-    /// Delete key
+    /// Set expiration.
+    pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: Uint) -> Result<(), Error> {
+        match cmd("EXPIRE")
+            .arg(key)
+            .arg(seconds)
+            .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(_) => Err(Error::Redis),
+        }
+    }
+
+    /// Delete key.
     pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
         match cmd("DEL")
             .arg(key)
@@ -116,7 +129,7 @@ impl Database {
     }
 }
 
-/// Namespace for keys
+/// Namespace for keys.
 pub mod namespace {
     pub const _HIDDEN: u8 = 0;
     pub const ACCESS: u8 = 1;
@@ -125,12 +138,13 @@ pub mod namespace {
     pub const SMSSENT: u8 = 4;
     pub const PHONE2UID: u8 = 5;
     pub const UID2PHONE: u8 = 6;
+    pub const UID2CREDIT: u8 = 7;
 }
 
 use crate::message::id::{Id, IDL};
 use bytes::{Buf, Bytes};
 
-/// Prepend namespace tag before Id
+/// Prepend namespace tag before Id.
 pub fn ns(n: u8, id: &Id) -> Bytes {
     ([n][..]).chain(&id.0[..]).copy_to_bytes(1 + IDL)
 }
