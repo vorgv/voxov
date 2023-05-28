@@ -1,5 +1,6 @@
-use super::{Costs, Error, Hash, Id};
+use super::{Costs, Hash, Id};
 use crate::api::{empty, not_implemented};
+use crate::error::Error;
 use http_body_util::combinators::BoxBody;
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};

@@ -4,6 +4,7 @@ pub mod auth;
 pub mod config;
 pub mod cost;
 pub mod database;
+pub mod error;
 pub mod fed;
 pub mod gene;
 pub mod meme;

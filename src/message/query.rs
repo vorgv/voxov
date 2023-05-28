@@ -1,4 +1,5 @@
-use super::{Costs, Error, Hash, Head, Id, Raw};
+use super::{Costs, Hash, Head, Id, Raw};
+use crate::error::Error;
 use hyper::{body::Incoming, Request};
 
 #[derive(Debug)]

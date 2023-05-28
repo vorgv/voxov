@@ -8,8 +8,9 @@ use crate::database::namespace::SMSSENDTO;
 use crate::database::namespace::SMSSENT;
 use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
+use crate::error::Error;
 use crate::message::Uint;
-use crate::message::{Error, Id, Query, Reply, IDL};
+use crate::message::{Id, Query, Reply, IDL};
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {

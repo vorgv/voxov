@@ -4,16 +4,16 @@ mod auth;
 mod config;
 mod cost;
 mod database;
+mod error;
 mod fed;
 mod gene;
 mod meme;
 mod message;
 
-use std::error::Error;
 use voxov::to_static;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Config: collect ENV to global variable only once
     let c = to_static!(config::Config::new());
     // Database: stateless global database struct

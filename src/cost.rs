@@ -1,7 +1,8 @@
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::database::Database;
+use crate::error::Error;
 use crate::fed::Fed;
-use crate::message::{Error, Id, Query, Reply, Uint};
+use crate::message::{Id, Query, Reply, Uint};
 use tokio_util::sync::CancellationToken;
 
 pub struct Cost {

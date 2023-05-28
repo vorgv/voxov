@@ -1,4 +1,5 @@
-use super::{Error, Query};
+use super::Query;
+use crate::error::Error;
 use core::fmt;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};

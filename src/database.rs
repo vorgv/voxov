@@ -1,4 +1,4 @@
-use crate::message::Error;
+use crate::error::Error;
 use crate::{config::Config, message::Uint};
 use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
