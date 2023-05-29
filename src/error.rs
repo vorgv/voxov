@@ -2,16 +2,26 @@ use strum_macros::Display;
 
 #[derive(Display, Debug)]
 pub enum Error {
-    Api,
-    Auth,
-    Cost,
+    ApiParseId,
+    ApiMissingEntry,
+    ApiUnknownQueryType,
+    ApiMissingQueryType,
+
+    AuthInvalidAccessToken,
+    AuthInvalidRefreshToken,
+    AuthNotAuthenticated,
+    AuthInvalidPhone,
+    AuthTokensMismatch,
+
+    CostInsufficientCredit,
+    CostTimeout,
+
     Fed,
     Gene,
     Meme,
     Redis,
     Os,
     Logical,
-    NotFound,
 }
 
 impl std::error::Error for Error {}

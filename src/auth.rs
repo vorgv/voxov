@@ -62,7 +62,7 @@ impl Auth {
                 };
                 if uid.is_zero() {
                     return Reply::Error {
-                        error: Error::NotFound,
+                        error: Error::AuthNotAuthenticated,
                     };
                 }
                 Ok(self.cost.handle(q, &uid).await)
@@ -93,7 +93,7 @@ impl Auth {
         let r = ns(REFRESH, refresh);
         let uid: Option<Vec<u8>> = match self.db.getex(&r[..], self.refresh_ttl).await? {
             Some(v) => v,
-            None => return Err(Error::NotFound),
+            None => return Err(Error::AuthInvalidRefreshToken),
         };
         let access = {
             let mut rng = rand::thread_rng();
@@ -116,12 +116,12 @@ impl Auth {
         if let Some(refresh) = option_refresh {
             // Check if uid matches
             let r = ns(REFRESH, refresh);
-            if let Some(r_uid) = self.db.get::<_, Option<Vec<u8>>>(&r[..]).await? {
-                if Id::try_from(r_uid)? != access_uid {
-                    return Err(Error::Auth);
+            if let Some(refresh_uid) = self.db.get::<_, Option<Vec<u8>>>(&r[..]).await? {
+                if Id::try_from(refresh_uid)? != access_uid {
+                    return Err(Error::AuthTokensMismatch);
                 }
             } else {
-                return Err(Error::Auth);
+                return Err(Error::AuthInvalidRefreshToken);
             }
             self.db.del(&r[..]).await?;
         }
@@ -133,7 +133,7 @@ impl Auth {
         let a = ns(ACCESS, access);
         match self.db.get::<_, Option<Vec<u8>>>(&a[..]).await? {
             Some(uid) => Ok(Id::try_from(uid)?),
-            None => Err(Error::NotFound),
+            None => Err(Error::AuthInvalidAccessToken),
         }
     }
 
@@ -166,7 +166,7 @@ impl Auth {
         let key = nspm(SMSSENT, phone, message);
         let user_phone: String = match self.db.get(&key[..]).await? {
             Some(up) => up,
-            None => return Err(Error::NotFound),
+            None => return Err(Error::AuthInvalidPhone),
         };
         // Find user's uid by phone in PHONE2UID.
         let p2u = nsp(PHONE2UID, &user_phone);

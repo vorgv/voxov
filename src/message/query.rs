@@ -80,7 +80,7 @@ impl Query {
                 return Ok(s);
             }
         }
-        Err(Error::Api)
+        Err(Error::ApiMissingEntry)
     }
 }
 
@@ -107,9 +107,9 @@ impl TryFrom<&Request<Incoming>> for Query {
                     phone: Query::retrieve(req, "phone")?.to_string(),
                     message: Id::try_get(req, "message")?,
                 }),
-                _ => Err(Error::Api),
+                _ => Err(Error::ApiUnknownQueryType),
             },
-            Err(_) => Err(Error::Api),
+            Err(_) => Err(Error::ApiMissingQueryType),
         }
     }
 }

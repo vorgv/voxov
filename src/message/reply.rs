@@ -58,7 +58,9 @@ impl Reply {
             Reply::Error { error } => Response::builder()
                 .header("type", "Error")
                 .header("error", error.to_string())
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .status(match error {
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                })
                 .body(empty())
                 .unwrap(),
             Reply::AuthSessionStart { access, refresh } => Response::builder()

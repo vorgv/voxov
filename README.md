@@ -23,7 +23,7 @@
         - changing rate
             - extend range and wait for adaption
             - shrink to complete shift
-- gene (mongodb)
+- gene (static)
     - metadata
     - censor
         - publish: at least 6 months remaining
@@ -54,10 +54,11 @@
     - static data
 - database
     - redis
-        - set, get
+        - set, get, expire
     - mongodb
-        - meme, gene metadata
-        - meme raw (grid fs)
+        - meme, metadata
+    - S3
+        - meme raw
 - logs
     - mongodb
 - config

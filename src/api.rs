@@ -9,29 +9,29 @@ use tokio::net::TcpListener;
 
 use crate::auth::Auth;
 use crate::config::Config;
-use crate::database::Database;
 use crate::message::Query;
 
 pub struct Api {
     auth: &'static Auth,
     http_addr: SocketAddr,
-    db: &'static Database,
 }
 
+/// Server endpoints.
 impl Api {
-    pub fn new(config: &Config, db: &'static Database, auth: &'static Auth) -> Api {
+    pub fn new(config: &Config, auth: &'static Auth) -> Api {
         Api {
             auth,
             http_addr: config.http_addr,
-            db,
         }
     }
-    /// Open end points
+
+    /// Open endpoints.
     pub async fn serve(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.serve_http().await
-        //TODO tokio::spawn serve_graphql
+        //TODO tokio::spawn serve_graphql.
     }
-    /// Serve static big files
+
+    /// Serve plain http endpoint.
     async fn serve_http(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let listener = TcpListener::bind(self.http_addr).await?;
         loop {
@@ -41,7 +41,7 @@ impl Api {
                     .serve_connection(stream, service_fn(move |req| handle_http(req, self.auth)))
                     .await
                 {
-                    println!("Error serving: {:?}", err);
+                    panic!("Error serving: {:?}", err);
                 }
             });
         }
@@ -58,13 +58,13 @@ async fn handle_http(
         // Everything has side effect, so this is POST-only.
         Method::POST => match Query::try_from(&req) {
             Ok(q) => Ok(auth.handle(&q).await.to_response()),
-            Err(_) => Ok(not_found()),
+            Err(_) => Ok(bad_request()),
         },
         _ => Ok(not_found()),
     }
 }
 
-// Utility functions to make Empty and Full bodies
+// Utility functions to make Empty and Full bodies.
 pub fn empty() -> BoxBody<Bytes, Infallible> {
     Empty::<Bytes>::new()
         .map_err(|never| match never {})
@@ -77,6 +77,7 @@ pub fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
         .boxed()
 }
 
+// Empty bodies with status code.
 fn empty_with_code(status_code: StatusCode) -> Response<BoxBody<Bytes, Infallible>> {
     let mut response = Response::new(empty());
     *response.status_mut() = status_code;
@@ -91,6 +92,6 @@ pub fn not_implemented() -> Response<BoxBody<Bytes, Infallible>> {
     empty_with_code(StatusCode::NOT_IMPLEMENTED)
 }
 
-pub fn request_timeout() -> Response<BoxBody<Bytes, Infallible>> {
-    empty_with_code(StatusCode::REQUEST_TIMEOUT)
+pub fn bad_request() -> Response<BoxBody<Bytes, Infallible>> {
+    empty_with_code(StatusCode::BAD_REQUEST)
 }

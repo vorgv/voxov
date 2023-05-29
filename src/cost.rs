@@ -26,15 +26,17 @@ impl Cost {
                 uri: format!("Not implemented: {}, {}", vendor, uid),
             },
             _ => {
-                // Check if cost exceed credit.
+                // Check if cost exceeds credit.
                 let costs = query.get_costs();
                 let u2p = ns(UID2CREDIT, uid);
                 let credit = match self.db.get::<&[u8], Int>(&u2p).await {
                     Ok(i) => i,
-                    Err(_) => return Reply::Error { error: Error::Cost },
+                    Err(error) => return Reply::Error { error },
                 };
                 if costs.sum() as Int > credit {
-                    return Reply::Error { error: Error::Cost };
+                    return Reply::Error {
+                        error: Error::CostInsufficientCredit,
+                    };
                 }
 
                 // Set time limit as connection costs.
@@ -49,7 +51,7 @@ impl Cost {
                     r = async {
                         self.fed.handle(query, uid, costs, cloned_token.clone()).await
                     } => {r}
-                    _ = cloned_token.cancelled() => Reply::Error { error: Error::Cost }
+                    _ = cloned_token.cancelled() => Reply::Error { error: Error::CostTimeout }
                 }
             }
         }

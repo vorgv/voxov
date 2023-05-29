@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Auth: authentication
     let auth = to_static!(auth::Auth::new(c, db, cost));
     // API: GraphQL & Static
-    let api: &'static api::Api = to_static!(api::Api::new(c, db, auth));
+    let api: &'static api::Api = to_static!(api::Api::new(c, auth));
     // Serve
     api.serve().await
 }

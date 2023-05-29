@@ -18,7 +18,7 @@ impl FromStr for Id {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match <[u8; 16]>::from_hex(s) {
             Ok(u) => Ok(Id(u)),
-            Err(_) => Err(Error::Api),
+            Err(_) => Err(Error::ApiParseId),
         }
     }
 }
