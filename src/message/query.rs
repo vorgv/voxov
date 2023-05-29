@@ -21,7 +21,7 @@ pub enum Query {
         phone: String,
         message: Id,
     },
-    Pay {
+    CostPay {
         access: Id,
         vendor: Id,
     },
@@ -53,7 +53,7 @@ impl Query {
     /// Get the access token from query
     pub fn get_access(&self) -> &Id {
         match self {
-            Query::Pay { access, .. } => access,
+            Query::CostPay { access, .. } => access,
             Query::MemeMeta { head, .. } => &head.access,
             Query::MemeRawPut { head, .. } => &head.access,
             Query::MemeRawGet { head, .. } => &head.access,
@@ -71,6 +71,15 @@ impl Query {
             Query::GeneMeta { head, .. } => &head.costs,
             Query::GeneCall { head, .. } => &head.costs,
             _ => panic!("Query not passed through Cost: {:?}", self),
+        }
+    }
+    /// Get the fed id from query
+    pub fn get_fed(&self) -> &Option<Id> {
+        match self {
+            Query::MemeMeta { head, .. } => &head.fed,
+            Query::GeneMeta { head, .. } => &head.fed,
+            Query::GeneCall { head, .. } => &head.fed,
+            _ => &None,
         }
     }
     /// Retrive value by key from header map
@@ -106,6 +115,10 @@ impl TryFrom<&Request<Incoming>> for Query {
                     refresh: Id::try_get(req, "refresh")?,
                     phone: Query::retrieve(req, "phone")?.to_string(),
                     message: Id::try_get(req, "message")?,
+                }),
+                "CostPay" => Ok(Query::CostPay {
+                    access: Id::try_get(req, "access")?,
+                    vendor: Id::try_get(req, "vendor")?,
                 }),
                 _ => Err(Error::ApiUnknownQueryType),
             },

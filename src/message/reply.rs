@@ -26,7 +26,7 @@ pub enum Reply {
     AuthSmsSent {
         uid: Id,
     },
-    Pay {
+    CostPay {
         uri: String,
     },
     MemeMeta {

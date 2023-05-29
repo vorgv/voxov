@@ -22,7 +22,7 @@ impl Cost {
     }
     pub async fn handle(&self, query: &Query, uid: &Id) -> Reply {
         match query {
-            Query::Pay { access: _, vendor } => Reply::Pay {
+            Query::CostPay { access: _, vendor } => Reply::CostPay {
                 uri: format!("Not implemented: {}, {}", vendor, uid),
             },
             _ => {
