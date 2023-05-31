@@ -1,4 +1,4 @@
-use super::{try_get_hash, Costs, Hash, Head, Id, Raw};
+use super::{try_get, try_get_hash, Costs, Hash, Head, Id, Raw};
 use crate::error::Error;
 use hyper::{body::Incoming, Request};
 
@@ -25,6 +25,15 @@ pub enum Query {
         access: Id,
         vendor: Id,
     },
+    GeneMeta {
+        head: Head,
+        id: usize,
+    },
+    GeneCall {
+        head: Head,
+        id: usize,
+        arg: String,
+    },
     MemeMeta {
         head: Head,
         key: Hash,
@@ -37,15 +46,6 @@ pub enum Query {
     MemeRawGet {
         head: Head,
         key: Hash,
-    },
-    GeneMeta {
-        head: Head,
-        id: Id,
-    },
-    GeneCall {
-        head: Head,
-        id: Id,
-        arg: Box<[u8]>,
     },
 }
 
@@ -119,6 +119,15 @@ impl TryFrom<&Request<Incoming>> for Query {
                 "CostPay" => Ok(Query::CostPay {
                     access: Id::try_get(req, "access")?,
                     vendor: Id::try_get(req, "vendor")?,
+                }),
+                "GeneMeta" => Ok(Query::GeneMeta {
+                    head: Head::try_get(req)?,
+                    id: try_get::<usize>(req, "id")?,
+                }),
+                "GeneCall" => Ok(Query::GeneCall {
+                    head: Head::try_get(req)?,
+                    id: try_get::<usize>(req, "id")?,
+                    arg: Query::retrieve(req, "arg")?.to_string(),
                 }),
                 "MemeMeta" => Ok(Query::MemeMeta {
                     head: Head::try_get(req)?,

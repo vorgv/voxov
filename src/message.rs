@@ -6,6 +6,8 @@ pub mod id;
 pub mod query;
 pub mod reply;
 
+use std::str::FromStr;
+
 pub use id::{Id, IDL};
 pub use query::Query;
 pub use reply::Reply;
@@ -41,10 +43,10 @@ impl Costs {
     }
     pub fn try_get(req: &Request<Incoming>) -> Result<Self, Error> {
         Ok(Costs {
-            time: try_get_uint(req, "time")?,
-            space: try_get_uint(req, "space")?,
-            traffic: try_get_uint(req, "traffic")?,
-            tips: try_get_uint(req, "tips")?,
+            time: try_get::<Uint>(req, "time")?,
+            space: try_get::<Uint>(req, "space")?,
+            traffic: try_get::<Uint>(req, "traffic")?,
+            tips: try_get::<Uint>(req, "tips")?,
         })
     }
 }
@@ -59,11 +61,11 @@ impl Head {
     }
 }
 
-pub fn try_get_uint(req: &Request<Incoming>, key: &str) -> Result<Uint, Error> {
+pub fn try_get<T: FromStr>(req: &Request<Incoming>, key: &str) -> Result<T, Error> {
     let s = Query::retrieve(req, key)?;
-    match s.parse::<Uint>() {
+    match s.parse::<T>() {
         Ok(u) => Ok(u),
-        Err(_) => Err(Error::ApiParseUint),
+        Err(_) => Err(Error::ApiParseNum),
     }
 }
 

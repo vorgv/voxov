@@ -1,5 +1,33 @@
 # VOxOV
 
+federated monolithic pay-as-you-go backend-as-a-service
+
+Solid but with standard utils. Ethereum but without a chain.
+
+## Todos
+
+### Now
+
+- [ ] Impl meme meta
+- [ ] Impl meme raw stream
+- [ ] Impl gene meta
+- [ ] Impl gene: fs
+- [ ] Impl gene: human
+- [ ] Impl gene: censor
+- [ ] Impl gene: likes
+- [ ] Impl gene: chan
+- [ ] Impl gene: xr
+- [ ] Impl gene: wiki
+- [ ] Impl gene: ai
+
+### Later
+
+- [ ] fed related stuff
+- [ ] API rate limit
+- [ ] http size limit
+- [ ] GraphQL API
+- [ ] fed jwt
+
 ## Layers
 
 - api (stateless)
@@ -12,8 +40,9 @@
         - graphql: reduce trips
     - alien
         - static: reduce inter-cluster traffic
-- cost (redis with logs)
+- cost (redis, log to mongodb)
     - time cost
+    - traffic cost
     - space cost
     - tips
 - fed (static only)
@@ -42,24 +71,20 @@
         - pay to get
         - spend credit to give
         - leaderboard
-    - geological AR tools
+    - geological XR tools
         - ads
         - social
     - wiki
         - 1:1 server-author likes
     - recommandation system
         - index all public memes
-- meme (mongodb)
-    - metadata
-    - static data
+- meme
+    - metadata (mongodb)
+    - static data (s3)
 - database
     - redis
         - set, get, expire
     - mongodb
-        - meme, metadata
+        - meme metadata
     - S3
         - meme raw
-- logs
-    - mongodb
-- config
-    - fully static

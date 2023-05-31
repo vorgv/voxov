@@ -8,11 +8,16 @@ use crate::message::{Costs, Id, Query, Reply};
 pub struct Gene {
     meme: &'static Meme,
     db: &'static Database,
+    meta: &'static Vec<GeneMeta>,
 }
 
 impl Gene {
-    pub fn new(_config: &Config, db: &'static Database, meme: &'static Meme) -> Gene {
-        Gene { meme, db }
+    pub fn new(config: &Config, db: &'static Database, meme: &'static Meme) -> Gene {
+        Gene {
+            meme,
+            db,
+            meta: config.gene_metas,
+        }
     }
     pub fn handle(
         &self,
@@ -36,5 +41,5 @@ impl Gene {
 
 pub struct GeneMeta {
     name: String,
-    version: (), //TODO: semver
+    version: usize,
 }

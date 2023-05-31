@@ -88,7 +88,7 @@ impl Config {
 
             user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5 as Uint), // 5 years
 
-            init_credit: env_or!("INIT_CREDIT", 1000_000_000 as Int),
+            init_credit: env_or!("INIT_CREDIT", 1_000_000_000 as Int),
 
             time_cost: env_or!("TIME_COST", 1000 as Uint),
 
