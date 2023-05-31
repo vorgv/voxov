@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Gene: functions
     let gene = to_static!(gene::Gene::new(c, db, meme));
     // Fed: call other instances
-    let fed = to_static!(fed::Fed::new(c, db, gene));
+    let fed = to_static!(fed::Fed::new(c, gene));
     // Cost: set spacetime limit
     let cost = to_static!(cost::Cost::new(c, db, fed));
     // Auth: authentication

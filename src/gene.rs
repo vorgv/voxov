@@ -21,7 +21,16 @@ impl Gene {
         costs: &Costs,
         token: CancellationToken,
     ) -> Reply {
-        Reply::Unimplemented
+        match query {
+            Query::GeneMeta { head, id } => Reply::Unimplemented,
+            Query::GeneCall { head, id, arg } => Reply::Unimplemented,
+            Query::MemeMeta { head, key } => Reply::Unimplemented,
+            Query::MemeRawPut { head, key, raw } => Reply::Unimplemented,
+            Query::MemeRawGet { head, key } => Reply::Unimplemented,
+            _ => Reply::Error {
+                error: crate::error::Error::Logical,
+            },
+        }
     }
 }
 

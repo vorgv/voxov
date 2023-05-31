@@ -1,4 +1,4 @@
-use super::{Costs, Hash, Head, Id, Raw};
+use super::{try_get_hash, Costs, Hash, Head, Id, Raw};
 use crate::error::Error;
 use hyper::{body::Incoming, Request};
 
@@ -119,6 +119,10 @@ impl TryFrom<&Request<Incoming>> for Query {
                 "CostPay" => Ok(Query::CostPay {
                     access: Id::try_get(req, "access")?,
                     vendor: Id::try_get(req, "vendor")?,
+                }),
+                "MemeMeta" => Ok(Query::MemeMeta {
+                    head: Head::try_get(req)?,
+                    key: try_get_hash(req)?,
                 }),
                 _ => Err(Error::ApiUnknownQueryType),
             },

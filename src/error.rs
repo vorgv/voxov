@@ -3,6 +3,8 @@ use strum_macros::Display;
 #[derive(Display, Debug)]
 pub enum Error {
     ApiParseId,
+    ApiParseUint,
+    ApiParseHash,
     ApiMissingEntry,
     ApiUnknownQueryType,
     ApiMissingQueryType,
