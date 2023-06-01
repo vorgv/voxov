@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::message::Int;
 use crate::{config::Config, message::Uint};
 use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
@@ -61,28 +62,22 @@ impl Database {
         value: V,
         seconds: Uint,
     ) -> Result<(), Error> {
-        match cmd("SETEX")
+        cmd("SETEX")
             .arg(key)
             .arg(seconds)
             .arg(value)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-        {
-            Ok(_) => Ok(()),
-            Err(_) => Err(Error::Redis),
-        }
+            .or_else(|_| Err(Error::Redis))
     }
 
     /// Get value by key.
     pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
-        match cmd("GET")
+        cmd("GET")
             .arg(key)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
             .await
-        {
-            Ok(v) => Ok(v),
-            Err(_) => Err(Error::Redis),
-        }
+            .or_else(|_| Err(Error::Redis))
     }
 
     /// Get value by key and set TTL.
@@ -91,41 +86,42 @@ impl Database {
         key: K,
         seconds: Uint,
     ) -> Result<V, Error> {
-        match cmd("GETEX")
+        cmd("GETEX")
             .arg(key)
             .arg("EX")
             .arg(seconds)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
             .await
-        {
-            Ok(v) => Ok(v),
-            Err(_) => Err(Error::Redis),
-        }
+            .or_else(|_| Err(Error::Redis))
     }
 
     /// Set expiration.
     pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: Uint) -> Result<(), Error> {
-        match cmd("EXPIRE")
+        cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-        {
-            Ok(v) => Ok(v),
-            Err(_) => Err(Error::Redis),
-        }
+            .or_else(|_| Err(Error::Redis))
+    }
+
+    /// Decrement the number.
+    pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
+        cmd("DECRBY")
+            .arg(key)
+            .arg(number)
+            .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
+            .await
+            .or_else(|_| Err(Error::Redis))
     }
 
     /// Delete key.
     pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
-        match cmd("DEL")
+        cmd("DEL")
             .arg(key)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-        {
-            Ok(()) => Ok(()),
-            Err(_) => Err(Error::Redis),
-        }
+            .or_else(|_| Err(Error::Redis))
     }
 }
 

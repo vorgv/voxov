@@ -40,6 +40,9 @@ pub struct Config {
     /// Cost per millisecond.
     pub time_cost: Uint,
 
+    /// Cost per byte.
+    pub traffic_cost: Uint,
+
     /// SMS receivers for authentication.
     pub auth_phones: &'static Vec<String>,
 
@@ -92,6 +95,8 @@ impl Config {
 
             time_cost: env_or!("TIME_COST", 1000 as Uint),
 
+            traffic_cost: env_or!("TRAFFIC_COST", 1 as Uint),
+
             auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {
                     let ap: Vec<_> = var.split(':').map(String::from).collect();
@@ -104,8 +109,7 @@ impl Config {
                 Err(_) => vec!["12345".to_string(), "67890".to_string()],
             }),
 
-            //TODO: load external genes.
-            gene_metas: to_static!(vec![]),
+            gene_metas: to_static!(GeneMeta::new_vec()),
         }
     }
 }

@@ -26,9 +26,9 @@ pub struct Costs {
 
 #[derive(Debug)]
 pub struct Head {
-    access: Id,
-    costs: Costs,
-    fed: Option<Id>,
+    pub access: Id,
+    pub costs: Costs,
+    pub fed: Option<Id>,
 }
 
 #[derive(Debug)]

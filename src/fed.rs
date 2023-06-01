@@ -21,7 +21,7 @@ impl Fed {
     ) -> Reply {
         match query.get_fed() {
             Some(_) => Reply::Unimplemented,
-            None => self.gene.handle(query, uid, costs, token),
+            None => self.gene.handle(query, uid, costs, token).await,
         }
     }
 }

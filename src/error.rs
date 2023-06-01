@@ -16,10 +16,14 @@ pub enum Error {
     AuthTokensMismatch,
 
     CostInsufficientCredit,
+    CostTraffic,
     CostTimeout,
 
     Fed,
+
     Gene,
+    GeneInvalidId,
+
     Meme,
     Redis,
     Os,
