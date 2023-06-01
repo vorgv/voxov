@@ -1,5 +1,4 @@
 use serde::Serialize;
-use serde_json;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::Config;
@@ -42,10 +41,9 @@ impl Gene {
             };
         }
         match query {
-            Query::GeneMeta { head, id } => {
+            Query::GeneMeta { head: _, id } => {
                 check!(id);
                 let meta = serde_json::to_string(&self.metas[*id]).unwrap();
-                let costs = &head.costs;
                 let traffic = meta.len() as Uint * self.traffic_cost;
                 if traffic > costs.traffic {
                     return Reply::Error {
@@ -86,18 +84,21 @@ pub struct GeneMeta {
     name: String,
     /// Incremen on breaking change.
     version: usize,
+    description: String,
 }
 
 impl GeneMeta {
     pub fn new_vec() -> Vec<GeneMeta> {
         vec![
             GeneMeta {
-                name: "info".to_string(),
+                name: "info".into(),
                 version: 1,
+                description: "Return infomantion about this server.".into(),
             },
             GeneMeta {
-                name: "file".to_string(),
+                name: "file".into(),
                 version: 1,
+                description: "User file system.".into(),
             },
         ]
     }

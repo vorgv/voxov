@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::message::Int;
 use crate::{config::Config, message::Uint};
 use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
@@ -68,7 +67,7 @@ impl Database {
             .arg(value)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-            .or_else(|_| Err(Error::Redis))
+            .map_err(|_| Error::Redis)
     }
 
     /// Get value by key.
@@ -77,7 +76,7 @@ impl Database {
             .arg(key)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
             .await
-            .or_else(|_| Err(Error::Redis))
+            .map_err(|_| Error::Redis)
     }
 
     /// Get value by key and set TTL.
@@ -92,7 +91,7 @@ impl Database {
             .arg(seconds)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
             .await
-            .or_else(|_| Err(Error::Redis))
+            .map_err(|_| Error::Redis)
     }
 
     /// Set expiration.
@@ -102,7 +101,7 @@ impl Database {
             .arg(seconds)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-            .or_else(|_| Err(Error::Redis))
+            .map_err(|_| Error::Redis)
     }
 
     /// Decrement the number.
@@ -112,7 +111,7 @@ impl Database {
             .arg(number)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-            .or_else(|_| Err(Error::Redis))
+            .map_err(|_| Error::Redis)
     }
 
     /// Delete key.
@@ -121,7 +120,7 @@ impl Database {
             .arg(key)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await
-            .or_else(|_| Err(Error::Redis))
+            .map_err(|_| Error::Redis)
     }
 }
 
