@@ -10,11 +10,12 @@ Solid but with standard utils. Ethereum but without a chain.
 
 - [ ] Impl meme meta
 - [ ] Impl meme raw stream
-- [ ] Impl gene meta
-- [ ] Impl gene: fs
+- [x] Impl gene meta
+- [ ] Impl gene: info
+- [ ] Impl gene: file
 - [ ] Impl gene: human
 - [ ] Impl gene: censor
-- [ ] Impl gene: likes
+- [ ] Impl gene: like
 - [ ] Impl gene: chan
 - [ ] Impl gene: xr
 - [ ] Impl gene: wiki
@@ -63,19 +64,22 @@ Solid but with standard utils. Ethereum but without a chain.
         - push
         - pull
         - application: notification, chat, forum
-    - fs
+    - file
         - directories (pure links to memes)
         - tags
-        - keep-alive
-    - likes
+    - like
         - pay to get
         - spend credit to give
         - leaderboard
+    - automation
+        - file keep-alive
     - geological XR tools
         - ads
         - social
     - wiki
         - 1:1 server-author likes
+    - ai
+        - models
     - recommandation system
         - index all public memes
 - meme

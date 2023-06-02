@@ -1,3 +1,5 @@
+//! Genes are just functions.
+
 use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
@@ -7,6 +9,9 @@ use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::meme::Meme;
 use crate::message::{Costs, Id, Query, Reply, Uint};
+
+mod info;
+mod file;
 
 pub struct Gene {
     meme: &'static Meme,
@@ -67,7 +72,11 @@ impl Gene {
             }
             Query::GeneCall { head, id, arg } => {
                 check!(id);
-                Reply::Unimplemented
+                match id {
+                    0 => info::v1().await,
+                    1 => file::v1().await,
+                    _ => Reply::Error { error: Error::Logical },
+                }
             }
             Query::MemeMeta { head, key } => Reply::Unimplemented,
             Query::MemeRawPut { head, key, raw } => Reply::Unimplemented,
@@ -90,11 +99,13 @@ pub struct GeneMeta {
 impl GeneMeta {
     pub fn new_vec() -> Vec<GeneMeta> {
         vec![
+            // 0
             GeneMeta {
                 name: "info".into(),
                 version: 1,
                 description: "Return infomantion about this server.".into(),
             },
+            // 1
             GeneMeta {
                 name: "file".into(),
                 version: 1,

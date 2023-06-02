@@ -47,6 +47,8 @@ pub enum Query {
         head: Head,
         key: Hash,
     },
+    //TODO: MemeClone, MemeVisa
+    //TODO: CreditClaim
 }
 
 impl Query {

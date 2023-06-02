@@ -1,3 +1,6 @@
+//! Internal representation of messages.
+//! Shoud work with both http and GraphQL APIs.
+
 pub type Int = i64;
 pub type Uint = u64;
 pub type Hash = [u8; 32]; // SHA-256 = SHA-8*32

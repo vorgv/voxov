@@ -1,3 +1,6 @@
+//! The cost layer checks balance and does cancellation on timeout.
+//! Payment is also handled here. Anything behind this is paid.
+
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};

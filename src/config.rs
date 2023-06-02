@@ -1,3 +1,7 @@
+//! The config of VOxOV is fully static, therefore lock-free.
+//! A restart is required to update any config.
+//! To avoid interruption, prepend a load balancer.
+
 use crate::message::{Int, Uint};
 use crate::{gene::GeneMeta, to_static};
 use std::net::IpAddr;

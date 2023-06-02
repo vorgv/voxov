@@ -1,3 +1,5 @@
+//! Authentication and session management.
+
 use crate::config::Config;
 use crate::config::PHONE_MAX_BYTES;
 use crate::cost::Cost;
