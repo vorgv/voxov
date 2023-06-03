@@ -1,5 +1,5 @@
 use super::{Costs, Hash, Id};
-use crate::api::{empty, not_implemented};
+use crate::api::{empty, full, not_implemented};
 use crate::error::Error;
 use http_body_util::combinators::BoxBody;
 use hyper::body::Bytes;
@@ -29,25 +29,25 @@ pub enum Reply {
     CostPay {
         uri: String,
     },
+    GeneMeta {
+        costs: Costs,
+        meta: String,
+    },
+    GeneCall {
+        costs: Costs,
+        result: String,
+    },
     MemeMeta {
-        cost: Costs,
-        meta: Result<String, Error>,
+        costs: Costs,
+        meta: String,
     },
     MemeRawPut {
-        cost: Costs,
+        costs: Costs,
         key: Hash,
     },
     MemeRawGet {
-        cost: Costs,
+        costs: Costs,
         raw: Result<Box<[u8]>, Error>,
-    },
-    GeneMeta {
-        cost: Costs,
-        meta: Result<String, Error>,
-    },
-    GeneCall {
-        cost: Costs,
-        result: Result<Option<Box<[u8]>>, Error>,
     },
 }
 
@@ -91,6 +91,27 @@ impl Reply {
                 .header("type", "AuthSmsSent")
                 .header("uid", uid.to_string())
                 .body(empty())
+                .unwrap(),
+            Reply::CostPay { uri } => Response::builder()
+                .header("type", "CostPay")
+                .header("uri", uri)
+                .body(empty())
+                .unwrap(),
+            Reply::GeneMeta { costs, meta } => Response::builder()
+                .header("type", "GeneMeta")
+                .header("time", costs.time)
+                .header("space", costs.space)
+                .header("traffic", costs.traffic)
+                .header("tips", costs.tips)
+                .body(full(meta.clone()))
+                .unwrap(),
+            Reply::GeneCall { costs, result } => Response::builder()
+                .header("type", "GeneCall")
+                .header("time", costs.time)
+                .header("space", costs.space)
+                .header("traffic", costs.traffic)
+                .header("tips", costs.tips)
+                .body(full(result.clone()))
                 .unwrap(),
             _ => not_implemented(),
         }

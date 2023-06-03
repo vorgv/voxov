@@ -16,13 +16,16 @@ Solid but with standard utils. Ethereum but without a chain.
 - [ ] Impl gene: human
 - [ ] Impl gene: censor
 - [ ] Impl gene: like
-- [ ] Impl gene: chan
+- [ ] Impl gene: chan 
+- [ ] Impl gene: automation
 - [ ] Impl gene: xr
 - [ ] Impl gene: wiki
 - [ ] Impl gene: ai
 
 ### Later
 
+- [ ] CLI client
+- [ ] GUI client
 - [ ] fed related stuff
 - [ ] API rate limit
 - [ ] http size limit

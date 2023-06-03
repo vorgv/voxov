@@ -1,5 +1,5 @@
-use crate::message::Reply;
+use crate::message::{Head, Reply};
 
-pub async fn v1() -> Reply {
+pub async fn v1(_head: &Head, _arg: &str) -> Reply {
     Reply::Unimplemented
 }

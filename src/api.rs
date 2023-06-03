@@ -1,5 +1,5 @@
 //! All have http endpoint.
-//! Only GeneCall implements GraphQL. 
+//! Only GeneCall implements GraphQL.
 
 use std::convert::Infallible;
 use std::error::Error;

@@ -10,8 +10,8 @@ use crate::error::Error;
 use crate::meme::Meme;
 use crate::message::{Costs, Id, Query, Reply, Uint};
 
-mod info;
 mod file;
+mod info;
 
 pub struct Gene {
     meme: &'static Meme,
@@ -49,6 +49,7 @@ impl Gene {
             Query::GeneMeta { head: _, id } => {
                 check!(id);
                 let meta = serde_json::to_string(&self.metas[*id]).unwrap();
+                // Traffic cost is payload-only.
                 let traffic = meta.len() as Uint * self.traffic_cost;
                 if traffic > costs.traffic {
                     return Reply::Error {
@@ -61,26 +62,32 @@ impl Gene {
                     }
                 }
                 Reply::GeneMeta {
-                    cost: Costs {
+                    costs: Costs {
                         time: 0,
                         space: 0,
                         traffic,
                         tips: 0,
                     },
-                    meta: Ok(meta),
+                    meta,
                 }
             }
             Query::GeneCall { head, id, arg } => {
                 check!(id);
                 match id {
                     0 => info::v1().await,
-                    1 => file::v1().await,
-                    _ => Reply::Error { error: Error::Logical },
+                    1 => file::v1(head, arg).await,
+                    _ => Reply::Error {
+                        error: Error::Logical,
+                    },
                 }
             }
-            Query::MemeMeta { head, key } => Reply::Unimplemented,
-            Query::MemeRawPut { head, key, raw } => Reply::Unimplemented,
-            Query::MemeRawGet { head, key } => Reply::Unimplemented,
+            Query::MemeMeta { head: _, key: _ } => Reply::Unimplemented,
+            Query::MemeRawPut {
+                head: _,
+                key: _,
+                raw: _,
+            } => Reply::Unimplemented,
+            Query::MemeRawGet { head: _, key: _ } => Reply::Unimplemented,
             _ => Reply::Error {
                 error: crate::error::Error::Logical,
             },
@@ -97,6 +104,7 @@ pub struct GeneMeta {
 }
 
 impl GeneMeta {
+    //TODO: generate from macros.
     pub fn new_vec() -> Vec<GeneMeta> {
         vec![
             // 0
