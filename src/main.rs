@@ -19,7 +19,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Database: stateless global database struct
     let db = to_static!(database::Database::new(c).await);
     // Meme: data types
-    let meme = to_static!(meme::Meme::new(c, db));
+    let meme: &'static meme::Meme = to_static!(meme::Meme::new(c, db));
+    tokio::spawn(meme.ripperd());
     // Gene: functions
     let gene = to_static!(gene::Gene::new(c, db, meme));
     // Fed: call other instances

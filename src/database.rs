@@ -48,7 +48,11 @@ impl Database {
                     region: config.s3_region.clone(),
                     endpoint: config.s3_addr.clone(),
                 },
-                Credentials::default().unwrap(),
+                Credentials::new(
+                    Some(&config.s3_access_key),
+                    Some(&config.s3_secret_key),
+                    None, None, None,
+                ).unwrap(),
             )
             .expect("S3 offline?"),
         }

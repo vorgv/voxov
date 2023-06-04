@@ -25,6 +25,12 @@ pub struct Config {
     /// S3 or compativle objest storage region.
     pub s3_region: String,
 
+    /// S3 access key.
+    pub s3_access_key: String,
+
+    /// S3 secret key.
+    pub s3_secret_key: String,
+
     /// Endpoint API in http.
     pub http_addr: SocketAddr,
 
@@ -81,6 +87,10 @@ impl Config {
             s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000/"),
 
             s3_region: env_or!("S3_REGION", "develop"),
+
+            s3_access_key: env_or!("S3_ACCESS_KEY", "example-user"),
+
+            s3_secret_key: env_or!("S3_SECRET_KEY", "example-password"),
 
             http_addr: match env::var("HTTP_ADDR") {
                 Ok(var) => SocketAddr::parse_ascii(var.as_bytes()).unwrap(),
