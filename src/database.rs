@@ -51,8 +51,11 @@ impl Database {
                 Credentials::new(
                     Some(&config.s3_access_key),
                     Some(&config.s3_secret_key),
-                    None, None, None,
-                ).unwrap(),
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap(),
             )
             .expect("S3 offline?"),
         }

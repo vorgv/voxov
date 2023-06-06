@@ -19,6 +19,13 @@ pub struct Config {
     /// MongoDB URI.
     pub mongo_addr: String,
 
+    /// Ripperd handles meme expiration.
+    /// 0 or unset for false, others for true.
+    pub ripperd_disabled: bool,
+
+    /// Ripperd's interval as seconds between meme rips.
+    pub ripperd_interval: u64,
+
     /// S3 or compatible object storage URI.
     pub s3_addr: String,
 
@@ -83,6 +90,14 @@ impl Config {
             redis_addr: env_or!("REDIS_ADDR", "redis://localhost/"),
 
             mongo_addr: env_or!("MONGO_ADDR", "mongodb://127.0.0.1:27017/"),
+
+            ripperd_disabled: match env::var("RIPPERD_DISABLED") {
+                Ok(x) if x == "0" => false,
+                Ok(_) => true,
+                _ => false,
+            },
+
+            ripperd_interval: env_or!("RIPPERD_INTERVAL", 60 as u64),
 
             s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000/"),
 
