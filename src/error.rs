@@ -24,8 +24,9 @@ pub enum Error {
     Gene,
     GeneInvalidId,
 
-    Meme,
+    MemeNotFound,
     Redis,
+    MongoDB,
     Os,
     Logical,
 }

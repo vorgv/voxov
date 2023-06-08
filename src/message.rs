@@ -3,7 +3,7 @@
 
 pub type Int = i64;
 pub type Uint = u64;
-pub type Hash = [u8; 32]; // SHA-256 = SHA-8*32
+pub type Hash = [u8; 32]; // BLAKE3
 
 pub mod id;
 pub mod query;

@@ -102,19 +102,19 @@ impl Gene {
                 Ok(Reply::GeneCall { change, result })
             }
 
-            Query::MemeMeta { head: _, key } => {
-                let meta = self.meme.get_meta(uid, key).await?;
+            Query::MemeMeta { head: _, hash } => {
+                let meta = self.meme.get_meta(uid, hash, deadline).await?;
                 traffic_time_refund!(meta);
                 Ok(Reply::MemeMeta { change, meta })
             }
 
             Query::MemeRawPut {
                 head: _,
-                key: _,
+                hash: _,
                 raw: _,
             } => Ok(Reply::Unimplemented),
 
-            Query::MemeRawGet { head: _, key: _ } => Ok(Reply::Unimplemented),
+            Query::MemeRawGet { head: _, hash: _ } => Ok(Reply::Unimplemented),
 
             _ => Err(Error::Logical), // This arm should be unreachable.
         }

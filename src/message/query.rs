@@ -36,16 +36,16 @@ pub enum Query {
     },
     MemeMeta {
         head: Head,
-        key: Hash,
+        hash: Hash,
     },
     MemeRawPut {
         head: Head,
-        key: Hash,
+        hash: Hash,
         raw: Raw,
     },
     MemeRawGet {
         head: Head,
-        key: Hash,
+        hash: Hash,
     },
     //TODO: MemeClone, MemeVisa
     //TODO: CreditClaim
@@ -133,7 +133,7 @@ impl TryFrom<&Request<Incoming>> for Query {
                 }),
                 "MemeMeta" => Ok(Query::MemeMeta {
                     head: Head::try_get(req)?,
-                    key: try_get_hash(req)?,
+                    hash: try_get_hash(req)?,
                 }),
                 _ => Err(Error::ApiUnknownQueryType),
             },
