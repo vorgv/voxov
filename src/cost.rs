@@ -37,6 +37,7 @@ impl Cost {
                 if costs.sum() as Int > credit {
                     return Err(Error::CostInsufficientCredit);
                 } else {
+                    // Decrement then refund to prevent double pay.
                     let u2c = ns(UID2CREDIT, uid);
                     self.db.decrby(&u2c[..], costs.sum()).await?;
                 }

@@ -111,6 +111,16 @@ impl Database {
             .map_err(|_| Error::Redis)
     }
 
+    /// Increment the number.
+    pub async fn incrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
+        cmd("INCRBY")
+            .arg(key)
+            .arg(number)
+            .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
+            .await
+            .map_err(|_| Error::Redis)
+    }
+
     /// Decrement the number.
     pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
         cmd("DECRBY")

@@ -31,6 +31,7 @@ impl Gene {
             traffic_cost: config.traffic_cost,
         }
     }
+
     pub async fn handle(
         &self,
         query: &Query,
@@ -38,6 +39,7 @@ impl Gene {
         mut change: Costs,
         deadline: Instant,
     ) -> Result<Reply, Error> {
+        /// Subtract traffic from change based on $s.len().
         macro_rules! traffic {
             ($s: expr) => {
                 // Traffic cost is server-to-client for now.
@@ -46,11 +48,11 @@ impl Gene {
                     return Err(Error::CostTraffic);
                 } else {
                     change.traffic -= traffic;
-                    let u2c = ns(UID2CREDIT, uid);
-                    self.db.decrby(&u2c[..], traffic).await?;
                 }
             };
         }
+
+        /// Update change.time by the closeness to deadline.
         macro_rules! time {
             () => {
                 let now = Instant::now();
@@ -62,39 +64,59 @@ impl Gene {
                 }
             };
         }
+
+        /// Refund current change.
+        macro_rules! refund {
+            () => {
+                let u2c = ns(UID2CREDIT, uid);
+                self.db.incrby(&u2c[..], change.sum()).await?;
+            };
+        }
+
+        /// Three in one.
+        macro_rules! traffic_time_refund {
+            ($s: expr) => {
+                traffic!($s);
+                time!();
+                refund!();
+            };
+        }
+
         match query {
             Query::GeneMeta { head: _, id } => {
                 if id >= &self.metas.len() {
                     return Err(Error::GeneInvalidId);
                 }
                 let meta = serde_json::to_string(&self.metas[*id]).unwrap();
-                traffic!(meta);
-                time!();
+                traffic_time_refund!(meta);
                 Ok(Reply::GeneMeta { change, meta })
             }
+
             Query::GeneCall { head, id, arg } => {
                 let result = match id {
                     0 => info::v1().await,
                     1 => file::v1(head, arg).await,
                     _ => return Err(Error::GeneInvalidId),
                 };
-                traffic!(result);
-                time!();
+                traffic_time_refund!(result);
                 Ok(Reply::GeneCall { change, result })
             }
+
             Query::MemeMeta { head: _, key } => {
                 let meta = self.meme.get_meta(uid, key).await?;
-                traffic!(meta);
-                time!();
+                traffic_time_refund!(meta);
                 Ok(Reply::MemeMeta { change, meta })
             }
+
             Query::MemeRawPut {
                 head: _,
                 key: _,
                 raw: _,
             } => Ok(Reply::Unimplemented),
+
             Query::MemeRawGet { head: _, key: _ } => Ok(Reply::Unimplemented),
-            _ => Err(Error::Logical),
+
+            _ => Err(Error::Logical), // This arm should be unreachable.
         }
     }
 }
@@ -102,13 +124,12 @@ impl Gene {
 #[derive(Serialize)]
 pub struct GeneMeta {
     name: String,
-    /// Incremen on breaking change.
+    /// Increment on breaking changes.
     version: usize,
     description: String,
 }
 
 impl GeneMeta {
-    //TODO: generate from macros.
     pub fn new_vec() -> Vec<GeneMeta> {
         vec![
             // 0
