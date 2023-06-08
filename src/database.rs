@@ -11,7 +11,7 @@ pub struct Database {
     cm: ConnectionManager,
 
     /// Meme metadata collection
-    mm: mongodb::Collection<Document>,
+    pub mm: mongodb::Collection<Document>,
 
     /// Meme raw data collection
     mr: Bucket,

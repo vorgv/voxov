@@ -1,7 +1,6 @@
 //! Genes are just functions.
 
 use serde::Serialize;
-use tokio_util::sync::CancellationToken;
 
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
@@ -33,10 +32,10 @@ impl Gene {
         &self,
         query: &Query,
         uid: &Id,
-        costs: &Costs,
-        token: CancellationToken,
+        mut change: Costs,
+        deadline: tokio::time::Instant,
     ) -> Reply {
-        macro_rules! check {
+        macro_rules! check_index {
             ($id:expr) => {
                 if $id >= &self.metas.len() {
                     return Reply::Error {
@@ -45,43 +44,53 @@ impl Gene {
                 }
             };
         }
-        match query {
-            Query::GeneMeta { head: _, id } => {
-                check!(id);
-                let meta = serde_json::to_string(&self.metas[*id]).unwrap();
-                // Traffic cost is payload-only.
-                let traffic = meta.len() as Uint * self.traffic_cost;
-                if traffic > costs.traffic {
+        macro_rules! traffic {
+            ($change: expr, $s: expr) => {
+                // Traffic cost is server-to-client for now.
+                let traffic = $s.len() as Uint * self.traffic_cost;
+                if traffic > $change.traffic {
                     return Reply::Error {
                         error: Error::CostTraffic,
                     };
                 } else {
+                    $change.traffic -= traffic;
                     let u2c = ns(UID2CREDIT, uid);
                     if let Err(error) = self.db.decrby(&u2c[..], traffic).await {
                         return Reply::Error { error };
                     }
                 }
-                Reply::GeneMeta {
-                    costs: Costs {
-                        time: 0,
-                        space: 0,
-                        traffic,
-                        tips: 0,
-                    },
-                    meta,
-                }
+            };
+        }
+        macro_rules! time {
+            ($change: expr, $deadline: expr) => {};
+        }
+        match query {
+            Query::GeneMeta { head: _, id } => {
+                check_index!(id);
+                let meta = serde_json::to_string(&self.metas[*id]).unwrap();
+                traffic!(change, meta);
+                time!(change, deadline);
+                Reply::GeneMeta { change, meta }
             }
             Query::GeneCall { head, id, arg } => {
-                check!(id);
-                match id {
+                check_index!(id);
+                let result = match id {
                     0 => info::v1().await,
                     1 => file::v1(head, arg).await,
-                    _ => Reply::Error {
-                        error: Error::Logical,
-                    },
-                }
+                    _ => {
+                        return Reply::Error {
+                            error: Error::Logical,
+                        }
+                    }
+                };
+                traffic!(change, result);
+                time!(change, deadline);
+                Reply::GeneCall { change, result }
             }
-            Query::MemeMeta { head: _, key: _ } => Reply::Unimplemented,
+            Query::MemeMeta { head: _, key } => match self.meme.get_meta(uid, key).await {
+                Ok(meta) => Reply::MemeMeta { change, meta },
+                Err(error) => Reply::Error { error },
+            },
             Query::MemeRawPut {
                 head: _,
                 key: _,

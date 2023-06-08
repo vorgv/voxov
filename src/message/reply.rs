@@ -1,4 +1,4 @@
-use super::{Costs, Hash, Id};
+use super::{Costs, Hash, Id, Uint};
 use crate::api::{empty, full, not_implemented};
 use crate::error::Error;
 use http_body_util::combinators::BoxBody;
@@ -30,23 +30,23 @@ pub enum Reply {
         uri: String,
     },
     GeneMeta {
-        costs: Costs,
+        change: Costs,
         meta: String,
     },
     GeneCall {
-        costs: Costs,
+        change: Costs,
         result: String,
     },
     MemeMeta {
-        costs: Costs,
+        change: Costs,
         meta: String,
     },
     MemeRawPut {
-        costs: Costs,
+        change: Costs,
         key: Hash,
     },
     MemeRawGet {
-        costs: Costs,
+        change: Costs,
         raw: Result<Box<[u8]>, Error>,
     },
 }
@@ -97,7 +97,10 @@ impl Reply {
                 .header("uri", uri)
                 .body(empty())
                 .unwrap(),
-            Reply::GeneMeta { costs, meta } => Response::builder()
+            Reply::GeneMeta {
+                change: costs,
+                meta,
+            } => Response::builder()
                 .header("type", "GeneMeta")
                 .header("time", costs.time)
                 .header("space", costs.space)
@@ -105,7 +108,10 @@ impl Reply {
                 .header("tips", costs.tips)
                 .body(full(meta.clone()))
                 .unwrap(),
-            Reply::GeneCall { costs, result } => Response::builder()
+            Reply::GeneCall {
+                change: costs,
+                result,
+            } => Response::builder()
                 .header("type", "GeneCall")
                 .header("time", costs.time)
                 .header("space", costs.space)

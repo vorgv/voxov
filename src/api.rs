@@ -60,7 +60,7 @@ async fn handle_http(
         Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
         Method::POST => match Query::try_from(&req) {
-            Ok(q) => Ok(auth.handle(&q).await.to_response()),
+            Ok(mut q) => Ok(auth.handle(&mut q).await.to_response()),
             Err(_) => Ok(bad_request()),
         },
         _ => Ok(not_found()),

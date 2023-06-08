@@ -38,7 +38,7 @@ impl Auth {
             phones: config.auth_phones,
         }
     }
-    pub async fn handle(&self, query: &Query) -> Reply {
+    pub async fn handle(&self, query: &mut Query) -> Reply {
         let result = match query {
             // Session management
             Query::AuthSessionStart => self.handle_session_start().await,
@@ -56,7 +56,7 @@ impl Auth {
             } => self.handle_sms_sent(access, refresh, phone, message).await,
 
             // Authenticate and pass to next layer
-            q => {
+            mut q => {
                 let access = q.get_access();
                 let uid = match self.authenticate(access).await {
                     Ok(u) => u,
@@ -67,7 +67,7 @@ impl Auth {
                         error: Error::AuthNotAuthenticated,
                     };
                 }
-                Ok(self.cost.handle(q, &uid).await)
+                Ok(self.cost.handle(&mut q, &uid).await)
             }
         };
         match result {

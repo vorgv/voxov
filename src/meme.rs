@@ -1,8 +1,11 @@
+use mongodb::bson::{doc, Bson};
 use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::config::Config;
 use crate::database::Database;
+use crate::error::Error;
+use crate::message::{Costs, Hash, Id};
 
 pub struct Meme {
     database: &'static Database,
@@ -32,5 +35,12 @@ impl Meme {
             // Remove them on S3 first to prevent leakage.
             // Remove them on MongoDB
         }
+    }
+
+    /// Get meme metadata.
+    pub async fn get_meta(&self, uid: &Id, key: &Hash) -> Result<String, Error> {
+        //let mm = self.database.mm;
+        //let filter = doc! { "hash": key.into() };
+        Ok("".to_string())
     }
 }

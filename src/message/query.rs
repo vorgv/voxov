@@ -65,13 +65,13 @@ impl Query {
         }
     }
     /// Get the cost struct from query
-    pub fn get_costs(&self) -> &Costs {
+    pub fn get_costs(&self) -> Costs {
         match self {
-            Query::MemeMeta { head, .. } => &head.costs,
-            Query::MemeRawPut { head, .. } => &head.costs,
-            Query::MemeRawGet { head, .. } => &head.costs,
-            Query::GeneMeta { head, .. } => &head.costs,
-            Query::GeneCall { head, .. } => &head.costs,
+            Query::MemeMeta { head, .. } => head.costs,
+            Query::MemeRawPut { head, .. } => head.costs,
+            Query::MemeRawGet { head, .. } => head.costs,
+            Query::GeneMeta { head, .. } => head.costs,
+            Query::GeneCall { head, .. } => head.costs,
             _ => panic!("Query not passed through Cost: {:?}", self),
         }
     }

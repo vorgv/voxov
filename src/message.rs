@@ -19,7 +19,7 @@ use crate::error::Error;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Costs {
     pub time: Uint,
     pub space: Uint,
