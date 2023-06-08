@@ -2,6 +2,7 @@
 //! Memes can't be redirected.
 
 use crate::config::Config;
+use crate::error::Error;
 use crate::gene::Gene;
 use crate::message::{Costs, Id, Query, Reply};
 
@@ -19,9 +20,9 @@ impl Fed {
         uid: &Id,
         change: Costs,
         deadline: tokio::time::Instant,
-    ) -> Reply {
+    ) -> Result<Reply, Error> {
         match query.get_fed() {
-            Some(_) => Reply::Unimplemented,
+            Some(_) => Ok(Reply::Unimplemented),
             None => self.gene.handle(query, uid, change, deadline).await,
         }
     }

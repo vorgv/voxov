@@ -1,6 +1,7 @@
 //! Genes are just functions.
 
 use serde::Serialize;
+use tokio::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
@@ -16,6 +17,7 @@ pub struct Gene {
     meme: &'static Meme,
     db: &'static Database,
     metas: &'static Vec<GeneMeta>,
+    time_cost: Uint,
     traffic_cost: Uint,
 }
 
@@ -25,6 +27,7 @@ impl Gene {
             meme,
             db,
             metas: config.gene_metas,
+            time_cost: config.time_cost,
             traffic_cost: config.traffic_cost,
         }
     }
@@ -33,73 +36,65 @@ impl Gene {
         query: &Query,
         uid: &Id,
         mut change: Costs,
-        deadline: tokio::time::Instant,
-    ) -> Reply {
-        macro_rules! check_index {
-            ($id:expr) => {
-                if $id >= &self.metas.len() {
-                    return Reply::Error {
-                        error: Error::GeneInvalidId,
-                    };
-                }
-            };
-        }
+        deadline: Instant,
+    ) -> Result<Reply, Error> {
         macro_rules! traffic {
-            ($change: expr, $s: expr) => {
+            ($s: expr) => {
                 // Traffic cost is server-to-client for now.
                 let traffic = $s.len() as Uint * self.traffic_cost;
-                if traffic > $change.traffic {
-                    return Reply::Error {
-                        error: Error::CostTraffic,
-                    };
+                if traffic > change.traffic {
+                    return Err(Error::CostTraffic);
                 } else {
-                    $change.traffic -= traffic;
+                    change.traffic -= traffic;
                     let u2c = ns(UID2CREDIT, uid);
-                    if let Err(error) = self.db.decrby(&u2c[..], traffic).await {
-                        return Reply::Error { error };
-                    }
+                    self.db.decrby(&u2c[..], traffic).await?;
                 }
             };
         }
         macro_rules! time {
-            ($change: expr, $deadline: expr) => {};
+            () => {
+                let now = Instant::now();
+                if now > deadline {
+                    return Err(Error::CostTime);
+                } else {
+                    let remaining: Duration = deadline - now;
+                    change.time = remaining.as_millis() as Uint * self.time_cost;
+                }
+            };
         }
         match query {
             Query::GeneMeta { head: _, id } => {
-                check_index!(id);
+                if id >= &self.metas.len() {
+                    return Err(Error::GeneInvalidId);
+                }
                 let meta = serde_json::to_string(&self.metas[*id]).unwrap();
-                traffic!(change, meta);
-                time!(change, deadline);
-                Reply::GeneMeta { change, meta }
+                traffic!(meta);
+                time!();
+                Ok(Reply::GeneMeta { change, meta })
             }
             Query::GeneCall { head, id, arg } => {
-                check_index!(id);
                 let result = match id {
                     0 => info::v1().await,
                     1 => file::v1(head, arg).await,
-                    _ => {
-                        return Reply::Error {
-                            error: Error::Logical,
-                        }
-                    }
+                    _ => return Err(Error::GeneInvalidId),
                 };
-                traffic!(change, result);
-                time!(change, deadline);
-                Reply::GeneCall { change, result }
+                traffic!(result);
+                time!();
+                Ok(Reply::GeneCall { change, result })
             }
-            Query::MemeMeta { head: _, key } => match self.meme.get_meta(uid, key).await {
-                Ok(meta) => Reply::MemeMeta { change, meta },
-                Err(error) => Reply::Error { error },
-            },
+            Query::MemeMeta { head: _, key } => {
+                let meta = self.meme.get_meta(uid, key).await?;
+                traffic!(meta);
+                time!();
+                Ok(Reply::MemeMeta { change, meta })
+            }
             Query::MemeRawPut {
                 head: _,
                 key: _,
                 raw: _,
-            } => Reply::Unimplemented,
-            Query::MemeRawGet { head: _, key: _ } => Reply::Unimplemented,
-            _ => Reply::Error {
-                error: crate::error::Error::Logical,
-            },
+            } => Ok(Reply::Unimplemented),
+            Query::MemeRawGet { head: _, key: _ } => Ok(Reply::Unimplemented),
+            _ => Err(Error::Logical),
         }
     }
 }

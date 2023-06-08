@@ -24,27 +24,25 @@ impl Cost {
         }
     }
 
-    pub async fn handle(&self, query: &mut Query, uid: &Id) -> Reply {
+    pub async fn handle(&self, query: &mut Query, uid: &Id) -> Result<Reply, Error> {
         match query {
-            Query::CostPay { access: _, vendor } => Reply::CostPay {
+            Query::CostPay { access: _, vendor } => Ok(Reply::CostPay {
                 uri: format!("Not implemented: {}, {}", vendor, uid),
-            },
+            }),
             _ => {
                 // Check if cost exceeds credit.
-                let mut costs = query.get_costs();
+                let costs = query.get_costs();
                 let u2p = ns(UID2CREDIT, uid);
-                let credit = match self.db.get::<&[u8], Int>(&u2p).await {
-                    Ok(i) => i,
-                    Err(error) => return Reply::Error { error },
-                };
+                let credit = self.db.get::<&[u8], Int>(&u2p).await?;
                 if costs.sum() as Int > credit {
-                    return Reply::Error {
-                        error: Error::CostInsufficientCredit,
-                    };
+                    return Err(Error::CostInsufficientCredit);
+                } else {
+                    let u2c = ns(UID2CREDIT, uid);
+                    self.db.decrby(&u2c[..], costs.sum()).await?;
                 }
 
                 // Set limits.
-                let deadline = Instant::now() + Duration::from_millis(costs.time * self.time_cost);
+                let deadline = Instant::now() + Duration::from_millis(costs.time / self.time_cost);
                 self.fed.handle(query, uid, costs, deadline).await
             }
         }

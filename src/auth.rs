@@ -38,8 +38,8 @@ impl Auth {
             phones: config.auth_phones,
         }
     }
-    pub async fn handle(&self, query: &mut Query) -> Reply {
-        let result = match query {
+    pub async fn handle(&self, query: &mut Query) -> Result<Reply, Error> {
+        match query {
             // Session management
             Query::AuthSessionStart => self.handle_session_start().await,
             Query::AuthSessionRefresh { refresh } => self.handle_session_refresh(refresh).await,
@@ -58,21 +58,12 @@ impl Auth {
             // Authenticate and pass to next layer
             mut q => {
                 let access = q.get_access();
-                let uid = match self.authenticate(access).await {
-                    Ok(u) => u,
-                    Err(error) => return Reply::Error { error },
-                };
+                let uid = self.authenticate(access).await?;
                 if uid.is_zero() {
-                    return Reply::Error {
-                        error: Error::AuthNotAuthenticated,
-                    };
+                    return Err(Error::AuthNotAuthenticated);
                 }
-                Ok(self.cost.handle(&mut q, &uid).await)
+                Ok(self.cost.handle(&mut q, &uid).await?)
             }
-        };
-        match result {
-            Ok(r) => r,
-            Err(error) => Reply::Error { error },
         }
     }
 

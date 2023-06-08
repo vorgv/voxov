@@ -17,7 +17,7 @@ pub enum Error {
 
     CostInsufficientCredit,
     CostTraffic,
-    CostTimeout,
+    CostTime,
 
     Fed,
 
