@@ -1,4 +1,4 @@
-use super::{try_get, try_get_hash, Costs, Hash, Head, Id, Raw};
+use super::{try_get, try_get_hash, Costs, Hash, Head, Id};
 use crate::error::Error;
 use hyper::{body::Incoming, Request};
 
@@ -41,14 +41,13 @@ pub enum Query {
     MemeRawPut {
         head: Head,
         hash: Hash,
-        raw: Raw,
+        raw: Incoming,
     },
     MemeRawGet {
         head: Head,
         hash: Hash,
     },
-    //TODO: MemeClone, MemeVisa
-    //TODO: CreditClaim
+    //TODO: FedMemeClone, FedMemeVisa, FedCreditClaim
 }
 
 impl Query {
@@ -96,44 +95,53 @@ impl Query {
 }
 
 /// Try from http request to rust struct
-impl TryFrom<&Request<Incoming>> for Query {
+impl TryFrom<Request<Incoming>> for Query {
     type Error = Error;
-    fn try_from(req: &Request<Incoming>) -> Result<Self, Self::Error> {
-        match Query::retrieve(req, "type") {
+    fn try_from(req: Request<Incoming>) -> Result<Self, Self::Error> {
+        match Query::retrieve(&req, "type") {
             Ok(v) => match v {
                 "AuthSessionStart" => Ok(Query::AuthSessionStart),
                 "AuthSessionRefresh" => Ok(Query::AuthSessionRefresh {
-                    refresh: Id::try_get(req, "refresh")?,
+                    refresh: Id::try_get(&req, "refresh")?,
                 }),
                 "AuthSessionEnd" => Ok(Query::AuthSessionEnd {
-                    access: Id::try_get(req, "access")?,
-                    option_refresh: Id::opt(req, "refresh"),
+                    access: Id::try_get(&req, "access")?,
+                    option_refresh: Id::opt(&req, "refresh"),
                 }),
                 "AuthSmsSendTo" => Ok(Query::AuthSmsSendTo {
-                    access: Id::try_get(req, "access")?,
+                    access: Id::try_get(&req, "access")?,
                 }),
                 "AuthSmsSent" => Ok(Query::AuthSmsSent {
-                    access: Id::try_get(req, "access")?,
-                    refresh: Id::try_get(req, "refresh")?,
-                    phone: Query::retrieve(req, "phone")?.to_string(),
-                    message: Id::try_get(req, "message")?,
+                    access: Id::try_get(&req, "access")?,
+                    refresh: Id::try_get(&req, "refresh")?,
+                    phone: Query::retrieve(&req, "phone")?.to_string(),
+                    message: Id::try_get(&req, "message")?,
                 }),
                 "CostPay" => Ok(Query::CostPay {
-                    access: Id::try_get(req, "access")?,
-                    vendor: Id::try_get(req, "vendor")?,
+                    access: Id::try_get(&req, "access")?,
+                    vendor: Id::try_get(&req, "vendor")?,
                 }),
                 "GeneMeta" => Ok(Query::GeneMeta {
-                    head: Head::try_get(req)?,
-                    id: try_get::<usize>(req, "id")?,
+                    head: Head::try_get(&req)?,
+                    id: try_get::<usize>(&req, "id")?,
                 }),
                 "GeneCall" => Ok(Query::GeneCall {
-                    head: Head::try_get(req)?,
-                    id: try_get::<usize>(req, "id")?,
-                    arg: Query::retrieve(req, "arg")?.to_string(),
+                    head: Head::try_get(&req)?,
+                    id: try_get::<usize>(&req, "id")?,
+                    arg: Query::retrieve(&req, "arg")?.to_string(),
                 }),
                 "MemeMeta" => Ok(Query::MemeMeta {
-                    head: Head::try_get(req)?,
-                    hash: try_get_hash(req)?,
+                    head: Head::try_get(&req)?,
+                    hash: try_get_hash(&req)?,
+                }),
+                "MemeRawPut" => Ok(Query::MemeRawPut {
+                    head: Head::try_get(&req)?,
+                    hash: try_get_hash(&req)?,
+                    raw: req.into_body(),
+                }),
+                "MemeRawGet" => Ok(Query::MemeRawGet {
+                    head: Head::try_get(&req)?,
+                    hash: try_get_hash(&req)?,
                 }),
                 _ => Err(Error::ApiUnknownQueryType),
             },

@@ -34,12 +34,6 @@ pub struct Head {
     pub fed: Option<Id>,
 }
 
-#[derive(Debug)]
-pub struct Raw {
-    raw: Box<[u8]>, //TODO: use stream
-    time: Int,
-}
-
 impl Costs {
     pub fn sum(&self) -> Uint {
         self.time + self.space + self.traffic + self.tips
