@@ -1,9 +1,10 @@
 use super::{Costs, Hash, Id};
 use crate::api::{empty, full, not_implemented};
-use crate::body::ResponseBody as RB;
+use crate::body::{BoxStream, ResponseBody as RB, StreamItem};
 use crate::error::Error;
-use hyper::body::Incoming;
+use http_body_util::StreamBody;
 use hyper::{Response, StatusCode};
+use std::mem::replace;
 
 pub enum Reply {
     Unimplemented,
@@ -18,11 +19,11 @@ pub enum Reply {
     GeneCall { change: Costs, result: String },
     MemeMeta { change: Costs, meta: String },
     MemeRawPut { change: Costs, hash: Hash },
-    MemeRawGet { change: Costs, raw: Incoming },
+    MemeRawGet { change: Costs, raw: BoxStream },
 }
 
 impl Reply {
-    pub fn to_response(&self) -> Response<RB> {
+    pub fn to_response(&mut self) -> Response<RB> {
         macro_rules! response_change {
             ($change: expr) => {
                 Response::builder()
@@ -31,6 +32,16 @@ impl Reply {
                     .header("traffic", $change.traffic)
                     .header("tips", $change.tips)
             };
+        }
+
+        if let Reply::MemeRawGet { change, raw } = self {
+            return response_change!(change)
+                .header("type", "MemeRawGet")
+                .body(RB::Stream(StreamBody::new(replace(
+                    raw,
+                    Box::pin(tokio_stream::empty::<StreamItem>()),
+                ))))
+                .unwrap();
         }
 
         match self {
@@ -71,7 +82,7 @@ impl Reply {
                 .unwrap(),
             Reply::CostPay { uri } => Response::builder()
                 .header("type", "CostPay")
-                .header("uri", uri)
+                .header("uri", uri.clone())
                 .body(empty())
                 .unwrap(),
             Reply::GeneMeta { change, meta } => response_change!(change)
@@ -88,7 +99,7 @@ impl Reply {
                 .unwrap(),
             Reply::MemeRawPut { change, hash } => response_change!(change)
                 .header("type", "MemeRawPut")
-                .header("type", hex::encode(hash))
+                .header("hash", hex::encode(hash))
                 .body(empty())
                 .unwrap(),
             _ => not_implemented(),

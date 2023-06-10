@@ -1,14 +1,19 @@
-use http_body_util::combinators::BoxBody;
-use hyper::body::{Body, Bytes, Frame};
+use http_body_util::{combinators::BoxBody, StreamBody};
+use hyper::body::{Body, Bytes, Frame, SizeHint};
 use std::{
     convert::Infallible,
     pin::Pin,
     task::{Context, Poll},
 };
+use tokio_stream::Stream;
+
+pub type StreamItem = Result<Frame<Bytes>, Infallible>;
+
+pub type BoxStream = Pin<Box<dyn Stream<Item = StreamItem> + Send>>;
 
 pub enum ResponseBody {
     Box(BoxBody<Bytes, Infallible>),
-    Stream(),
+    Stream(StreamBody<BoxStream>),
 }
 
 impl Body for ResponseBody {
@@ -20,25 +25,22 @@ impl Body for ResponseBody {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
-            Self::Box(boxbody) => Pin::new(&mut *boxbody).poll_frame(cx),
-            Self::Stream() => {
-                //TODO: impl
-                Poll::Ready(None)
-            }
+            Self::Box(b) => Pin::new(&mut *b).poll_frame(cx),
+            Self::Stream(s) => Pin::new(&mut *s).poll_frame(cx),
         }
     }
 
     fn is_end_stream(&self) -> bool {
         match self {
-            Self::Box(boxbody) => boxbody.is_end_stream(),
-            Self::Stream() => false,
+            Self::Box(b) => b.is_end_stream(),
+            Self::Stream(s) => s.is_end_stream(),
         }
     }
 
-    fn size_hint(&self) -> hyper::body::SizeHint {
+    fn size_hint(&self) -> SizeHint {
         match self {
-            Self::Box(boxbody) => boxbody.size_hint(),
-            Self::Stream() => hyper::body::SizeHint::default(),
+            Self::Box(b) => b.size_hint(),
+            Self::Stream(_) => SizeHint::default(),
         }
     }
 }
