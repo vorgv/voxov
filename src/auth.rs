@@ -38,6 +38,7 @@ impl Auth {
             phones: config.auth_phones,
         }
     }
+
     pub async fn handle(&self, query: &mut Query) -> Result<Reply, Error> {
         match query {
             // Session management

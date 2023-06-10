@@ -1,16 +1,5 @@
 #![feature(addr_parse_ascii)]
-mod api;
-mod auth;
-mod config;
-mod cost;
-mod database;
-mod error;
-mod fed;
-mod gene;
-mod meme;
-mod message;
-
-use voxov::to_static;
+use voxov::{api, auth, config, cost, database, fed, gene, meme, to_static};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

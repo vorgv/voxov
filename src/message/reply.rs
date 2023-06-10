@@ -1,10 +1,9 @@
 use super::{Costs, Hash, Id};
 use crate::api::{empty, full, not_implemented};
+use crate::body::ResponseBody as RB;
 use crate::error::Error;
-use http_body_util::combinators::BoxBody;
-use hyper::body::{Bytes, Incoming};
+use hyper::body::Incoming;
 use hyper::{Response, StatusCode};
-use std::convert::Infallible;
 
 pub enum Reply {
     Unimplemented,
@@ -23,7 +22,7 @@ pub enum Reply {
 }
 
 impl Reply {
-    pub fn to_response(&self) -> Response<BoxBody<Bytes, Infallible>> {
+    pub fn to_response(&self) -> Response<RB> {
         macro_rules! response_change {
             ($change: expr) => {
                 Response::builder()
@@ -33,6 +32,7 @@ impl Reply {
                     .header("tips", $change.tips)
             };
         }
+
         match self {
             Reply::Unimplemented => not_implemented(),
             Reply::Error { error } => Response::builder()

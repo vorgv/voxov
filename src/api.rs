@@ -5,12 +5,13 @@ use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
 
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
+use http_body_util::{BodyExt, Empty, Full};
 use hyper::server::conn::http1;
 use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
 use tokio::net::TcpListener;
 
 use crate::auth::Auth;
+use crate::body::ResponseBody as RB;
 use crate::config::Config;
 use crate::message::Query;
 
@@ -54,7 +55,7 @@ impl Api {
 async fn handle_http(
     req: Request<hyper::body::Incoming>,
     auth: &'static Auth,
-) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
+) -> Result<Response<RB>, Infallible> {
     match *req.method() {
         // Ping server
         Method::GET => Ok(Response::new(full("PONG"))),
@@ -72,33 +73,37 @@ async fn handle_http(
 }
 
 // Utility functions to make Empty and Full bodies.
-pub fn empty() -> BoxBody<Bytes, Infallible> {
-    Empty::<Bytes>::new()
-        .map_err(|never| match never {})
-        .boxed()
+pub fn empty() -> RB {
+    RB::Box(
+        Empty::<Bytes>::new()
+            .map_err(|never| match never {})
+            .boxed(),
+    )
 }
 
-pub fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
-    Full::new(chunk.into())
-        .map_err(|never| match never {})
-        .boxed()
+pub fn full<T: Into<Bytes>>(chunk: T) -> RB {
+    RB::Box(
+        Full::new(chunk.into())
+            .map_err(|never| match never {})
+            .boxed(),
+    )
 }
 
 // Empty bodies with status code.
-fn empty_with_code(status_code: StatusCode) -> Response<BoxBody<Bytes, Infallible>> {
+fn empty_with_code(status_code: StatusCode) -> Response<RB> {
     let mut response = Response::new(empty());
     *response.status_mut() = status_code;
     response
 }
 
-fn not_found() -> Response<BoxBody<Bytes, Infallible>> {
+fn not_found() -> Response<RB> {
     empty_with_code(StatusCode::NOT_FOUND)
 }
 
-pub fn not_implemented() -> Response<BoxBody<Bytes, Infallible>> {
+pub fn not_implemented() -> Response<RB> {
     empty_with_code(StatusCode::NOT_IMPLEMENTED)
 }
 
-pub fn bad_request() -> Response<BoxBody<Bytes, Infallible>> {
+pub fn bad_request() -> Response<RB> {
     empty_with_code(StatusCode::BAD_REQUEST)
 }
