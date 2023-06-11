@@ -1,6 +1,11 @@
 use super::{try_get, try_get_hash, Costs, Hash, Head, Id};
 use crate::error::Error;
+use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::{body::Incoming, Request};
+
+type OptionId = Option<Id>;
+
+type QueryBody = BoxBody<bytes::Bytes, hyper::Error>;
 
 #[derive(Debug)]
 pub enum Query {
@@ -10,7 +15,7 @@ pub enum Query {
     },
     AuthSessionEnd {
         access: Id,
-        option_refresh: Option<Id>,
+        option_refresh: OptionId,
     },
     AuthSmsSendTo {
         access: Id,
@@ -41,7 +46,7 @@ pub enum Query {
     MemeRawPut {
         head: Head,
         hash: Hash,
-        raw: Incoming,
+        raw: QueryBody,
     },
     MemeRawGet {
         head: Head,
@@ -137,7 +142,7 @@ impl TryFrom<Request<Incoming>> for Query {
                 "MemeRawPut" => Ok(Query::MemeRawPut {
                     head: Head::try_get(&req)?,
                     hash: try_get_hash(&req)?,
-                    raw: req.into_body(),
+                    raw: req.into_body().boxed(),
                 }),
                 "MemeRawGet" => Ok(Query::MemeRawGet {
                     head: Head::try_get(&req)?,

@@ -28,6 +28,7 @@ impl Gene {
             db,
             metas: config.gene_metas,
             time_cost: config.time_cost,
+            //TODO space_cost_doc space_cost_obj
             traffic_cost: config.traffic_cost,
         }
     }
@@ -92,10 +93,10 @@ impl Gene {
                 Ok(Reply::GeneMeta { change, meta })
             }
 
-            Query::GeneCall { head, id, arg } => {
+            Query::GeneCall { head: _, id, arg } => {
                 let result = match id {
-                    0 => info::v1().await,
-                    1 => file::v1(head, arg).await,
+                    0 => info::v1(uid, arg).await,
+                    1 => file::v1(uid, arg, &mut change, deadline).await,
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
@@ -123,9 +124,13 @@ impl Gene {
 
 #[derive(Serialize)]
 pub struct GeneMeta {
+    /// Naming convention: snake_case
     name: String,
+
     /// Increment on breaking changes.
     version: usize,
+
+    /// Man page.
     description: String,
 }
 
