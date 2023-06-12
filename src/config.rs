@@ -57,6 +57,12 @@ pub struct Config {
     /// Cost per millisecond.
     pub time_cost: Uint,
 
+    /// Cost per byte per second in MongoDB.
+    pub space_cost_doc: Uint,
+
+    /// Cost per byte per second in S3.
+    pub space_cost_obj: Uint,
+
     /// Cost per byte.
     pub traffic_cost: Uint,
 
@@ -123,6 +129,10 @@ impl Config {
             init_credit: env_or!("INIT_CREDIT", 1_000_000_000 as Int),
 
             time_cost: env_or!("TIME_COST", 1000 as Uint),
+
+            space_cost_doc: env_or!("SPACE_COST_DOC", 10 as Uint),
+
+            space_cost_obj: env_or!("SPACE_COST_OBJ", 1 as Uint),
 
             traffic_cost: env_or!("TRAFFIC_COST", 1 as Uint),
 

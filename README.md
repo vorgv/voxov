@@ -15,7 +15,7 @@ A shell connects big clouds, small users and developers.
 - [ ] Impl meme raw stream
 - [x] Impl gene meta
 - [ ] Impl gene: info
-- [ ] Impl gene: file
+- [ ] Impl gene: map
 - [ ] Impl gene: human
 - [ ] Impl gene: censor
 - [ ] Impl gene: like
@@ -70,9 +70,8 @@ A shell connects big clouds, small users and developers.
         - push
         - pull
         - application: notification, chat, forum
-    - file
-        - directories (pure links to memes)
-        - tags
+    - map
+        - like a filesystem
     - like
         - pay to get
         - spend credit to give

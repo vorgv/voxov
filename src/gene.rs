@@ -10,14 +10,16 @@ use crate::error::Error;
 use crate::meme::Meme;
 use crate::message::{Costs, Id, Query, Reply, Uint};
 
-mod file;
 mod info;
+mod map;
 
 pub struct Gene {
     meme: &'static Meme,
     db: &'static Database,
     metas: &'static Vec<GeneMeta>,
     time_cost: Uint,
+    space_cost_doc: Uint,
+    space_cost_obj: Uint,
     traffic_cost: Uint,
 }
 
@@ -28,7 +30,8 @@ impl Gene {
             db,
             metas: config.gene_metas,
             time_cost: config.time_cost,
-            //TODO space_cost_doc space_cost_obj
+            space_cost_doc: config.space_cost_doc,
+            space_cost_obj: config.space_cost_obj,
             traffic_cost: config.traffic_cost,
         }
     }
@@ -94,9 +97,10 @@ impl Gene {
             }
 
             Query::GeneCall { head: _, id, arg } => {
+                traffic!(arg);
                 let result = match id {
                     0 => info::v1(uid, arg).await,
-                    1 => file::v1(uid, arg, &mut change, deadline).await,
+                    1 => map::v1(uid, arg, &mut change, self.space_cost_doc, deadline).await,
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
@@ -145,9 +149,9 @@ impl GeneMeta {
             },
             // 1
             GeneMeta {
-                name: "file".into(),
+                name: "map".into(),
                 version: 1,
-                description: "User file system.".into(),
+                description: "Mapping over document data backed by MongoDB.".into(),
             },
         ]
     }
