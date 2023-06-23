@@ -2147,6 +2147,7 @@ dependencies = [
  "blake3",
  "bytes",
  "hex",
+ "http-body 0.4.5",
  "http-body-util",
  "hyper 1.0.0-rc.3",
  "mongodb",

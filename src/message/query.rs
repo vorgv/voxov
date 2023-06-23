@@ -1,11 +1,12 @@
+use std::pin::Pin;
+
 use super::{try_get, try_get_hash, Costs, Hash, Head, Id};
 use crate::error::Error;
-use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::{body::Incoming, Request};
 
 type OptionId = Option<Id>;
 
-type QueryBody = BoxBody<bytes::Bytes, hyper::Error>;
+pub type QueryBody = Pin<Box<Incoming>>;
 
 #[derive(Debug)]
 pub enum Query {
@@ -140,7 +141,7 @@ impl TryFrom<Request<Incoming>> for Query {
                 }),
                 "MemeRawPut" => Ok(Query::MemeRawPut {
                     head: Head::try_get(&req)?,
-                    raw: req.into_body().boxed(),
+                    raw: std::boxed::Box::pin(req.into_body()),
                 }),
                 "MemeRawGet" => Ok(Query::MemeRawGet {
                     head: Head::try_get(&req)?,

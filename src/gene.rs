@@ -2,17 +2,18 @@
 
 use std::task::Poll;
 
-use http_body_util::BodyExt;
+use blake3::{self, Hasher};
+use hyper::body::Body;
 use serde::Serialize;
-use tokio::io::{AsyncRead, BufStream};
+use tokio::io::AsyncRead;
 use tokio::time::{Duration, Instant};
-use blake3;
 
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::meme::Meme;
+use crate::message::query::QueryBody;
 use crate::message::{Costs, Id, Query, Reply, Uint};
 
 mod info;
@@ -98,7 +99,10 @@ impl Gene {
                 }
                 let meta = serde_json::to_string(&self.metas[id]).unwrap();
                 traffic_time_refund!(meta);
-                Ok(Reply::GeneMeta { change: changes, meta })
+                Ok(Reply::GeneMeta {
+                    change: changes,
+                    meta,
+                })
             }
 
             Query::GeneCall { head: _, id, arg } => {
@@ -109,45 +113,39 @@ impl Gene {
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
-                Ok(Reply::GeneCall { change: changes, result })
+                Ok(Reply::GeneCall {
+                    change: changes,
+                    result,
+                })
             }
 
             Query::MemeMeta { head: _, hash } => {
                 let meta = self.meme.get_meta(uid, &hash, deadline).await?;
                 traffic_time_refund!(meta);
-                Ok(Reply::MemeMeta { change: changes, meta })
+                Ok(Reply::MemeMeta {
+                    change: changes,
+                    meta,
+                })
             }
 
-            Query::MemeRawPut { head: _, mut raw } => {
+            Query::MemeRawPut { head: _, raw } => {
                 // check if fund is enough for the first round
                 const MAX_FRAME_BYTES: usize = 16_777_215;
                 if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
-                    return Err(Error::CostTraffic)
+                    return Err(Error::CostTraffic);
                 }
                 // create tmp object with a random name
-                let mut putter = Putter {};
-                let mut rng = rand::thread_rng();
-                let tmp_id = Id::rand(&mut rng)?;
-                self.db.mr.put_object_stream(&mut putter, tmp_id.to_string());
-                // create hash
-                let mut hasher = blake3::Hasher::new();
-                while let Some(result) = raw.frame().await {
-                    match result {
-                        Ok(frame) => {
-                            if frame.is_data() {
-                                let bytes = frame.into_data().map_err(|_| Error::MemeRawPut)?;
-                                // update hash
-                                hasher.update(&bytes);
-                                // append to object
-                                // check costs
-                            }
-                        }
-                        Err(_) => {
-                            // remove tmp object
-                            return Err(Error::MemeRawPut)
-                        },
-                    };
-                }
+                let tmp_id = {
+                    let mut rng = rand::thread_rng();
+                    Id::rand(&mut rng)?
+                };
+                let mut putter = Putter::new(raw);
+                self.db
+                    .mr
+                    .put_object_stream(&mut putter, tmp_id.to_string())
+                    .await
+                    .map_err(|_| Error::MemeRawPut)?;
+                let _hash = putter.get_hash();
                 // if object does not exist, update object name by hash
                 //  create meta-data
                 // else append extra life to the object
@@ -172,15 +170,54 @@ impl Gene {
     }
 }
 
-struct Putter {}
+struct Putter {
+    haser: Hasher,
+    body: QueryBody,
+}
+
+impl Putter {
+    fn new(body: QueryBody) -> Self {
+        Putter {
+            haser: Hasher::new(),
+            body,
+        }
+    }
+    fn get_hash(&self) -> blake3::Hash {
+        self.haser.finalize()
+    }
+}
 
 impl AsyncRead for Putter {
+    // Poll data frames from body while skip trailer frames.
     fn poll_read(
-            self: std::pin::Pin<&mut Self>,
-            cx: &mut std::task::Context<'_>,
-            buf: &mut tokio::io::ReadBuf<'_>,
-        ) -> std::task::Poll<std::io::Result<()>> {
-        Poll::Pending
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        loop {
+            let mut is_data = true;
+            let poll =
+                Body::poll_frame(self.body.as_mut(), cx).map(|option| -> std::io::Result<()> {
+                    match option {
+                        Some(result) => match result {
+                            Ok(frame) => {
+                                if frame.is_data() {
+                                    buf.put_slice(&frame.into_data().unwrap());
+                                    //TODO costs
+                                } else {
+                                    is_data = false;
+                                }
+                                Ok(())
+                            }
+                            Err(_) => Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof)),
+                        },
+                        None => Ok(()),
+                    }
+                });
+            if is_data {
+                return poll;
+            }
+        }
     }
 }
 
