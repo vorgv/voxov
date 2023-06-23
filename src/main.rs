@@ -2,7 +2,7 @@
 use voxov::{api, auth, config, cost, database, fed, gene, meme, to_static};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() {
     // Config: collect ENV to global variable only once
     let c = to_static!(config::Config::new());
     // Database: stateless global database struct
@@ -21,5 +21,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // API: GraphQL & Static
     let api: &'static api::Api = to_static!(api::Api::new(c, auth));
     // Serve
-    api.serve().await
+    api.serve().await;
 }

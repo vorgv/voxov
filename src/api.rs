@@ -5,9 +5,11 @@ use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
 
+use axum::routing::{get, post};
+use axum::Router;
+
 use http_body_util::{BodyExt, Empty, Full};
-use hyper::server::conn::http1;
-use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
+use hyper::{body::Bytes, Method, Request, Response, StatusCode};
 use tokio::net::TcpListener;
 
 use crate::auth::Auth;
@@ -30,25 +32,18 @@ impl Api {
     }
 
     /// Open endpoints.
-    pub async fn serve(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.serve_http().await
+    pub async fn serve(&'static self) {
+        self.serve_http().await;
         //TODO tokio::spawn serve_graphql.
     }
 
     /// Serve plain http endpoint.
-    async fn serve_http(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let listener = TcpListener::bind(self.http_addr).await?;
-        loop {
-            let (stream, _) = listener.accept().await?;
-            tokio::task::spawn(async move {
-                if let Err(err) = http1::Builder::new()
-                    .serve_connection(stream, service_fn(move |req| handle_http(req, self.auth)))
-                    .await
-                {
-                    panic!("Error serving: {:?}", err);
-                }
-            });
-        }
+    async fn serve_http(&'static self) {
+        let listener = TcpListener::bind(self.http_addr).await.unwrap();
+        let app = Router::new()
+            .route("/", get(|| async { "PONG" }))
+            .route("/", post();
+        axum::serve(listener, app).await.unwrap();
     }
 }
 

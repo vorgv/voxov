@@ -2,11 +2,11 @@
 
 use std::task::Poll;
 
+use blake3;
 use http_body_util::BodyExt;
 use serde::Serialize;
 use tokio::io::{AsyncRead, BufStream};
 use tokio::time::{Duration, Instant};
-use blake3;
 
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
@@ -98,7 +98,10 @@ impl Gene {
                 }
                 let meta = serde_json::to_string(&self.metas[id]).unwrap();
                 traffic_time_refund!(meta);
-                Ok(Reply::GeneMeta { change: changes, meta })
+                Ok(Reply::GeneMeta {
+                    change: changes,
+                    meta,
+                })
             }
 
             Query::GeneCall { head: _, id, arg } => {
@@ -109,26 +112,34 @@ impl Gene {
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
-                Ok(Reply::GeneCall { change: changes, result })
+                Ok(Reply::GeneCall {
+                    change: changes,
+                    result,
+                })
             }
 
             Query::MemeMeta { head: _, hash } => {
                 let meta = self.meme.get_meta(uid, &hash, deadline).await?;
                 traffic_time_refund!(meta);
-                Ok(Reply::MemeMeta { change: changes, meta })
+                Ok(Reply::MemeMeta {
+                    change: changes,
+                    meta,
+                })
             }
 
             Query::MemeRawPut { head: _, mut raw } => {
                 // check if fund is enough for the first round
                 const MAX_FRAME_BYTES: usize = 16_777_215;
                 if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
-                    return Err(Error::CostTraffic)
+                    return Err(Error::CostTraffic);
                 }
                 // create tmp object with a random name
                 let mut putter = Putter {};
                 let mut rng = rand::thread_rng();
                 let tmp_id = Id::rand(&mut rng)?;
-                self.db.mr.put_object_stream(&mut putter, tmp_id.to_string());
+                self.db
+                    .mr
+                    .put_object_stream(&mut putter, tmp_id.to_string());
                 // create hash
                 let mut hasher = blake3::Hasher::new();
                 while let Some(result) = raw.frame().await {
@@ -144,8 +155,8 @@ impl Gene {
                         }
                         Err(_) => {
                             // remove tmp object
-                            return Err(Error::MemeRawPut)
-                        },
+                            return Err(Error::MemeRawPut);
+                        }
                     };
                 }
                 // if object does not exist, update object name by hash
@@ -176,10 +187,10 @@ struct Putter {}
 
 impl AsyncRead for Putter {
     fn poll_read(
-            self: std::pin::Pin<&mut Self>,
-            cx: &mut std::task::Context<'_>,
-            buf: &mut tokio::io::ReadBuf<'_>,
-        ) -> std::task::Poll<std::io::Result<()>> {
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
         Poll::Pending
     }
 }
