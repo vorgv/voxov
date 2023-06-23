@@ -28,6 +28,7 @@ pub enum Error {
     MemeRawPut,
     Redis,
     MongoDB,
+    S3,
     Os,
     Logical,
 }

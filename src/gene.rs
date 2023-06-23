@@ -120,28 +120,29 @@ impl Gene {
             }
 
             Query::MemeRawPut { head: _, raw } => {
-                // check if fund is enough for the first round
+                // Check if fund is enough for the first poll.
                 const MAX_FRAME_BYTES: usize = 16_777_215;
                 if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
                     return Err(Error::CostTraffic);
                 }
-                // create tmp object with a random name
-                let tmp_id = {
+                // Create object with a random name.
+                let obj_id = {
                     let mut rng = rand::thread_rng();
                     Id::rand(&mut rng)?
                 };
                 let mut putter = Putter::new(raw);
-                self.db
-                    .mr
-                    .put_object_stream(&mut putter, tmp_id.to_string())
-                    .await
-                    .map_err(|_| Error::MemeRawPut)?;
-                let _hash = putter.get_hash();
-                // if object does not exist, update object name by hash
-                //  create meta-data
-                // else append extra life to the object
-                //  update meta-data
-                Ok(Reply::Unimplemented)
+                // On error, remove object.
+                let mr = &self.db.mr;
+                if let Err(_) = mr.put_object_stream(&mut putter, obj_id.to_string()).await {
+                    mr.delete_object(obj_id.to_string())
+                        .await
+                        .map_err(|_| Error::S3)?;
+                    return Err(Error::MemeRawPut);
+                }
+                // Create meta-data.
+                let hash = putter.get_hash().into();
+                //TODO self.db.mm
+                Ok(Reply::MemeRawPut { changes, hash })
             }
 
             Query::MemeRawGet { head: _, hash: _ } => {
