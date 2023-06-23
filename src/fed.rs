@@ -18,12 +18,12 @@ impl Fed {
         &self,
         query: Query,
         uid: &Id,
-        change: Costs,
+        changes: Costs,
         deadline: tokio::time::Instant,
     ) -> Result<Reply, Error> {
         match query.get_fed() {
             Some(_) => Ok(Reply::Unimplemented),
-            None => self.gene.handle(query, uid, change, deadline).await,
+            None => self.gene.handle(query, uid, changes, deadline).await,
         }
     }
 }

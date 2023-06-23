@@ -13,7 +13,7 @@ use crate::message::{Costs, Id, Uint};
 pub async fn v1(
     _uid: &Id,
     _arg: &str,
-    _change: &mut Costs,
+    _changes: &mut Costs,
     _space: Uint,
     _deadline: Instant,
 ) -> String {

@@ -15,27 +15,27 @@ pub enum Reply {
     AuthSmsSendTo { phone: &'static String, message: Id },
     AuthSmsSent { uid: Id },
     CostPay { uri: String },
-    GeneMeta { change: Costs, meta: String },
-    GeneCall { change: Costs, result: String },
-    MemeMeta { change: Costs, meta: String },
-    MemeRawPut { change: Costs, hash: Hash },
-    MemeRawGet { change: Costs, raw: BoxStream },
+    GeneMeta { changes: Costs, meta: String },
+    GeneCall { changes: Costs, result: String },
+    MemeMeta { changes: Costs, meta: String },
+    MemeRawPut { changes: Costs, hash: Hash },
+    MemeRawGet { changes: Costs, raw: BoxStream },
 }
 
 impl Reply {
     pub fn to_response(&mut self) -> Response<RB> {
-        macro_rules! response_change {
-            ($change: expr) => {
+        macro_rules! response_changes {
+            ($changes: expr) => {
                 Response::builder()
-                    .header("time", $change.time)
-                    .header("space", $change.space)
-                    .header("traffic", $change.traffic)
-                    .header("tips", $change.tips)
+                    .header("time", $changes.time)
+                    .header("space", $changes.space)
+                    .header("traffic", $changes.traffic)
+                    .header("tips", $changes.tips)
             };
         }
 
-        if let Reply::MemeRawGet { change, raw } = self {
-            return response_change!(change)
+        if let Reply::MemeRawGet { changes, raw } = self {
+            return response_changes!(changes)
                 .header("type", "MemeRawGet")
                 .body(RB::Stream(StreamBody::new(replace(
                     raw,
@@ -83,19 +83,19 @@ impl Reply {
                 .header("uri", uri.clone())
                 .body(empty())
                 .unwrap(),
-            Reply::GeneMeta { change, meta } => response_change!(change)
+            Reply::GeneMeta { changes, meta } => response_changes!(changes)
                 .header("type", "GeneMeta")
                 .body(full(meta.clone()))
                 .unwrap(),
-            Reply::GeneCall { change, result } => response_change!(change)
+            Reply::GeneCall { changes, result } => response_changes!(changes)
                 .header("type", "GeneCall")
                 .body(full(result.clone()))
                 .unwrap(),
-            Reply::MemeMeta { change, meta } => response_change!(change)
+            Reply::MemeMeta { changes, meta } => response_changes!(changes)
                 .header("type", "MemeMeta")
                 .body(full(meta.clone()))
                 .unwrap(),
-            Reply::MemeRawPut { change, hash } => response_change!(change)
+            Reply::MemeRawPut { changes, hash } => response_changes!(changes)
                 .header("type", "MemeRawPut")
                 .header("hash", hex::encode(hash))
                 .body(empty())

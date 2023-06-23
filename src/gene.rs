@@ -49,7 +49,7 @@ impl Gene {
         mut changes: Costs,
         deadline: Instant,
     ) -> Result<Reply, Error> {
-        /// Subtract traffic from change based on $s.len().
+        /// Subtract traffic from changes based on $s.len().
         macro_rules! traffic {
             ($s: expr) => {
                 // Traffic cost is server-to-client for now.
@@ -62,7 +62,7 @@ impl Gene {
             };
         }
 
-        /// Update change.time by the closeness to deadline.
+        /// Update changes.time by the closeness to deadline.
         macro_rules! time {
             () => {
                 let now = Instant::now();
@@ -75,7 +75,7 @@ impl Gene {
             };
         }
 
-        /// Refund current change.
+        /// Refund current changes.
         macro_rules! refund {
             () => {
                 let u2c = ns(UID2CREDIT, uid);
@@ -99,10 +99,7 @@ impl Gene {
                 }
                 let meta = serde_json::to_string(&self.metas[id]).unwrap();
                 traffic_time_refund!(meta);
-                Ok(Reply::GeneMeta {
-                    change: changes,
-                    meta,
-                })
+                Ok(Reply::GeneMeta { changes, meta })
             }
 
             Query::GeneCall { head: _, id, arg } => {
@@ -113,19 +110,13 @@ impl Gene {
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
-                Ok(Reply::GeneCall {
-                    change: changes,
-                    result,
-                })
+                Ok(Reply::GeneCall { changes, result })
             }
 
             Query::MemeMeta { head: _, hash } => {
                 let meta = self.meme.get_meta(uid, &hash, deadline).await?;
                 traffic_time_refund!(meta);
-                Ok(Reply::MemeMeta {
-                    change: changes,
-                    meta,
-                })
+                Ok(Reply::MemeMeta { changes, meta })
             }
 
             Query::MemeRawPut { head: _, raw } => {
