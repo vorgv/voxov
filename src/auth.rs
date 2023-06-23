@@ -39,31 +39,34 @@ impl Auth {
         }
     }
 
-    pub async fn handle(&self, query: &mut Query) -> Result<Reply, Error> {
+    pub async fn handle(&self, query: Query) -> Result<Reply, Error> {
         match query {
             // Session management
             Query::AuthSessionStart => self.handle_session_start().await,
-            Query::AuthSessionRefresh { refresh } => self.handle_session_refresh(refresh).await,
+            Query::AuthSessionRefresh { refresh } => self.handle_session_refresh(&refresh).await,
             Query::AuthSessionEnd {
                 access,
                 option_refresh,
-            } => self.handle_session_end(access, option_refresh).await,
-            Query::AuthSmsSendTo { access } => self.handle_sms_send_to(access).await,
+            } => self.handle_session_end(&access, &option_refresh).await,
+            Query::AuthSmsSendTo { access } => self.handle_sms_send_to(&access).await,
             Query::AuthSmsSent {
                 access,
                 refresh,
                 phone,
                 message,
-            } => self.handle_sms_sent(access, refresh, phone, message).await,
+            } => {
+                self.handle_sms_sent(&access, &refresh, &phone, &message)
+                    .await
+            }
 
             // Authenticate and pass to next layer
-            mut q => {
+            q => {
                 let access = q.get_access();
                 let uid = self.authenticate(access).await?;
                 if uid.is_zero() {
                     return Err(Error::AuthNotAuthenticated);
                 }
-                Ok(self.cost.handle(&mut q, &uid).await?)
+                Ok(self.cost.handle(q, &uid).await?)
             }
         }
     }

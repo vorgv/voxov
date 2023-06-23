@@ -61,8 +61,8 @@ async fn handle_http(
         Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
         Method::POST => match Query::try_from(req) {
-            Ok(mut q) => Ok(auth
-                .handle(&mut q)
+            Ok(q) => Ok(auth
+                .handle(q)
                 .await
                 .unwrap_or_else(|error| crate::message::Reply::Error { error })
                 .to_response()),

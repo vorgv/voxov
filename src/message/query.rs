@@ -45,7 +45,6 @@ pub enum Query {
     },
     MemeRawPut {
         head: Head,
-        hash: Hash,
         raw: QueryBody,
     },
     MemeRawGet {
@@ -141,7 +140,6 @@ impl TryFrom<Request<Incoming>> for Query {
                 }),
                 "MemeRawPut" => Ok(Query::MemeRawPut {
                     head: Head::try_get(&req)?,
-                    hash: try_get_hash(&req)?,
                     raw: req.into_body().boxed(),
                 }),
                 "MemeRawGet" => Ok(Query::MemeRawGet {

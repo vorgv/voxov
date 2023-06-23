@@ -24,7 +24,7 @@ impl Cost {
         }
     }
 
-    pub async fn handle(&self, query: &mut Query, uid: &Id) -> Result<Reply, Error> {
+    pub async fn handle(&self, query: Query, uid: &Id) -> Result<Reply, Error> {
         match query {
             Query::CostPay { access: _, vendor } => Ok(Reply::CostPay {
                 uri: format!("Not implemented: {}, {}", vendor, uid),

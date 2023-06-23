@@ -1,5 +1,6 @@
 //! Genes are just functions.
 
+use http_body_util::BodyExt;
 use serde::Serialize;
 use tokio::time::{Duration, Instant};
 
@@ -38,7 +39,7 @@ impl Gene {
 
     pub async fn handle(
         &self,
-        query: &Query,
+        query: Query,
         uid: &Id,
         mut change: Costs,
         deadline: Instant,
@@ -88,10 +89,10 @@ impl Gene {
 
         match query {
             Query::GeneMeta { head: _, id } => {
-                if id >= &self.metas.len() {
+                if id >= self.metas.len() {
                     return Err(Error::GeneInvalidId);
                 }
-                let meta = serde_json::to_string(&self.metas[*id]).unwrap();
+                let meta = serde_json::to_string(&self.metas[id]).unwrap();
                 traffic_time_refund!(meta);
                 Ok(Reply::GeneMeta { change, meta })
             }
@@ -99,8 +100,8 @@ impl Gene {
             Query::GeneCall { head: _, id, arg } => {
                 traffic!(arg);
                 let result = match id {
-                    0 => info::v1(uid, arg).await,
-                    1 => map::v1(uid, arg, &mut change, self.space_cost_doc, deadline).await,
+                    0 => info::v1(uid, &arg).await,
+                    1 => map::v1(uid, &arg, &mut change, self.space_cost_doc, deadline).await,
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
@@ -108,18 +109,40 @@ impl Gene {
             }
 
             Query::MemeMeta { head: _, hash } => {
-                let meta = self.meme.get_meta(uid, hash, deadline).await?;
+                let meta = self.meme.get_meta(uid, &hash, deadline).await?;
                 traffic_time_refund!(meta);
                 Ok(Reply::MemeMeta { change, meta })
             }
 
-            Query::MemeRawPut {
-                head: _,
-                hash: _,
-                raw: _,
-            } => Ok(Reply::Unimplemented),
+            Query::MemeRawPut { head: _, mut raw } => {
+                // check if fund is enough for the first round
+                // create the object with a random name
+                loop {
+                    let _ = raw.frame().await;
+                    // get from body, if done, break.
+                    // update hash
+                    // append to object
+                    // check costs
+                    break;
+                }
+                // if object does not exist, update object name by hash
+                //  create meta-data
+                // else append extra life to the object
+                //  update meta-data
+                Ok(Reply::Unimplemented)
+            }
 
-            Query::MemeRawGet { head: _, hash: _ } => Ok(Reply::Unimplemented),
+            Query::MemeRawGet { head: _, hash: _ } => {
+                // check if fund is enough for the file size
+                // get object handle
+                loop {
+                    // get from handle
+                    // append to body
+                    // check costs
+                    break;
+                }
+                Ok(Reply::Unimplemented)
+            }
 
             _ => Err(Error::Logical), // This arm should be unreachable.
         }

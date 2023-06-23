@@ -16,7 +16,7 @@ impl Fed {
     }
     pub async fn handle(
         &self,
-        query: &Query,
+        query: Query,
         uid: &Id,
         change: Costs,
         deadline: tokio::time::Instant,

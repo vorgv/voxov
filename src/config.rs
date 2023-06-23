@@ -103,7 +103,7 @@ impl Config {
                 _ => false,
             },
 
-            ripperd_interval: env_or!("RIPPERD_INTERVAL", 60 as u64),
+            ripperd_interval: env_or!("RIPPERD_INTERVAL", 60_u64),
 
             s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000/"),
 
