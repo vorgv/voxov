@@ -14,7 +14,7 @@ pub struct Database {
     pub mm: mongodb::Collection<Document>,
 
     /// Meme raw data collection
-    mr: Bucket,
+    pub mr: Bucket,
 }
 
 async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {

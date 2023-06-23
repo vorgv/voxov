@@ -25,6 +25,7 @@ pub enum Error {
     GeneInvalidId,
 
     MemeNotFound,
+    MemeRawPut,
     Redis,
     MongoDB,
     Os,

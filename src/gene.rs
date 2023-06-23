@@ -1,8 +1,12 @@
 //! Genes are just functions.
 
+use std::task::Poll;
+
 use http_body_util::BodyExt;
 use serde::Serialize;
+use tokio::io::{AsyncRead, BufStream};
 use tokio::time::{Duration, Instant};
+use blake3;
 
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
@@ -41,7 +45,7 @@ impl Gene {
         &self,
         query: Query,
         uid: &Id,
-        mut change: Costs,
+        mut changes: Costs,
         deadline: Instant,
     ) -> Result<Reply, Error> {
         /// Subtract traffic from change based on $s.len().
@@ -49,10 +53,10 @@ impl Gene {
             ($s: expr) => {
                 // Traffic cost is server-to-client for now.
                 let traffic = $s.len() as Uint * self.traffic_cost;
-                if traffic > change.traffic {
+                if traffic > changes.traffic {
                     return Err(Error::CostTraffic);
                 } else {
-                    change.traffic -= traffic;
+                    changes.traffic -= traffic;
                 }
             };
         }
@@ -65,7 +69,7 @@ impl Gene {
                     return Err(Error::CostTime);
                 } else {
                     let remaining: Duration = deadline - now;
-                    change.time = remaining.as_millis() as Uint * self.time_cost;
+                    changes.time = remaining.as_millis() as Uint * self.time_cost;
                 }
             };
         }
@@ -74,7 +78,7 @@ impl Gene {
         macro_rules! refund {
             () => {
                 let u2c = ns(UID2CREDIT, uid);
-                self.db.incrby(&u2c[..], change.sum()).await?;
+                self.db.incrby(&u2c[..], changes.sum()).await?;
             };
         }
 
@@ -94,36 +98,55 @@ impl Gene {
                 }
                 let meta = serde_json::to_string(&self.metas[id]).unwrap();
                 traffic_time_refund!(meta);
-                Ok(Reply::GeneMeta { change, meta })
+                Ok(Reply::GeneMeta { change: changes, meta })
             }
 
             Query::GeneCall { head: _, id, arg } => {
                 traffic!(arg);
                 let result = match id {
                     0 => info::v1(uid, &arg).await,
-                    1 => map::v1(uid, &arg, &mut change, self.space_cost_doc, deadline).await,
+                    1 => map::v1(uid, &arg, &mut changes, self.space_cost_doc, deadline).await,
                     _ => return Err(Error::GeneInvalidId),
                 };
                 traffic_time_refund!(result);
-                Ok(Reply::GeneCall { change, result })
+                Ok(Reply::GeneCall { change: changes, result })
             }
 
             Query::MemeMeta { head: _, hash } => {
                 let meta = self.meme.get_meta(uid, &hash, deadline).await?;
                 traffic_time_refund!(meta);
-                Ok(Reply::MemeMeta { change, meta })
+                Ok(Reply::MemeMeta { change: changes, meta })
             }
 
             Query::MemeRawPut { head: _, mut raw } => {
                 // check if fund is enough for the first round
-                // create the object with a random name
-                loop {
-                    let _ = raw.frame().await;
-                    // get from body, if done, break.
-                    // update hash
-                    // append to object
-                    // check costs
-                    break;
+                const MAX_FRAME_BYTES: usize = 16_777_215;
+                if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
+                    return Err(Error::CostTraffic)
+                }
+                // create tmp object with a random name
+                let mut putter = Putter {};
+                let mut rng = rand::thread_rng();
+                let tmp_id = Id::rand(&mut rng)?;
+                self.db.mr.put_object_stream(&mut putter, tmp_id.to_string());
+                // create hash
+                let mut hasher = blake3::Hasher::new();
+                while let Some(result) = raw.frame().await {
+                    match result {
+                        Ok(frame) => {
+                            if frame.is_data() {
+                                let bytes = frame.into_data().map_err(|_| Error::MemeRawPut)?;
+                                // update hash
+                                hasher.update(&bytes);
+                                // append to object
+                                // check costs
+                            }
+                        }
+                        Err(_) => {
+                            // remove tmp object
+                            return Err(Error::MemeRawPut)
+                        },
+                    };
                 }
                 // if object does not exist, update object name by hash
                 //  create meta-data
@@ -146,6 +169,18 @@ impl Gene {
 
             _ => Err(Error::Logical), // This arm should be unreachable.
         }
+    }
+}
+
+struct Putter {}
+
+impl AsyncRead for Putter {
+    fn poll_read(
+            self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+        Poll::Pending
     }
 }
 
