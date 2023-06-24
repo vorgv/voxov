@@ -119,7 +119,7 @@ impl Gene {
                 Ok(Reply::MemeMeta { changes, meta })
             }
 
-            Query::MemeRawPut { head: _, raw } => {
+            Query::MemeRawPut { head: _, days, raw } => {
                 // Check if fund is enough for the first poll.
                 const MAX_FRAME_BYTES: usize = 16_777_215;
                 if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
@@ -130,7 +130,7 @@ impl Gene {
                     let mut rng = rand::thread_rng();
                     Id::rand(&mut rng)?
                 };
-                let mut putter = Putter::new(raw);
+                let mut putter = Putter::new(days, raw, changes, deadline, self.space_cost_obj);
                 // On error, remove object.
                 let mr = &self.db.mr;
                 if (mr.put_object_stream(&mut putter, obj_id.to_string()).await).is_err() {
@@ -140,8 +140,10 @@ impl Gene {
                     return Err(Error::MemeRawPut);
                 }
                 // Create meta-data.
-                let hash = putter.get_hash().into();
+                let hash: [u8; 32] = putter.get_hash().into();
                 //TODO self.db.mm
+                let changes = putter.into_changes();
+                traffic_time_refund!(hash);
                 Ok(Reply::MemeRawPut { changes, hash })
             }
 
@@ -161,18 +163,37 @@ impl Gene {
 
 struct Putter {
     haser: Hasher,
+    days: Uint,
     body: QueryBody,
+    changes: Costs,
+    deadline: Instant,
+    space_cost_obj: Uint,
 }
 
 impl Putter {
-    fn new(body: QueryBody) -> Self {
+    fn new(
+        days: Uint,
+        body: QueryBody,
+        changes: Costs,
+        deadline: Instant,
+        space_cost_obj: Uint,
+    ) -> Self {
         Putter {
             haser: Hasher::new(),
+            days,
             body,
+            changes,
+            deadline,
+            space_cost_obj,
         }
     }
+
     fn get_hash(&self) -> blake3::Hash {
         self.haser.finalize()
+    }
+
+    fn into_changes(self) -> Costs {
+        self.changes
     }
 }
 
@@ -183,6 +204,7 @@ impl AsyncRead for Putter {
         cx: &mut std::task::Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
+        use std::io;
         loop {
             let mut is_data = true;
             let poll =
@@ -191,14 +213,33 @@ impl AsyncRead for Putter {
                         Some(result) => match result {
                             Ok(frame) => {
                                 if frame.is_data() {
-                                    buf.put_slice(&frame.into_data().unwrap());
-                                    //TODO costs
+                                    let data = frame.into_data().unwrap();
+                                    buf.put_slice(&data);
+                                    // Space check
+                                    let cost = match (data.len() as u64 * self.space_cost_obj)
+                                        .checked_mul(self.days)
+                                    {
+                                        Some(i) => i / 1000, // per day per KB
+                                        None => {
+                                            return Err(io::Error::from(io::ErrorKind::InvalidData))
+                                        }
+                                    };
+                                    if self.changes.space < cost {
+                                        self.changes.space = 0;
+                                        return Err(io::Error::from(io::ErrorKind::FileTooLarge));
+                                    } else {
+                                        self.changes.space -= cost;
+                                    }
+                                    // Time check
+                                    if Instant::now() > self.deadline {
+                                        return Err(io::Error::from(io::ErrorKind::TimedOut));
+                                    }
                                 } else {
                                     is_data = false;
                                 }
                                 Ok(())
                             }
-                            Err(_) => Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof)),
+                            Err(_) => Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
                         },
                         None => Ok(()),
                     }

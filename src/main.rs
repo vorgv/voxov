@@ -1,4 +1,3 @@
-#![feature(addr_parse_ascii)]
 use voxov::{api, auth, config, cost, database, fed, gene, meme, to_static};
 
 #[tokio::main]

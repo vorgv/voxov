@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use super::{try_get, try_get_hash, Costs, Hash, Head, Id};
+use super::{try_get, try_get_hash, Costs, Hash, Head, Id, Uint};
 use crate::error::Error;
 use hyper::{body::Incoming, Request};
 
@@ -46,6 +46,7 @@ pub enum Query {
     },
     MemeRawPut {
         head: Head,
+        days: Uint,
         raw: QueryBody,
     },
     MemeRawGet {
@@ -141,6 +142,7 @@ impl TryFrom<Request<Incoming>> for Query {
                 }),
                 "MemeRawPut" => Ok(Query::MemeRawPut {
                     head: Head::try_get(&req)?,
+                    days: try_get::<Uint>(&req, "days")?,
                     raw: std::boxed::Box::pin(req.into_body()),
                 }),
                 "MemeRawGet" => Ok(Query::MemeRawGet {
