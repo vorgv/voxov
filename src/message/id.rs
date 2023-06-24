@@ -8,7 +8,7 @@ use std::convert::TryInto;
 use std::str::FromStr;
 
 pub const IDL: usize = 16;
-const ID0: [u8; 16] = [0_u8; 16];
+const ID0: [u8; IDL] = [0_u8; IDL];
 
 #[derive(Debug)]
 pub struct Id(pub [u8; IDL]);

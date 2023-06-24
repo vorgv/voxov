@@ -57,10 +57,10 @@ pub struct Config {
     /// Cost per millisecond.
     pub time_cost: Uint,
 
-    /// Cost per byte per second in MongoDB.
+    /// Cost per KB per day in MongoDB.
     pub space_cost_doc: Uint,
 
-    /// Cost per byte per second in S3.
+    /// Cost per KB per day in S3.
     pub space_cost_obj: Uint,
 
     /// Cost per byte.

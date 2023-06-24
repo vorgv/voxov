@@ -16,8 +16,9 @@ pub enum Error {
     AuthTokensMismatch,
 
     CostInsufficientCredit,
-    CostTraffic,
     CostTime,
+    CostSpace,
+    CostTraffic,
 
     Fed,
 

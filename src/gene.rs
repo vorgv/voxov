@@ -3,7 +3,9 @@
 use std::task::Poll;
 
 use blake3::{self, Hasher};
+use chrono::{naive::Days, DateTime, Utc};
 use hyper::body::Body;
+use mongodb::bson::doc;
 use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio::time::{Duration, Instant};
@@ -83,18 +85,26 @@ impl Gene {
             };
         }
 
+        /// Two in one.
+        macro_rules! time_refund {
+            () => {
+                time!();
+                refund!();
+            };
+        }
+
         /// Three in one.
         macro_rules! traffic_time_refund {
             ($s: expr) => {
                 traffic!($s);
-                time!();
-                refund!();
+                time_refund!();
             };
         }
 
         match query {
             Query::GeneMeta { head: _, id } => {
                 if id >= self.metas.len() {
+                    time_refund!();
                     return Err(Error::GeneInvalidId);
                 }
                 let meta = serde_json::to_string(&self.metas[id]).unwrap();
@@ -107,7 +117,10 @@ impl Gene {
                 let result = match id {
                     0 => info::v1(uid, &arg).await,
                     1 => map::v1(uid, &arg, &mut changes, self.space_cost_doc, deadline).await,
-                    _ => return Err(Error::GeneInvalidId),
+                    _ => {
+                        time_refund!();
+                        return Err(Error::GeneInvalidId);
+                    }
                 };
                 traffic_time_refund!(result);
                 Ok(Reply::GeneCall { changes, result })
@@ -120,28 +133,52 @@ impl Gene {
             }
 
             Query::MemeRawPut { head: _, days, raw } => {
+                if days < 1 {
+                    time_refund!();
+                    return Err(Error::MemeRawPut);
+                }
                 // Check if fund is enough for the first poll.
                 const MAX_FRAME_BYTES: usize = 16_777_215;
                 if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
+                    time_refund!();
                     return Err(Error::CostTraffic);
                 }
                 // Create object with a random name.
-                let obj_id = {
+                let oid = {
                     let mut rng = rand::thread_rng();
                     Id::rand(&mut rng)?
                 };
                 let mut putter = Putter::new(days, raw, changes, deadline, self.space_cost_obj);
                 // On error, remove object.
                 let mr = &self.db.mr;
-                if (mr.put_object_stream(&mut putter, obj_id.to_string()).await).is_err() {
-                    mr.delete_object(obj_id.to_string())
+                if (mr.put_object_stream(&mut putter, oid.to_string()).await).is_err() {
+                    mr.delete_object(oid.to_string())
                         .await
                         .map_err(|_| Error::S3)?;
+                    time_refund!();
                     return Err(Error::MemeRawPut);
                 }
                 // Create meta-data.
                 let hash: [u8; 32] = putter.get_hash().into();
-                //TODO self.db.mm
+                let now: DateTime<Utc> = Utc::now();
+                let eol = now.checked_add_days(Days::new(days));
+                let doc = doc! {
+                    "uid": uid.to_string(),
+                    "oid": oid.to_string(),
+                    "hash": hex::encode(hash),
+                    "eol": eol,
+                };
+                let cost = self.space_cost_doc * days;
+                if cost > changes.space {
+                    changes.space = 0;
+                    time_refund!();
+                    return Err(Error::CostSpace);
+                } else {
+                    changes.space -= cost;
+                }
+                let mm = &self.db.mm;
+                mm.insert_one(doc, None).await.map_err(|_| Error::MongoDB)?;
+                // Refund
                 let changes = putter.into_changes();
                 traffic_time_refund!(hash);
                 Ok(Reply::MemeRawPut { changes, hash })
