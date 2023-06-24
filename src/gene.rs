@@ -133,7 +133,7 @@ impl Gene {
                 let mut putter = Putter::new(raw);
                 // On error, remove object.
                 let mr = &self.db.mr;
-                if let Err(_) = mr.put_object_stream(&mut putter, obj_id.to_string()).await {
+                if (mr.put_object_stream(&mut putter, obj_id.to_string()).await).is_err() {
                     mr.delete_object(obj_id.to_string())
                         .await
                         .map_err(|_| Error::S3)?;
@@ -148,12 +148,9 @@ impl Gene {
             Query::MemeRawGet { head: _, hash: _ } => {
                 // check if fund is enough for the file size
                 // get object handle
-                loop {
-                    // get from handle
-                    // append to body
-                    // check costs
-                    break;
-                }
+                // get from handle
+                // append to body
+                // check costs
                 Ok(Reply::Unimplemented)
             }
 
