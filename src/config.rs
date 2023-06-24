@@ -103,7 +103,7 @@ impl Config {
                 _ => false,
             },
 
-            ripperd_interval: env_or!("RIPPERD_INTERVAL", 60_u64),
+            ripperd_interval: env_or!("RIPPERD_INTERVAL", 60_u64), // seconds
 
             s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000/"),
 
@@ -124,17 +124,17 @@ impl Config {
 
             refresh_ttl: env_or!("REFRESH_TTL", 60 * 60 * 24 * 30 as Uint), // one month
 
-            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5 as Uint), // 5 years
+            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5 as Uint), // five years
 
-            init_credit: env_or!("INIT_CREDIT", 1_000_000_000 as Int),
+            init_credit: env_or!("INIT_CREDIT", 10_000_000_000 as Int), // one USD
 
-            time_cost: env_or!("TIME_COST", 1000 as Uint),
+            time_cost: env_or!("TIME_COST", 1_000 as Uint), // per millisecond
 
-            space_cost_doc: env_or!("SPACE_COST_DOC", 10 as Uint),
+            space_cost_doc: env_or!("SPACE_COST_DOC", 100 as Uint), // per KB per day
 
-            space_cost_obj: env_or!("SPACE_COST_OBJ", 1 as Uint),
+            space_cost_obj: env_or!("SPACE_COST_OBJ", 10 as Uint), // per KB per day
 
-            traffic_cost: env_or!("TRAFFIC_COST", 1 as Uint),
+            traffic_cost: env_or!("TRAFFIC_COST", 1 as Uint), // per byte outbound
 
             auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {
