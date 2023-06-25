@@ -51,6 +51,38 @@ impl Gene {
         mut changes: Costs,
         deadline: Instant,
     ) -> Result<Reply, Error> {
+        // The same as the two combined in self.handle_ignore_error().
+        macro_rules! time_refund {
+            () => {
+                let now = Instant::now();
+                if now > deadline {
+                    return Err(Error::CostTime);
+                } else {
+                    let remaining: Duration = deadline - now;
+                    changes.time = remaining.as_millis() as Uint * self.time_cost;
+                }
+                let u2c = ns(UID2CREDIT, uid);
+                self.db.incrby(&u2c[..], changes.sum()).await?;
+            };
+        }
+
+        let reply = self
+            .handle_ignore_error(query, uid, changes, deadline)
+            .await;
+        if reply.is_err() {
+            time_refund!();
+        }
+        reply
+    }
+
+    /// Refund Ok(_)s, and leave Err(_)s to be refunded in the upstream.
+    async fn handle_ignore_error(
+        &self,
+        query: Query,
+        uid: &Id,
+        mut changes: Costs,
+        deadline: Instant,
+    ) -> Result<Reply, Error> {
         /// Subtract traffic from changes based on $s.len().
         macro_rules! traffic {
             ($s: expr) => {
@@ -85,26 +117,18 @@ impl Gene {
             };
         }
 
-        /// Two in one.
-        macro_rules! time_refund {
-            () => {
-                time!();
-                refund!();
-            };
-        }
-
         /// Three in one.
         macro_rules! traffic_time_refund {
             ($s: expr) => {
                 traffic!($s);
-                time_refund!();
+                time!();
+                refund!();
             };
         }
 
         match query {
             Query::GeneMeta { head: _, id } => {
                 if id >= self.metas.len() {
-                    time_refund!();
                     return Err(Error::GeneInvalidId);
                 }
                 let meta = serde_json::to_string(&self.metas[id]).unwrap();
@@ -118,7 +142,6 @@ impl Gene {
                     0 => info::v1(uid, &arg).await,
                     1 => map::v1(uid, &arg, &mut changes, self.space_cost_doc, deadline).await,
                     _ => {
-                        time_refund!();
                         return Err(Error::GeneInvalidId);
                     }
                 };
@@ -134,13 +157,11 @@ impl Gene {
 
             Query::MemeRawPut { head: _, days, raw } => {
                 if days < 1 {
-                    time_refund!();
                     return Err(Error::MemeRawPut);
                 }
                 // Check if fund is enough for the first poll.
                 const MAX_FRAME_BYTES: usize = 16_777_215;
                 if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
-                    time_refund!();
                     return Err(Error::CostTraffic);
                 }
                 // Create object with a random name.
@@ -155,7 +176,6 @@ impl Gene {
                     mr.delete_object(oid.to_string())
                         .await
                         .map_err(|_| Error::S3)?;
-                    time_refund!();
                     return Err(Error::MemeRawPut);
                 }
                 // Create meta-data.
@@ -171,7 +191,6 @@ impl Gene {
                 let cost = self.space_cost_doc * days;
                 if cost > changes.space {
                     changes.space = 0;
-                    time_refund!();
                     return Err(Error::CostSpace);
                 } else {
                     changes.space -= cost;
