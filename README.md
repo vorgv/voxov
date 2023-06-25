@@ -11,8 +11,8 @@ A shell connects big clouds, small users and developers.
 ### Now
 
 - [x] Impl meme meta
-- [ ] Impl meme ripperd
-- [ ] Impl meme raw stream
+- [x] Impl meme ripperd
+- [x] Impl meme raw stream
 - [x] Impl gene meta
 - [ ] Impl gene: info
 - [ ] Impl gene: map
@@ -31,7 +31,6 @@ A shell connects big clouds, small users and developers.
 - [ ] GUI client
 - [ ] fed related stuff
 - [ ] API rate limit
-- [ ] http size limit
 - [ ] GraphQL API
 - [ ] fed jwt
 

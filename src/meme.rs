@@ -2,10 +2,12 @@ use chrono::{DateTime, Days, Utc};
 use hyper::body::Body;
 use mongodb::bson::spec::BinarySubtype;
 use mongodb::bson::{doc, Binary};
+use mongodb::options::FindOptions;
 use std::task::Poll;
 use std::time::Duration;
 use tokio::io::AsyncRead;
 use tokio::time::{sleep, Instant};
+use tokio_stream::StreamExt;
 
 use crate::config::Config;
 use crate::database::Database;
@@ -38,11 +40,34 @@ impl Meme {
         }
         loop {
             sleep(Duration::from_secs(self.ripperd_interval)).await;
-            //TODO
-            // Get all memes with EOL < now
-            // Remove them on S3 first to prevent leakage.
-            // Remove them on MongoDB
+            if let Err(error) = self.rip().await {
+                println!("Ripperd error: {}", error);
+            }
         }
+    }
+
+    /// Fallible wrapper for a rip operation.
+    async fn rip(&self) -> Result<(), Error> {
+        // Get all memes with EOL < now
+        let options = FindOptions::builder()
+            .projection(doc! { "_id": 1, "eol": 1, "oid": 1 })
+            .max(doc! { "eol": Utc::now() })
+            .sort(doc! { "eol": 1 })
+            .build();
+        let mm = &self.db.mm;
+        let mut cursor = mm.find(None, options).await.map_err(|_| Error::MongoDB)?;
+        let mr = &self.db.mr;
+        while let Some(meta) = cursor.try_next().await.map_err(|_| Error::MongoDB)? {
+            // Remove them on S3 first to prevent leakage.
+            let oid = meta.get_str("oid").map_err(|_| Error::S3)?;
+            mr.delete_object(oid).await.map_err(|_| Error::S3)?;
+            // Remove them on MongoDB
+            let id = meta.get_object_id("_id").map_err(|_| Error::MongoDB)?;
+            mm.find_one_and_delete(doc! { "_id": id }, None)
+                .await
+                .map_err(|_| Error::MongoDB)?;
+        }
+        Ok(())
     }
 
     /// Return meme metadata if meme is public or belongs to uid.
