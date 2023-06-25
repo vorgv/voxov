@@ -7,13 +7,11 @@ use std::{
 };
 use tokio_stream::Stream;
 
-pub type StreamItem = Result<Frame<Bytes>, Infallible>;
-
-pub type BoxStream = Pin<Box<dyn Stream<Item = StreamItem> + Send>>;
+pub type BytesStream = Pin<Box<dyn Stream<Item = Bytes> + Send>>;
 
 pub enum ResponseBody {
     Box(BoxBody<Bytes, Infallible>),
-    Stream(StreamBody<BoxStream>),
+    Stream(StreamBody<BytesStream>),
 }
 
 impl Body for ResponseBody {
@@ -26,14 +24,16 @@ impl Body for ResponseBody {
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
             Self::Box(b) => Pin::new(&mut *b).poll_frame(cx),
-            Self::Stream(s) => Pin::new(&mut *s).poll_frame(cx),
+            Self::Stream(s) => Pin::new(&mut *s)
+                .poll_next(cx)
+                .map(|maybe_bytes| maybe_bytes.map(|bytes| Ok(Frame::data(bytes)))),
         }
     }
 
     fn is_end_stream(&self) -> bool {
         match self {
             Self::Box(b) => b.is_end_stream(),
-            Self::Stream(s) => s.is_end_stream(),
+            Self::Stream(_) => false,
         }
     }
 

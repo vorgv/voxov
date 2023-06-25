@@ -28,14 +28,13 @@ bytes = "1.4"
 
 # Hyper
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
-http-body = "0.4.5"
 http-body-util = "0.1.0-rc.2"
 
 # Database
 redis = { version = "0.23.0", features = ["tokio-comp", "connection-manager"] }
-mongodb = "2.5.0"
+mongodb = "2.6.0"
 bson = { version = "2.6.1", features = ["chrono-0_4"] }
-rust-s3 = "0.33.0"
+rust-s3 = { version = "0.33.0", features = ["with-tokio"] }
 
 # Tools
 blake3 = "1.4.0"
@@ -44,7 +43,6 @@ rand = "0.8.5"
 hex = "0.4"
 
 # Macros
-strum = "0.24"
 strum_macros = "0.24"
-serde = "1.0.163"
-serde_json = "1.0.96"
+serde = "1.0.164"
+serde_json = "1.0.99"

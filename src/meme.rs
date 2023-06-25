@@ -96,13 +96,16 @@ impl Meme {
         }
         // Create meta-data.
         let hash: [u8; 32] = putter.get_hash().into();
+        let size = putter.get_size();
         let now: DateTime<Utc> = Utc::now();
         let eol = now.checked_add_days(Days::new(days));
         let doc = doc! {
             "uid": uid.to_string(),
             "oid": oid.to_string(),
             "hash": hex::encode(hash),
+            "size": size as i64,
             "public": false,
+            "tips": 0,
             "eol": eol,
         };
         let cost = self.space_cost_doc * days;
@@ -125,6 +128,7 @@ pub struct Putter {
     changes: Costs,
     deadline: Instant,
     space_cost_obj: Uint,
+    size: usize,
 }
 
 impl Putter {
@@ -142,11 +146,16 @@ impl Putter {
             changes,
             deadline,
             space_cost_obj,
+            size: 0,
         }
     }
 
     pub fn get_hash(&self) -> blake3::Hash {
         self.haser.finalize()
+    }
+
+    pub fn get_size(&self) -> usize {
+        self.size
     }
 
     pub fn into_changes(self) -> Costs {
@@ -172,6 +181,7 @@ impl AsyncRead for Putter {
                                 if frame.is_data() {
                                     let data = frame.into_data().unwrap();
                                     buf.put_slice(&data);
+                                    self.size += data.len();
                                     // Space check
                                     let cost = match (data.len() as u64 * self.space_cost_obj)
                                         .checked_mul(self.days)

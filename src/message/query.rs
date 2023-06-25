@@ -52,6 +52,7 @@ pub enum Query {
     MemeRawGet {
         head: Head,
         hash: Hash,
+        public: bool,
     },
     //TODO: FedMemeClone, FedMemeVisa, FedCreditClaim
 }
@@ -143,11 +144,12 @@ impl TryFrom<Request<Incoming>> for Query {
                 "MemeRawPut" => Ok(Query::MemeRawPut {
                     head: Head::try_get(&req)?,
                     days: try_get::<Uint>(&req, "days")?,
-                    raw: std::boxed::Box::pin(req.into_body()),
+                    raw: Box::pin(req.into_body()),
                 }),
                 "MemeRawGet" => Ok(Query::MemeRawGet {
                     head: Head::try_get(&req)?,
                     hash: try_get_hash(&req)?,
+                    public: try_get::<bool>(&req, "public")?,
                 }),
                 _ => Err(Error::ApiUnknownQueryType),
             },

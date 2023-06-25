@@ -1,10 +1,14 @@
 use super::{Costs, Hash, Id};
 use crate::api::{empty, full, not_implemented};
-use crate::body::{BoxStream, ResponseBody as RB, StreamItem};
+use crate::body::ResponseBody as RB;
 use crate::error::Error;
 use http_body_util::StreamBody;
-use hyper::{Response, StatusCode};
+use hyper::{body::Bytes, Response, StatusCode};
+use s3::request::ResponseDataStream;
 use std::mem::replace;
+use std::pin::Pin;
+
+type BoxS3Stream = Pin<Box<ResponseDataStream>>;
 
 pub enum Reply {
     Unimplemented,
@@ -19,7 +23,7 @@ pub enum Reply {
     GeneCall { changes: Costs, result: String },
     MemeMeta { changes: Costs, meta: String },
     MemeRawPut { changes: Costs, hash: Hash },
-    MemeRawGet { changes: Costs, raw: BoxStream },
+    MemeRawGet { changes: Costs, raw: BoxS3Stream },
 }
 
 impl Reply {
@@ -38,8 +42,8 @@ impl Reply {
             return response_changes!(changes)
                 .header("type", "MemeRawGet")
                 .body(RB::Stream(StreamBody::new(replace(
-                    raw,
-                    Box::pin(tokio_stream::empty::<StreamItem>()),
+                    raw.bytes(),
+                    Box::pin(tokio_stream::empty::<Bytes>()),
                 ))))
                 .unwrap();
         }

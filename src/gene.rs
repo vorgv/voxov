@@ -1,6 +1,7 @@
 //! Genes are just functions.
 
 use mongodb::bson::doc;
+use mongodb::options::FindOneOptions;
 use serde::Serialize;
 use tokio::time::{Duration, Instant};
 
@@ -168,13 +169,65 @@ impl Gene {
                 Ok(Reply::MemeRawPut { changes, hash })
             }
 
-            Query::MemeRawGet { head: _, hash: _ } => {
-                // check if fund is enough for the file size
-                // get object handle
-                // get from handle
-                // append to body
-                // check costs
-                Ok(Reply::Unimplemented)
+            Query::MemeRawGet {
+                head: _,
+                hash,
+                public,
+            } => {
+                let hash = hex::encode(hash);
+                // Filter
+                let filter = match public {
+                    true => doc! {
+                        "public": true,
+                        "hash": hash.clone(),
+                    },
+                    false => doc! {
+                        "uid": uid.to_string(),
+                        "hash": hash.clone(),
+                    },
+                };
+                // Sort by tips
+                let options = FindOneOptions::builder()
+                    .projection(doc! { "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 })
+                    .sort(doc! { "tips": 1 })
+                    .build();
+                let mm = &self.db.mm;
+                let meta = mm
+                    .find_one(filter, options)
+                    .await
+                    .map_err(|_| Error::MemeRawGet)?;
+                if meta.is_none() {
+                    return Err(Error::MemeNotFound);
+                }
+                let meta = meta.unwrap();
+                // Is fund enough for the file size
+                let cost =
+                    self.space_cost_obj * meta.get_i64("size").map_err(|_| Error::Logical)? as u64;
+                if cost > changes.space {
+                    return Err(Error::CostSpace);
+                }
+                changes.space -= cost;
+                // Pay tips
+                if public {
+                    let tips = meta.get_i64("tips").map_err(|_| Error::Logical)? as u64;
+                    if tips > changes.tips {
+                        return Err(Error::CostTips);
+                    }
+                    changes.tips -= tips;
+                    let uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
+                    use std::str::FromStr;
+                    let uid = Id::from_str(uid)?;
+                    let u2c = ns(UID2CREDIT, &uid);
+                    self.db.incrby(&u2c[..], tips).await?;
+                }
+                // Stream object
+                let mr = &self.db.mr;
+                let stream = Box::pin(mr.get_object_stream(hash).await.map_err(|_| Error::S3)?);
+                // Check costs
+                Ok(Reply::MemeRawGet {
+                    changes,
+                    raw: stream,
+                })
             }
 
             _ => Err(Error::Logical), // This arm should be unreachable.

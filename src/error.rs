@@ -19,6 +19,7 @@ pub enum Error {
     CostTime,
     CostSpace,
     CostTraffic,
+    CostTips,
 
     Fed,
 
@@ -27,6 +28,7 @@ pub enum Error {
 
     MemeNotFound,
     MemeRawPut,
+    MemeRawGet,
     Redis,
     MongoDB,
     S3,
