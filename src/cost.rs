@@ -12,6 +12,7 @@ use tokio::time::{Duration, Instant};
 pub struct Cost {
     fed: &'static Fed,
     db: &'static Database,
+    credit_limit: Int,
     time_cost: Uint,
 }
 
@@ -20,6 +21,7 @@ impl Cost {
         Cost {
             fed,
             db,
+            credit_limit: config.credit_limit,
             time_cost: config.time_cost,
         }
     }
@@ -34,7 +36,7 @@ impl Cost {
                 let costs = query.get_costs();
                 let u2p = ns(UID2CREDIT, uid);
                 let credit = self.db.get::<&[u8], Int>(&u2p).await?;
-                if costs.sum() as Int > credit {
+                if costs.sum() as Int > credit - self.credit_limit {
                     return Err(Error::CostInsufficientCredit);
                 } else {
                     // Decrement then refund to prevent double pay.

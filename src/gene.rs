@@ -17,6 +17,7 @@ mod map;
 
 pub struct Gene {
     meme: &'static Meme,
+    c: &'static Config,
     db: &'static Database,
     metas: &'static Vec<GeneMeta>,
     time_cost: Uint,
@@ -26,15 +27,16 @@ pub struct Gene {
 }
 
 impl Gene {
-    pub fn new(config: &Config, db: &'static Database, meme: &'static Meme) -> Gene {
+    pub fn new(c: &'static Config, db: &'static Database, meme: &'static Meme) -> Gene {
         Gene {
             meme,
+            c,
             db,
-            metas: config.gene_metas,
-            time_cost: config.time_cost,
-            space_cost_doc: config.space_cost_doc,
-            space_cost_obj: config.space_cost_obj,
-            traffic_cost: config.traffic_cost,
+            metas: c.gene_metas,
+            time_cost: c.time_cost,
+            space_cost_doc: c.space_cost_doc,
+            space_cost_obj: c.space_cost_obj,
+            traffic_cost: c.traffic_cost,
         }
     }
 
@@ -133,7 +135,7 @@ impl Gene {
             Query::GeneCall { head: _, id, arg } => {
                 traffic!(arg);
                 let result = match id {
-                    0 => info::v1(uid, &arg).await,
+                    0 => info::v1(uid, &arg, self.c).await,
                     1 => map::v1(uid, &arg, &mut changes, self.space_cost_doc, deadline).await,
                     _ => {
                         return Err(Error::GeneInvalidId);

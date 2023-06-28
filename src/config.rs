@@ -51,8 +51,8 @@ pub struct Config {
     /// Seconds before user account expire.
     pub user_ttl: Uint,
 
-    /// Credit in a new account.
-    pub init_credit: Int,
+    /// Minimum credit.
+    pub credit_limit: Int,
 
     /// Cost per millisecond.
     pub time_cost: Uint,
@@ -126,7 +126,7 @@ impl Config {
 
             user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5 as Uint), // five years
 
-            init_credit: env_or!("INIT_CREDIT", 10_000_000_000 as Int), // one USD
+            credit_limit: env_or!("INIT_CREDIT", -10_000_000_000 as Int), // one USD
 
             time_cost: env_or!("TIME_COST", 1_000 as Uint), // per millisecond
 

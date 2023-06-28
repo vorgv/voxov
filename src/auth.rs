@@ -13,7 +13,7 @@ use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::message::{Id, Query, Reply, IDL};
-use crate::message::{Int, Uint};
+use crate::message::Uint;
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {
@@ -22,7 +22,6 @@ pub struct Auth {
     access_ttl: Uint,
     refresh_ttl: Uint,
     user_ttl: Uint,
-    init_credit: Int,
     phones: &'static Vec<String>,
 }
 
@@ -34,7 +33,6 @@ impl Auth {
             access_ttl: config.access_ttl,
             refresh_ttl: config.refresh_ttl,
             user_ttl: config.user_ttl,
-            init_credit: config.init_credit,
             phones: config.auth_phones,
         }
     }
@@ -184,7 +182,7 @@ impl Auth {
         let u2c = ns(UID2CREDIT, &uid);
         if is_new_user {
             self.db
-                .set(&u2c[..], self.init_credit, self.user_ttl)
+                .set(&u2c[..], 0, self.user_ttl)
                 .await?;
         } else {
             self.db.expire(&u2c[..], self.user_ttl).await?;
