@@ -1,4 +1,4 @@
-use super::{Costs, Hash, Id};
+use super::{Costs, Hash, Id, Int};
 use crate::api::{empty, full, not_implemented};
 use crate::body::ResponseBody as RB;
 use crate::error::Error;
@@ -19,6 +19,7 @@ pub enum Reply {
     AuthSmsSendTo { phone: &'static String, message: Id },
     AuthSmsSent { uid: Id },
     CostPay { uri: String },
+    CostGet { credit: Int },
     GeneMeta { changes: Costs, meta: String },
     GeneCall { changes: Costs, result: String },
     MemeMeta { changes: Costs, meta: String },
@@ -85,6 +86,11 @@ impl Reply {
             Reply::CostPay { uri } => Response::builder()
                 .header("type", "CostPay")
                 .header("uri", uri.clone())
+                .body(empty())
+                .unwrap(),
+            Reply::CostGet { credit } => Response::builder()
+                .header("type", "CostGet")
+                .header("credit", credit.to_string() )
                 .body(empty())
                 .unwrap(),
             Reply::GeneMeta { changes, meta } => response_changes!(changes)

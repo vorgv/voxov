@@ -31,6 +31,13 @@ impl Cost {
             Query::CostPay { access: _, vendor } => Ok(Reply::CostPay {
                 uri: format!("Not implemented: {}, {}", vendor, uid),
             }),
+
+            Query::CostGet { access: _ } => {
+                let u2p = ns(UID2CREDIT, uid);
+                let credit = self.db.get::<&[u8], Int>(&u2p).await?;
+                Ok(Reply::CostGet { credit })
+            }
+
             _ => {
                 // Check if cost exceeds credit.
                 let costs = query.get_costs();

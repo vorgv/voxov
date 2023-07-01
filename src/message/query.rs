@@ -31,6 +31,9 @@ pub enum Query {
         access: Id,
         vendor: Id,
     },
+    CostGet {
+        access: Id,
+    },
     GeneMeta {
         head: Head,
         id: usize,
@@ -62,6 +65,7 @@ impl Query {
     pub fn get_access(&self) -> &Id {
         match self {
             Query::CostPay { access, .. } => access,
+            Query::CostGet { access, .. } => access,
             Query::MemeMeta { head, .. } => &head.access,
             Query::MemeRawPut { head, .. } => &head.access,
             Query::MemeRawGet { head, .. } => &head.access,
@@ -127,6 +131,9 @@ impl TryFrom<Request<Incoming>> for Query {
                 "CostPay" => Ok(Query::CostPay {
                     access: Id::try_get(&req, "access")?,
                     vendor: Id::try_get(&req, "vendor")?,
+                }),
+                "CostGet" => Ok(Query::CostGet {
+                    access: Id::try_get(&req, "access")?,
                 }),
                 "GeneMeta" => Ok(Query::GeneMeta {
                     head: Head::try_get(&req)?,
