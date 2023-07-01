@@ -12,8 +12,8 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::message::{Id, Query, Reply, IDL};
 use crate::message::Uint;
+use crate::message::{Id, Query, Reply, IDL};
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {
@@ -86,7 +86,7 @@ impl Auth {
     /// If refresh exists, reset its TTL, then gengerate a new access.
     async fn handle_session_refresh(&self, refresh: &Id) -> Result<Reply, Error> {
         let r = ns(REFRESH, refresh);
-        let uid: Option<Vec<u8>> = match self.db.getex(&r[..], self.refresh_ttl).await? {
+        let uid: Vec<u8> = match self.db.getex(&r[..], self.refresh_ttl).await? {
             Some(v) => v,
             None => return Err(Error::AuthInvalidRefreshToken),
         };
@@ -181,9 +181,7 @@ impl Auth {
         // Create user account.
         let u2c = ns(UID2CREDIT, &uid);
         if is_new_user {
-            self.db
-                .set(&u2c[..], 0, self.user_ttl)
-                .await?;
+            self.db.set(&u2c[..], 0, self.user_ttl).await?;
         } else {
             self.db.expire(&u2c[..], self.user_ttl).await?;
         }
