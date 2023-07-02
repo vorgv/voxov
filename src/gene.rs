@@ -123,18 +123,18 @@ impl Gene {
         }
 
         match query {
-            Query::GeneMeta { head: _, id } => {
-                if id >= self.metas.len() {
+            Query::GeneMeta { head: _, gid } => {
+                if gid >= self.metas.len() {
                     return Err(Error::GeneInvalidId);
                 }
-                let meta = serde_json::to_string(&self.metas[id]).unwrap();
+                let meta = serde_json::to_string(&self.metas[gid]).unwrap();
                 traffic_time_refund!(meta);
                 Ok(Reply::GeneMeta { changes, meta })
             }
 
-            Query::GeneCall { head: _, id, arg } => {
+            Query::GeneCall { head: _, gid, arg } => {
                 traffic!(arg);
-                let result = match id {
+                let result = match gid {
                     0 => info::v1(uid, &arg, self.c).await,
                     1 => map::v1(uid, &arg, &mut changes, self.space_cost_doc, deadline).await,
                     _ => {

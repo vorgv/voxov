@@ -36,11 +36,11 @@ pub enum Query {
     },
     GeneMeta {
         head: Head,
-        id: usize,
+        gid: usize,
     },
     GeneCall {
         head: Head,
-        id: usize,
+        gid: usize,
         arg: String,
     },
     MemeMeta {
@@ -137,11 +137,11 @@ impl TryFrom<Request<Incoming>> for Query {
                 }),
                 "GeneMeta" => Ok(Query::GeneMeta {
                     head: Head::try_get(&req)?,
-                    id: try_get::<usize>(&req, "id")?,
+                    gid: try_get::<usize>(&req, "gid")?,
                 }),
                 "GeneCall" => Ok(Query::GeneCall {
                     head: Head::try_get(&req)?,
-                    id: try_get::<usize>(&req, "id")?,
+                    gid: try_get::<usize>(&req, "gid")?,
                     arg: Query::retrieve(&req, "arg")?.to_string(),
                 }),
                 "MemeMeta" => Ok(Query::MemeMeta {
