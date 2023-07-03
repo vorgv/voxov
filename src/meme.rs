@@ -2,6 +2,7 @@ use chrono::{DateTime, Days, Utc};
 use hyper::body::Body;
 use mongodb::bson::doc;
 use mongodb::options::FindOptions;
+use mongodb::IndexModel;
 use std::task::Poll;
 use std::time::Duration;
 use tokio::io::AsyncRead;
@@ -37,6 +38,13 @@ impl Meme {
         if self.ripperd_disabled {
             return;
         }
+        let mm = &self.db.mm;
+        if let Err(error) = mm
+            .create_index(IndexModel::builder().keys(doc! { "eol": 1 }).build(), None)
+            .await
+        {
+            println!("Ripperd error: {}", error);
+        }
         loop {
             sleep(Duration::from_secs(self.ripperd_interval)).await;
             if let Err(error) = self.rip().await {
@@ -50,11 +58,15 @@ impl Meme {
         // Get all memes with EOL < now
         let options = FindOptions::builder()
             .projection(doc! { "_id": 1, "eol": 1, "oid": 1 })
-            .max(doc! { "eol": Utc::now() })
             .sort(doc! { "eol": 1 })
             .build();
         let mm = &self.db.mm;
-        let mut cursor = mm.find(None, options).await.map_err(|_| Error::MongoDB)?;
+        let mut cursor = mm.find(doc! {
+            "eol": { "$lt": Utc::now() }
+        }, options).await.map_err(|e| {
+            println!("{}", e);
+            Error::MongoDB
+        })?;
         let mr = &self.db.mr;
         while let Some(meta) = cursor.try_next().await.map_err(|_| Error::MongoDB)? {
             // Remove them on S3 first to prevent leakage.

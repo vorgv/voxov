@@ -90,7 +90,7 @@ impl Reply {
                 .unwrap(),
             Reply::CostGet { credit } => Response::builder()
                 .header("type", "CostGet")
-                .header("credit", credit.to_string() )
+                .header("credit", credit.to_string())
                 .body(empty())
                 .unwrap(),
             Reply::GeneMeta { changes, meta } => response_changes!(changes)
