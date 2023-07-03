@@ -105,7 +105,7 @@ impl Config {
 
             ripperd_interval: env_or!("RIPPERD_INTERVAL", 60_u64), // seconds
 
-            s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000/"),
+            s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000"),
 
             s3_region: env_or!("S3_REGION", "develop"),
 

@@ -67,7 +67,7 @@ pub fn try_get<T: FromStr>(req: &Request<Incoming>, key: &str) -> Result<T, Erro
 }
 
 fn try_get_hash(req: &Request<Incoming>) -> Result<Hash, Error> {
-    let s = Query::retrieve(req, "key")?;
+    let s = Query::retrieve(req, "hash")?;
     match <[u8; 32]>::from_hex(s) {
         Ok(u) => Ok(u),
         Err(_) => Err(Error::ApiParseHash),

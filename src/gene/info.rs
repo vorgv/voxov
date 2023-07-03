@@ -6,5 +6,5 @@
 use crate::{config::Config, message::Id};
 
 pub async fn v1(_uid: &Id, _arg: &str, _c: &'static Config) -> String {
-    "".to_string()
+    "INFO".to_string()
 }

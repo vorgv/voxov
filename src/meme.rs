@@ -1,7 +1,6 @@
 use chrono::{DateTime, Days, Utc};
 use hyper::body::Body;
-use mongodb::bson::spec::BinarySubtype;
-use mongodb::bson::{doc, Binary};
+use mongodb::bson::doc;
 use mongodb::options::FindOptions;
 use std::task::Poll;
 use std::time::Duration;
@@ -80,7 +79,7 @@ impl Meme {
         deadline: Instant,
     ) -> Result<String, Error> {
         let mm = &self.db.mm;
-        let filter = doc! { "hash": Binary {subtype: BinarySubtype::Generic, bytes: hash.to_vec()}};
+        let filter = doc! { "hash": hex::encode(hash) };
         let handle = tokio::task::spawn(async move { mm.find_one(filter, None).await });
         let option_meta = tokio::time::timeout_at(deadline, handle)
             .await
@@ -91,8 +90,8 @@ impl Meme {
             if meta.get_bool("public").map_err(|_| Error::Logical)? {
                 return Ok(meta.to_string());
             }
-            let m_uid = meta.get_binary_generic("uid").map_err(|_| Error::Logical)?;
-            if m_uid.as_slice() == uid.0 {
+            let m_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
+            if m_uid == uid.to_string() {
                 return Ok(meta.to_string());
             }
         }
@@ -207,6 +206,7 @@ impl AsyncRead for Putter {
                                     let data = frame.into_data().unwrap();
                                     buf.put_slice(&data);
                                     self.size += data.len();
+                                    self.haser.update(&data);
                                     // Space check
                                     let cost = match (data.len() as u64 * self.space_cost_obj)
                                         .checked_mul(self.days)

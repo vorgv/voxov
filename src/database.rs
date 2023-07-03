@@ -57,7 +57,7 @@ impl Database {
                 )
                 .unwrap(),
             )
-            .expect("S3 offline?"),
+            .expect("S3 offline?").with_path_style(),
         }
     }
 
