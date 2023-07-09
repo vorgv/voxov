@@ -166,7 +166,7 @@ impl Gene {
                 self.meme.put_meme(uid, changes, days, &mut putter).await?;
                 // Refund
                 let hash: [u8; 32] = putter.get_hash().into();
-                let changes = putter.into_changes();
+                changes = putter.into_changes();
                 traffic_time_refund!(hash);
                 Ok(Reply::MemeRawPut { changes, hash })
             }
@@ -190,7 +190,9 @@ impl Gene {
                 };
                 // Sort by tips
                 let options = FindOneOptions::builder()
-                    .projection(doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 })
+                    .projection(
+                        doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 },
+                    )
                     .sort(doc! { "tips": 1 })
                     .build();
                 let mm = &self.db.mm;
@@ -204,11 +206,11 @@ impl Gene {
                 let meta = meta.unwrap();
                 // Is fund enough for the file size
                 let cost =
-                    self.space_cost_obj * meta.get_i64("size").map_err(|_| Error::Logical)? as u64;
-                if cost > changes.space {
-                    return Err(Error::CostSpace);
+                    self.traffic_cost * meta.get_i64("size").map_err(|_| Error::Logical)? as u64;
+                if cost > changes.traffic {
+                    return Err(Error::CostTraffic);
                 }
-                changes.space -= cost;
+                changes.traffic -= cost;
                 // Pay tips
                 if public {
                     let tips = meta.get_i64("tips").map_err(|_| Error::Logical)? as u64;
