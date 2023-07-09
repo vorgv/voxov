@@ -190,7 +190,7 @@ impl Gene {
                 };
                 // Sort by tips
                 let options = FindOneOptions::builder()
-                    .projection(doc! { "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 })
+                    .projection(doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 })
                     .sort(doc! { "tips": 1 })
                     .build();
                 let mm = &self.db.mm;
@@ -223,8 +223,9 @@ impl Gene {
                     self.db.incrby(&u2c[..], tips).await?;
                 }
                 // Stream object
+                let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
                 let mr = &self.db.mr;
-                let stream = Box::pin(mr.get_object_stream(hash).await.map_err(|_| Error::S3)?);
+                let stream = Box::pin(mr.get_object_stream(oid).await.map_err(|_| Error::S3)?);
                 // Check costs
                 Ok(Reply::MemeRawGet {
                     changes,
