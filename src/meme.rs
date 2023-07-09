@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use chrono::{DateTime, Days, Utc};
 use hyper::body::Body;
 use mongodb::bson::doc;
@@ -61,12 +62,18 @@ impl Meme {
             .sort(doc! { "eol": 1 })
             .build();
         let mm = &self.db.mm;
-        let mut cursor = mm.find(doc! {
-            "eol": { "$lt": Utc::now() }
-        }, options).await.map_err(|e| {
-            println!("{}", e);
-            Error::MongoDB
-        })?;
+        let mut cursor = mm
+            .find(
+                doc! {
+                    "eol": { "$lt": Utc::now() }
+                },
+                options,
+            )
+            .await
+            .map_err(|e| {
+                println!("{}", e);
+                Error::MongoDB
+            })?;
         let mr = &self.db.mr;
         while let Some(meta) = cursor.try_next().await.map_err(|_| Error::MongoDB)? {
             // Remove them on S3 first to prevent leakage.
@@ -158,13 +165,15 @@ impl Meme {
 }
 
 pub struct Putter {
-    haser: blake3::Hasher,
+    hasher: blake3::Hasher,
     days: Uint,
     body: QueryBody,
     changes: Costs,
     deadline: Instant,
     space_cost_obj: Uint,
     size: usize,
+    buffer: Bytes,
+    cursor: usize,
 }
 
 impl Putter {
@@ -176,18 +185,20 @@ impl Putter {
         space_cost_obj: Uint,
     ) -> Self {
         Putter {
-            haser: blake3::Hasher::new(),
+            hasher: blake3::Hasher::new(),
             days,
             body,
             changes,
             deadline,
             space_cost_obj,
             size: 0,
+            buffer: Bytes::default(),
+            cursor: 0,
         }
     }
 
     pub fn get_hash(&self) -> blake3::Hash {
-        self.haser.finalize()
+        self.hasher.finalize()
     }
 
     pub fn get_size(&self) -> usize {
@@ -199,58 +210,90 @@ impl Putter {
     }
 }
 
+use std::io;
 impl AsyncRead for Putter {
-    // Poll data frames from body while skip trailer frames.
+    /// Poll data frames from the body and skip trailer frames.
     fn poll_read(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        use std::io;
-        loop {
-            let mut is_data = true;
-            let poll =
-                Body::poll_frame(self.body.as_mut(), cx).map(|option| -> std::io::Result<()> {
-                    match option {
-                        Some(result) => match result {
-                            Ok(frame) => {
-                                if frame.is_data() {
-                                    let data = frame.into_data().unwrap();
-                                    buf.put_slice(&data);
-                                    self.size += data.len();
-                                    self.haser.update(&data);
-                                    // Space check
-                                    let cost = match (data.len() as u64 * self.space_cost_obj)
-                                        .checked_mul(self.days)
-                                    {
-                                        Some(i) => i / 1000, // per day per KB
-                                        None => {
-                                            return Err(io::Error::from(io::ErrorKind::InvalidData))
-                                        }
-                                    };
-                                    if self.changes.space < cost {
-                                        self.changes.space = 0;
-                                        return Err(io::Error::from(io::ErrorKind::FileTooLarge));
-                                    } else {
-                                        self.changes.space -= cost;
-                                    }
-                                    // Time check
-                                    if Instant::now() > self.deadline {
-                                        return Err(io::Error::from(io::ErrorKind::TimedOut));
-                                    }
+    ) -> Poll<io::Result<()>> {
+        // Flags.
+        let mut is_trailer = false;
+        let mut bad_frame = false;
+        let mut body_eof = false;
+        let mut overflow = false;
+        let mut space_out = false;
+        let mut time_out = false;
+        // If buffer is at its end, get a new frame.
+        if self.buffer.len() == self.cursor {
+            let poll = self.body.as_mut().poll_frame(cx).map(|option| {
+                match option {
+                    // Body reached the end?
+                    Some(result) => match result {
+                        // Frame
+                        Ok(frame) => {
+                            if frame.is_data() {
+                                let data = frame.into_data().unwrap_or_default();
+                                self.hasher.update(&data);
+                                // Space check
+                                let cost = match (data.len() as u64 * self.space_cost_obj)
+                                    .checked_mul(self.days)
+                                {
+                                    Some(i) => i / 1000, // per day per KB
+                                    None => return overflow = true,
+                                };
+                                if self.changes.space < cost {
+                                    self.changes.space = 0;
+                                    return space_out = true;
                                 } else {
-                                    is_data = false;
+                                    self.changes.space -= cost;
                                 }
-                                Ok(())
+                                // Time check
+                                if Instant::now() > self.deadline {
+                                    return time_out = true;
+                                }
+                                self.size += data.len();
+                                self.buffer = data;
+                                self.cursor = 0;
+                            } else {
+                                is_trailer = true;
                             }
-                            Err(_) => Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
-                        },
-                        None => Ok(()),
-                    }
-                });
-            if is_data {
-                return poll;
+                        }
+                        Err(_) => bad_frame = true,
+                    },
+                    None => body_eof = true,
+                }
+            });
+            if poll.is_pending() {
+                return Poll::Pending;
             }
         }
+        // Handle flags.
+        if body_eof {
+            return Poll::Ready(Ok(()));
+        }
+        use io::ErrorKind;
+        if bad_frame {
+            return Poll::Ready(Err(io::Error::from(ErrorKind::UnexpectedEof)));
+        }
+        if is_trailer {
+            return Poll::Pending;
+        }
+        if overflow {
+            return Poll::Ready(Err(io::Error::from(ErrorKind::InvalidInput)));
+        }
+        if space_out {
+            return Poll::Ready(Err(io::Error::from(ErrorKind::FileTooLarge)));
+        }
+        if time_out {
+            return Poll::Ready(Err(io::Error::from(ErrorKind::TimedOut)));
+        }
+        // Put a slice of frame into the read buffer.
+        let step = std::cmp::min(buf.remaining(), self.buffer.len() - self.cursor);
+        let slice = self.buffer[self.cursor..self.cursor + step].as_ref();
+        buf.put_slice(slice);
+        self.cursor += step;
+        Poll::Ready(Ok(()))
     }
 }

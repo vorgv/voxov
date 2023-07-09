@@ -14,6 +14,7 @@ A shell connects big clouds, small users and developers.
 - [x] Impl meme ripperd
 - [x] Impl meme raw stream
 - [x] Impl gene meta
+- [ ] Fix cost for stream body
 - [ ] Impl gene: info
 - [ ] Impl gene: map
 - [ ] Impl gene: human
