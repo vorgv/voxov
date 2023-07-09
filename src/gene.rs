@@ -158,8 +158,8 @@ impl Gene {
                 }
                 // Check if fund is enough for the first poll.
                 const MAX_FRAME_BYTES: usize = 16_777_215;
-                if changes.traffic < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
-                    return Err(Error::CostTraffic);
+                if changes.space < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
+                    return Err(Error::CostSpace);
                 }
                 // AsyncRead from Incoming
                 let mut putter = Putter::new(days, raw, changes, deadline, self.space_cost_obj);
