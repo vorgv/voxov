@@ -1,7 +1,9 @@
+use console_subscriber;
 use voxov::{api, auth, config, cost, database, fed, gene, meme, to_static};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    console_subscriber::init();
     // Config: collect ENV to global variable only once
     let c = to_static!(config::Config::new());
     // Database: stateless global database struct

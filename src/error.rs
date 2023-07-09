@@ -31,9 +31,10 @@ pub enum Error {
     MemeRawGet,
     Redis,
     MongoDB,
-    S3,
+    S3(s3::error::S3Error),
     Os,
     Logical,
+    BsonValueAccess(bson::document::ValueAccessError),
 }
 
 impl std::error::Error for Error {}

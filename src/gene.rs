@@ -227,7 +227,7 @@ impl Gene {
                 // Stream object
                 let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
                 let mr = &self.db.mr;
-                let stream = Box::pin(mr.get_object_stream(oid).await.map_err(|_| Error::S3)?);
+                let stream = Box::pin(mr.get_object_stream(oid).await.map_err(|e| Error::S3(e))?);
                 // Check costs
                 Ok(Reply::MemeRawGet {
                     changes,

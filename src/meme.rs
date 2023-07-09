@@ -77,8 +77,8 @@ impl Meme {
         let mr = &self.db.mr;
         while let Some(meta) = cursor.try_next().await.map_err(|_| Error::MongoDB)? {
             // Remove them on S3 first to prevent leakage.
-            let oid = meta.get_str("oid").map_err(|_| Error::S3)?;
-            mr.delete_object(oid).await.map_err(|_| Error::S3)?;
+            let oid = meta.get_str("oid").map_err(|e| Error::BsonValueAccess(e))?;
+            mr.delete_object(oid).await.map_err(|e| Error::S3(e))?;
             // Remove them on MongoDB
             let id = meta.get_object_id("_id").map_err(|_| Error::MongoDB)?;
             mm.find_one_and_delete(doc! { "_id": id }, None)
@@ -131,12 +131,9 @@ impl Meme {
         };
         // On error, remove object.
         let mr = &self.db.mr;
-        if (mr.put_object_stream(&mut putter, oid.to_string()).await).is_err() {
-            mr.delete_object(oid.to_string())
-                .await
-                .map_err(|_| Error::S3)?;
-            return Err(Error::MemeRawPut);
-        }
+        mr.put_object_stream(&mut putter, oid.to_string())
+            .await
+            .map_err(|e| Error::S3(e))?;
         // Create meta-data.
         let hash: [u8; 32] = putter.get_hash().into();
         let size = putter.get_size();
@@ -266,6 +263,7 @@ impl AsyncRead for Putter {
                 }
             });
             if poll.is_pending() {
+                cx.waker().wake_by_ref();
                 return Poll::Pending;
             }
         }
@@ -278,6 +276,7 @@ impl AsyncRead for Putter {
             return Poll::Ready(Err(io::Error::from(ErrorKind::UnexpectedEof)));
         }
         if is_trailer {
+            cx.waker().wake_by_ref();
             return Poll::Pending;
         }
         if overflow {
