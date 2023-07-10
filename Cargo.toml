@@ -1,5 +1,5 @@
 [workspace]
-members = ["cli"]
+members = ["vctl"]
 
 [workspace.dependencies]
 tokio = { version = "1.29.1", features = ["full"] }
