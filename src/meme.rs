@@ -1,21 +1,24 @@
 use chrono::Utc;
 use mongodb::bson::doc;
-use mongodb::options::FindOptions;
+use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::IndexModel;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::StreamExt;
 
 use crate::config::Config;
-use crate::database::Database;
+use crate::database::namespace::UID2CREDIT;
+use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::message::{Hash, Id, Uint};
+use crate::message::query::QueryBody;
+use crate::message::{Costs, Hash, Id, Reply, Uint};
 
 pub struct Meme {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
     space_cost_doc: Uint,
+    traffic_cost: Uint,
 }
 
 impl Meme {
@@ -25,6 +28,7 @@ impl Meme {
             ripperd_disabled: config.ripperd_disabled,
             ripperd_interval: config.ripperd_interval,
             space_cost_doc: config.space_cost_doc,
+            traffic_cost: config.traffic_cost,
         }
     }
 
@@ -89,8 +93,8 @@ impl Meme {
     pub async fn get_meta(
         &self,
         uid: &Id,
-        hash: &Hash,
         deadline: Instant,
+        hash: &Hash,
     ) -> Result<String, Error> {
         let mm = &self.db.mm;
         let filter = doc! { "hash": hex::encode(hash) };
@@ -110,5 +114,84 @@ impl Meme {
             }
         }
         Err(Error::MemeNotFound)
+    }
+
+    /// Stream version didn't work.
+    /// Try using chunk.
+    pub async fn put_meme(
+        &self,
+        uid: &Id,
+        mut changes: Costs,
+        deadline: Instant,
+        days: u64,
+        raw: QueryBody,
+    ) -> Result<Reply, Error> {
+        todo!()
+    }
+
+    /// Current implementation uses high-level stream.
+    /// Further investigation on performance is required.
+    pub async fn get_meme(
+        &self,
+        uid: &Id,
+        mut changes: Costs,
+        _deadline: Instant,
+        hash: Hash,
+        public: bool,
+    ) -> Result<Reply, Error> {
+        let hash = hex::encode(hash);
+        // Filter
+        let filter = match public {
+            true => doc! {
+                "public": true,
+                "hash": hash.clone(),
+            },
+            false => doc! {
+                "uid": uid.to_string(),
+                "hash": hash.clone(),
+            },
+        };
+        // Sort by tips
+        let options = FindOneOptions::builder()
+            .projection(doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 })
+            .sort(doc! { "tips": 1 })
+            .build();
+        let mm = &self.db.mm;
+        let meta = mm
+            .find_one(filter, options)
+            .await
+            .map_err(|_| Error::MemeGet)?;
+        if meta.is_none() {
+            return Err(Error::MemeNotFound);
+        }
+        let meta = meta.unwrap();
+        // Is fund enough for the file size
+        let cost = self.traffic_cost * meta.get_i64("size").map_err(|_| Error::Logical)? as u64;
+        if cost > changes.traffic {
+            return Err(Error::CostTraffic);
+        }
+        changes.traffic -= cost;
+        // Pay tips
+        if public {
+            let tips = meta.get_i64("tips").map_err(|_| Error::Logical)? as u64;
+            if tips > changes.tips {
+                return Err(Error::CostTips);
+            }
+            changes.tips -= tips;
+            let uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
+            use std::str::FromStr;
+            let uid = Id::from_str(uid)?;
+            let u2c = ns(UID2CREDIT, &uid);
+            self.db.incrby(&u2c[..], tips).await?;
+        }
+        // Stream object
+        let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
+        let mr = &self.db.mr;
+        let stream = Box::pin(mr.get_object_stream(oid).await.map_err(Error::S3)?);
+        // Check costs
+        Ok(Reply::MemeGet {
+            changes,
+            raw: stream,
+        })
     }
 }

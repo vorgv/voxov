@@ -1,7 +1,6 @@
 //! Genes are just functions.
 
 use mongodb::bson::doc;
-use mongodb::options::FindOneOptions;
 use serde::Serialize;
 use tokio::time::{Duration, Instant};
 
@@ -22,7 +21,6 @@ pub struct Gene {
     metas: &'static Vec<GeneMeta>,
     time_cost: Uint,
     space_cost_doc: Uint,
-    space_cost_obj: Uint,
     traffic_cost: Uint,
 }
 
@@ -35,7 +33,6 @@ impl Gene {
             metas: c.gene_metas,
             time_cost: c.time_cost,
             space_cost_doc: c.space_cost_doc,
-            space_cost_obj: c.space_cost_obj,
             traffic_cost: c.traffic_cost,
         }
     }
@@ -146,23 +143,13 @@ impl Gene {
             }
 
             Query::MemeMeta { head: _, hash } => {
-                let meta = self.meme.get_meta(uid, &hash, deadline).await?;
+                let meta = self.meme.get_meta(uid, deadline, &hash).await?;
                 traffic_time_refund!(meta);
                 Ok(Reply::MemeMeta { changes, meta })
             }
 
-            Query::MemePut { head: _, days, raw: _ } => {
-                // keep at least 1 day.
-                if days < 1 {
-                    return Err(Error::MemePut);
-                }
-                // Check if fund is enough for the first poll.
-                const MAX_FRAME_BYTES: usize = 16_777_215;
-                if changes.space < MAX_FRAME_BYTES as u64 * self.space_cost_obj {
-                    return Err(Error::CostSpace);
-                }
-                // AsyncRead from Incoming
-                todo!();
+            Query::MemePut { head: _, days, raw } => {
+                self.meme.put_meme(uid, changes, deadline, days, raw).await
             }
 
             Query::MemeGet {
@@ -170,63 +157,9 @@ impl Gene {
                 hash,
                 public,
             } => {
-                let hash = hex::encode(hash);
-                // Filter
-                let filter = match public {
-                    true => doc! {
-                        "public": true,
-                        "hash": hash.clone(),
-                    },
-                    false => doc! {
-                        "uid": uid.to_string(),
-                        "hash": hash.clone(),
-                    },
-                };
-                // Sort by tips
-                let options = FindOneOptions::builder()
-                    .projection(
-                        doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 },
-                    )
-                    .sort(doc! { "tips": 1 })
-                    .build();
-                let mm = &self.db.mm;
-                let meta = mm
-                    .find_one(filter, options)
+                self.meme
+                    .get_meme(uid, changes, deadline, hash, public)
                     .await
-                    .map_err(|_| Error::MemeGet)?;
-                if meta.is_none() {
-                    return Err(Error::MemeNotFound);
-                }
-                let meta = meta.unwrap();
-                // Is fund enough for the file size
-                let cost =
-                    self.traffic_cost * meta.get_i64("size").map_err(|_| Error::Logical)? as u64;
-                if cost > changes.traffic {
-                    return Err(Error::CostTraffic);
-                }
-                changes.traffic -= cost;
-                // Pay tips
-                if public {
-                    let tips = meta.get_i64("tips").map_err(|_| Error::Logical)? as u64;
-                    if tips > changes.tips {
-                        return Err(Error::CostTips);
-                    }
-                    changes.tips -= tips;
-                    let uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
-                    use std::str::FromStr;
-                    let uid = Id::from_str(uid)?;
-                    let u2c = ns(UID2CREDIT, &uid);
-                    self.db.incrby(&u2c[..], tips).await?;
-                }
-                // Stream object
-                let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
-                let mr = &self.db.mr;
-                let stream = Box::pin(mr.get_object_stream(oid).await.map_err(Error::S3)?);
-                // Check costs
-                Ok(Reply::MemeGet {
-                    changes,
-                    raw: stream,
-                })
             }
 
             _ => Err(Error::Logical), // This arm should be unreachable.
