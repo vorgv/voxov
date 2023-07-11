@@ -1,7 +1,14 @@
 use chrono::Utc;
+use hyper::body::Body;
 use mongodb::bson::doc;
 use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::IndexModel;
+use s3::error::S3Error;
+use s3::serde_types::Part;
+use s3::Bucket;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::StreamExt;
@@ -17,6 +24,7 @@ pub struct Meme {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
+    space_cost_obj: Uint,
     space_cost_doc: Uint,
     traffic_cost: Uint,
 }
@@ -27,6 +35,7 @@ impl Meme {
             db,
             ripperd_disabled: config.ripperd_disabled,
             ripperd_interval: config.ripperd_interval,
+            space_cost_obj: config.space_cost_obj,
             space_cost_doc: config.space_cost_doc,
             traffic_cost: config.traffic_cost,
         }
@@ -121,12 +130,43 @@ impl Meme {
     pub async fn put_meme(
         &self,
         uid: &Id,
-        mut changes: Costs,
+        changes: Costs,
         deadline: Instant,
         days: u64,
         raw: QueryBody,
     ) -> Result<Reply, Error> {
-        todo!()
+        // Create object with a random name.
+        let oid = {
+            let mut rng = rand::thread_rng();
+            Id::rand(&mut rng)?
+        };
+        // Init chunk upload.
+        let mr = &self.db.mr;
+        let content_type = "".to_string();
+        let msg = mr
+            .initiate_multipart_upload(&oid.to_string(), &content_type)
+            .await
+            .map_err(Error::S3)?;
+        let (path, upload_id) = (msg.key, msg.upload_id);
+        // Put chunks.
+        let putter = Putter {
+            space_cost_obj: self.space_cost_obj,
+            content_type,
+            mr,
+            changes,
+            deadline,
+            days,
+            raw,
+            path,
+            upload_id,
+            size: 0,
+            hasher: blake3::Hasher::new(),
+            part_number: 0,
+            future_chunk: None,
+        };
+        let (changes, hash, size, maybe_error) = putter.await;
+        // Write metadata
+        Ok(Reply::MemePut { changes, hash })
     }
 
     /// Current implementation uses high-level stream.
@@ -193,5 +233,134 @@ impl Meme {
             changes,
             raw: stream,
         })
+    }
+}
+
+struct Putter {
+    space_cost_obj: Uint,
+    content_type: String,
+    mr: &'static Bucket,
+    changes: Costs,
+    deadline: Instant,
+    days: u64,
+    raw: QueryBody,
+    path: String,
+    upload_id: String,
+    size: usize,
+    hasher: blake3::Hasher,
+    part_number: u32,
+    future_chunk: Option<Pin<Box<dyn Future<Output = Result<Part, S3Error>> + Send>>>,
+}
+
+type PutterOutput = (Costs, Hash, usize, Option<Error>);
+
+impl Putter {
+    fn get_output(&self, maybe_error: Option<Error>) -> PutterOutput {
+        (
+            self.changes,
+            self.hasher.finalize().as_bytes().clone(),
+            self.size,
+            maybe_error,
+        )
+    }
+}
+
+impl<'a> Future for Putter {
+    type Output = PutterOutput;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // Putting a chunk now?
+        if self.future_chunk.is_some() {
+            let poll = self.future_chunk.as_mut().unwrap().as_mut().poll(cx);
+            if poll.is_pending() {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+            let mut result = Err(S3Error::HttpFail);
+            let _ = poll.map(|r| result = r);
+            self.future_chunk = None;
+            return match result {
+                Ok(_) => Poll::Pending,
+                Err(error) => Poll::Ready(self.get_output(Some(Error::S3(error)))),
+            };
+        }
+        // Flags.
+        let mut is_trailer = false;
+        let mut bad_frame = false;
+        let mut body_eof = false;
+        let mut overflow = false;
+        let mut space_out = false;
+        let mut time_out = false;
+        // If buffer is at its end, get a new frame.
+        let poll = self.raw.as_mut().poll_frame(cx).map(|option| {
+            match option {
+                // Body reached the end?
+                Some(result) => match result {
+                    // Frame
+                    Ok(frame) => {
+                        if frame.is_data() {
+                            let data = frame.into_data().unwrap_or_default();
+                            self.hasher.update(&data);
+                            // Space check
+                            let cost = match (data.len() as u64 * self.space_cost_obj)
+                                .checked_mul(self.days)
+                            {
+                                Some(i) => i / 1000, // per day per KB
+                                None => return overflow = true,
+                            };
+                            if self.changes.space < cost {
+                                self.changes.space = 0;
+                                return space_out = true;
+                            } else {
+                                self.changes.space -= cost;
+                            }
+                            // Time check
+                            if Instant::now() > self.deadline {
+                                return time_out = true;
+                            }
+                            self.size += data.len();
+                            self.part_number += 1;
+                            //TODO wrap this future to pass argument by move.
+                            let future = Box::pin(self.mr.put_multipart_chunk(
+                                data.to_vec(),
+                                "",//&self.path,
+                                self.part_number,
+                                "",//&self.upload_id,
+                                "",//&self.content_type,
+                            ));
+                            self.future_chunk = Some(future);
+                        } else {
+                            is_trailer = true;
+                        }
+                    }
+                    Err(_) => bad_frame = true,
+                },
+                None => body_eof = true,
+            }
+        });
+        if poll.is_pending() {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+        // Handle flags.
+        if body_eof {
+            return Poll::Ready(self.get_output(None));
+        }
+        if bad_frame {
+            return Poll::Ready(self.get_output(Some(Error::MemePut)));
+        }
+        if is_trailer {
+            return Poll::Pending;
+        }
+        if overflow {
+            return Poll::Ready(self.get_output(Some(Error::CostSpaceTooLarge)));
+        }
+        if space_out {
+            return Poll::Ready(self.get_output(Some(Error::CostSpace)));
+        }
+        if time_out {
+            return Poll::Ready(self.get_output(Some(Error::CostTime)));
+        }
+        Poll::Pending
     }
 }

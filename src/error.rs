@@ -18,6 +18,7 @@ pub enum Error {
     CostInsufficientCredit,
     CostTime,
     CostSpace,
+    CostSpaceTooLarge,
     CostTraffic,
     CostTips,
 
@@ -33,6 +34,7 @@ pub enum Error {
     MongoDB,
     S3(s3::error::S3Error),
     Os,
+    Hyper(hyper::Error),
     Logical,
     BsonValueAccess(bson::document::ValueAccessError),
 }
