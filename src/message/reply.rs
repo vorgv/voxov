@@ -23,8 +23,8 @@ pub enum Reply {
     GeneMeta { changes: Costs, meta: String },
     GeneCall { changes: Costs, result: String },
     MemeMeta { changes: Costs, meta: String },
-    MemeRawPut { changes: Costs, hash: Hash },
-    MemeRawGet { changes: Costs, raw: BoxS3Stream },
+    MemePut { changes: Costs, hash: Hash },
+    MemeGet { changes: Costs, raw: BoxS3Stream },
 }
 
 impl Reply {
@@ -39,9 +39,9 @@ impl Reply {
             };
         }
 
-        if let Reply::MemeRawGet { changes, raw } = self {
+        if let Reply::MemeGet { changes, raw } = self {
             return response_changes!(changes)
-                .header("type", "MemeRawGet")
+                .header("type", "MemeGet")
                 .body(RB::Stream(StreamBody::new(replace(
                     raw.bytes(),
                     Box::pin(tokio_stream::empty::<Bytes>()),
@@ -105,8 +105,8 @@ impl Reply {
                 .header("type", "MemeMeta")
                 .body(full(meta.clone()))
                 .unwrap(),
-            Reply::MemeRawPut { changes, hash } => response_changes!(changes)
-                .header("type", "MemeRawPut")
+            Reply::MemePut { changes, hash } => response_changes!(changes)
+                .header("type", "MemePut")
                 .header("hash", hex::encode(hash))
                 .body(empty())
                 .unwrap(),

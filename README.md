@@ -1,39 +1,22 @@
 # VOxOV Rain Shell
 
-federated monolithic pay-as-you-go backend-as-a-service
-
-Solid but with standard utils. Ethereum but without a chain.
-
-A shell connects big clouds, small users and developers.
+A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
 ## Todos
 
-### Now
-
-- [x] Impl meme meta
-- [x] Impl meme ripperd
-- [x] Impl meme raw stream
-- [x] Impl gene meta
-- [ ] Fix cost for stream body
-- [ ] Impl gene: info
-- [ ] Impl gene: map
-- [ ] Impl gene: human
-- [ ] Impl gene: censor
-- [ ] Impl gene: like
-- [ ] Impl gene: chan 
-- [ ] Impl gene: automation
-- [ ] Impl gene: xr
-- [ ] Impl gene: wiki
-- [ ] Impl gene: ai
-
-### Later
-
-- [ ] CLI client
-- [ ] GUI client
-- [ ] fed related stuff
-- [ ] API rate limit
-- [ ] GraphQL API
-- [ ] fed jwt
+- Impl gene: info
+- Impl gene: map
+- Impl gene: human
+- Impl gene: censor
+- Impl gene: like
+- Impl gene: chan 
+- Impl gene: automation
+- Impl gene: xr
+- Impl gene: wiki
+- Impl gene: ai
+- Impl fed with jwt
+- GraphQL API
+- GUI client (Flutter)
 
 ## Layers
 
@@ -96,4 +79,4 @@ A shell connects big clouds, small users and developers.
     - mongodb
         - meme metadata
     - S3
-        - meme raw
+        - meme data

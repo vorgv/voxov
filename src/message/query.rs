@@ -47,12 +47,12 @@ pub enum Query {
         head: Head,
         hash: Hash,
     },
-    MemeRawPut {
+    MemePut {
         head: Head,
         days: Uint,
         raw: QueryBody,
     },
-    MemeRawGet {
+    MemeGet {
         head: Head,
         hash: Hash,
         public: bool,
@@ -67,8 +67,8 @@ impl Query {
             Query::CostPay { access, .. } => access,
             Query::CostGet { access, .. } => access,
             Query::MemeMeta { head, .. } => &head.access,
-            Query::MemeRawPut { head, .. } => &head.access,
-            Query::MemeRawGet { head, .. } => &head.access,
+            Query::MemePut { head, .. } => &head.access,
+            Query::MemeGet { head, .. } => &head.access,
             Query::GeneMeta { head, .. } => &head.access,
             Query::GeneCall { head, .. } => &head.access,
             _ => panic!("Query not passed through Auth: {:?}", self),
@@ -78,8 +78,8 @@ impl Query {
     pub fn get_costs(&self) -> Costs {
         match self {
             Query::MemeMeta { head, .. } => head.costs,
-            Query::MemeRawPut { head, .. } => head.costs,
-            Query::MemeRawGet { head, .. } => head.costs,
+            Query::MemePut { head, .. } => head.costs,
+            Query::MemeGet { head, .. } => head.costs,
             Query::GeneMeta { head, .. } => head.costs,
             Query::GeneCall { head, .. } => head.costs,
             _ => panic!("Query not passed through Cost: {:?}", self),
@@ -148,12 +148,12 @@ impl TryFrom<Request<Incoming>> for Query {
                     head: Head::try_get(&req)?,
                     hash: try_get_hash(&req)?,
                 }),
-                "MemeRawPut" => Ok(Query::MemeRawPut {
+                "MemePut" => Ok(Query::MemePut {
                     head: Head::try_get(&req)?,
                     days: try_get::<Uint>(&req, "days")?,
                     raw: Box::pin(req.into_body()),
                 }),
-                "MemeRawGet" => Ok(Query::MemeRawGet {
+                "MemeGet" => Ok(Query::MemeGet {
                     head: Head::try_get(&req)?,
                     hash: try_get_hash(&req)?,
                     public: try_get::<bool>(&req, "public")?,

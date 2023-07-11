@@ -13,7 +13,7 @@ pub struct Database {
     /// Meme metadata collection
     pub mm: mongodb::Collection<Document>,
 
-    /// Meme raw data collection
+    /// Meme data collection
     pub mr: Bucket,
 }
 

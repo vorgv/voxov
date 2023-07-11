@@ -27,8 +27,8 @@ pub enum Error {
     GeneInvalidId,
 
     MemeNotFound,
-    MemeRawPut,
-    MemeRawGet,
+    MemePut,
+    MemeGet,
     Redis,
     MongoDB,
     S3(s3::error::S3Error),

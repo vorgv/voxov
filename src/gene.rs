@@ -151,10 +151,10 @@ impl Gene {
                 Ok(Reply::MemeMeta { changes, meta })
             }
 
-            Query::MemeRawPut { head: _, days, raw } => {
+            Query::MemePut { head: _, days, raw } => {
                 // keep at least 1 day.
                 if days < 1 {
-                    return Err(Error::MemeRawPut);
+                    return Err(Error::MemePut);
                 }
                 // Check if fund is enough for the first poll.
                 const MAX_FRAME_BYTES: usize = 16_777_215;
@@ -168,10 +168,10 @@ impl Gene {
                 let hash: [u8; 32] = putter.get_hash().into();
                 changes = putter.into_changes();
                 traffic_time_refund!(hash);
-                Ok(Reply::MemeRawPut { changes, hash })
+                Ok(Reply::MemePut { changes, hash })
             }
 
-            Query::MemeRawGet {
+            Query::MemeGet {
                 head: _,
                 hash,
                 public,
@@ -199,7 +199,7 @@ impl Gene {
                 let meta = mm
                     .find_one(filter, options)
                     .await
-                    .map_err(|_| Error::MemeRawGet)?;
+                    .map_err(|_| Error::MemeGet)?;
                 if meta.is_none() {
                     return Err(Error::MemeNotFound);
                 }
@@ -227,9 +227,9 @@ impl Gene {
                 // Stream object
                 let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
                 let mr = &self.db.mr;
-                let stream = Box::pin(mr.get_object_stream(oid).await.map_err(|e| Error::S3(e))?);
+                let stream = Box::pin(mr.get_object_stream(oid).await.map_err(Error::S3)?);
                 // Check costs
-                Ok(Reply::MemeRawGet {
+                Ok(Reply::MemeGet {
                     changes,
                     raw: stream,
                 })
