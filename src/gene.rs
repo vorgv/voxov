@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::meme::{Meme, Putter};
+use crate::meme::Meme;
 use crate::message::{Costs, Id, Query, Reply, Uint};
 
 mod info;
@@ -151,7 +151,7 @@ impl Gene {
                 Ok(Reply::MemeMeta { changes, meta })
             }
 
-            Query::MemePut { head: _, days, raw } => {
+            Query::MemePut { head: _, days, raw: _ } => {
                 // keep at least 1 day.
                 if days < 1 {
                     return Err(Error::MemePut);
@@ -162,13 +162,7 @@ impl Gene {
                     return Err(Error::CostSpace);
                 }
                 // AsyncRead from Incoming
-                let mut putter = Putter::new(days, raw, changes, deadline, self.space_cost_obj);
-                self.meme.put_meme(uid, changes, days, &mut putter).await?;
-                // Refund
-                let hash: [u8; 32] = putter.get_hash().into();
-                changes = putter.into_changes();
-                traffic_time_refund!(hash);
-                Ok(Reply::MemePut { changes, hash })
+                todo!();
             }
 
             Query::MemeGet {
