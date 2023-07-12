@@ -1,4 +1,5 @@
-use chrono::Utc;
+use bytes::Bytes;
+use chrono::{DateTime, Days, Utc};
 use hyper::body::Body;
 use mongodb::bson::doc;
 use mongodb::options::{FindOneOptions, FindOptions};
@@ -8,6 +9,7 @@ use s3::serde_types::Part;
 use s3::Bucket;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -151,21 +153,44 @@ impl Meme {
         // Put chunks.
         let putter = Putter {
             space_cost_obj: self.space_cost_obj,
-            content_type,
+            content_type: Arc::from(content_type),
             mr,
             changes,
             deadline,
             days,
             raw,
-            path,
-            upload_id,
+            path: Arc::from(path),
+            upload_id: Arc::from(upload_id),
             size: 0,
             hasher: blake3::Hasher::new(),
             part_number: 0,
-            future_chunk: None,
+            chunk_future: None,
         };
-        let (changes, hash, size, maybe_error) = putter.await;
-        // Write metadata
+        let (mut changes, hash, size, maybe_error) = putter.await;
+        if let Some(error) = maybe_error {
+            return Err(error);
+        }
+        // Create metadata
+        let now: DateTime<Utc> = Utc::now();
+        let eol = now.checked_add_days(Days::new(days));
+        let doc = doc! {
+            "uid": uid.to_string(),
+            "oid": oid.to_string(),
+            "hash": hex::encode(hash),
+            "size": size as i64,
+            "public": false,
+            "tips": 0,
+            "eol": eol,
+        };
+        let cost = self.space_cost_doc * days;
+        if cost > changes.space {
+            changes.space = 0;
+            return Err(Error::CostSpace);
+        } else {
+            changes.space -= cost;
+        }
+        let mm = &self.db.mm;
+        mm.insert_one(doc, None).await.map_err(|_| Error::MongoDB)?;
         Ok(Reply::MemePut { changes, hash })
     }
 
@@ -236,20 +261,22 @@ impl Meme {
     }
 }
 
+type ChunkFuture = Option<Pin<Box<dyn Future<Output = Result<Part, S3Error>> + Send>>>;
+
 struct Putter {
     space_cost_obj: Uint,
-    content_type: String,
+    content_type: Arc<str>,
     mr: &'static Bucket,
     changes: Costs,
     deadline: Instant,
     days: u64,
     raw: QueryBody,
-    path: String,
-    upload_id: String,
+    path: Arc<str>,
+    upload_id: Arc<str>,
     size: usize,
     hasher: blake3::Hasher,
     part_number: u32,
-    future_chunk: Option<Pin<Box<dyn Future<Output = Result<Part, S3Error>> + Send>>>,
+    chunk_future: ChunkFuture,
 }
 
 type PutterOutput = (Costs, Hash, usize, Option<Error>);
@@ -258,27 +285,27 @@ impl Putter {
     fn get_output(&self, maybe_error: Option<Error>) -> PutterOutput {
         (
             self.changes,
-            self.hasher.finalize().as_bytes().clone(),
+            *self.hasher.finalize().as_bytes(),
             self.size,
             maybe_error,
         )
     }
 }
 
-impl<'a> Future for Putter {
+impl Future for Putter {
     type Output = PutterOutput;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Putting a chunk now?
-        if self.future_chunk.is_some() {
-            let poll = self.future_chunk.as_mut().unwrap().as_mut().poll(cx);
+        if self.chunk_future.is_some() {
+            let poll = self.chunk_future.as_mut().unwrap().as_mut().poll(cx);
             if poll.is_pending() {
                 cx.waker().wake_by_ref();
                 return Poll::Pending;
             }
             let mut result = Err(S3Error::HttpFail);
             let _ = poll.map(|r| result = r);
-            self.future_chunk = None;
+            self.chunk_future = None;
             return match result {
                 Ok(_) => Poll::Pending,
                 Err(error) => Poll::Ready(self.get_output(Some(Error::S3(error)))),
@@ -321,14 +348,15 @@ impl<'a> Future for Putter {
                             self.size += data.len();
                             self.part_number += 1;
                             //TODO wrap this future to pass argument by move.
-                            let future = Box::pin(self.mr.put_multipart_chunk(
-                                data.to_vec(),
-                                "",//&self.path,
-                                self.part_number,
-                                "",//&self.upload_id,
-                                "",//&self.content_type,
-                            ));
-                            self.future_chunk = Some(future);
+                            let future = Box::pin(ChunkPutter {
+                                mr: self.mr,
+                                chunck: data,
+                                path: self.path.clone(),
+                                part_number: self.part_number,
+                                upload_id: self.upload_id.clone(),
+                                content_type: self.content_type.clone(),
+                            });
+                            self.chunk_future = Some(future);
                         } else {
                             is_trailer = true;
                         }
@@ -362,5 +390,29 @@ impl<'a> Future for Putter {
             return Poll::Ready(self.get_output(Some(Error::CostTime)));
         }
         Poll::Pending
+    }
+}
+
+/// A wrapper to extend the lifetime of arguments.
+struct ChunkPutter {
+    mr: &'static Bucket,
+    chunck: Bytes,
+    path: Arc<str>,
+    part_number: u32,
+    upload_id: Arc<str>,
+    content_type: Arc<str>,
+}
+
+impl Future for ChunkPutter {
+    type Output = Result<Part, S3Error>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut future = Box::pin(self.mr.put_multipart_chunk(
+            self.chunck.to_vec(),
+            &self.path,
+            self.part_number,
+            &self.upload_id,
+            &self.content_type,
+        ));
+        future.as_mut().poll(cx)
     }
 }
