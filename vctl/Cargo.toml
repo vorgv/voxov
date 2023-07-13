@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 voxov = { path = ".." }
 tokio = { workspace = true }
+clap = { version = "4.3.11", features = ["derive"] }
