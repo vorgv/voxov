@@ -1,16 +1,8 @@
-use bytes::Bytes;
 use chrono::{DateTime, Days, Utc};
-use hyper::body::Body;
+use http_body_util::BodyExt;
 use mongodb::bson::doc;
 use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::IndexModel;
-use s3::error::S3Error;
-use s3::serde_types::Part;
-use s3::Bucket;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::StreamExt;
@@ -80,27 +72,24 @@ impl Meme {
                 options,
             )
             .await
-            .map_err(|e| {
-                println!("{}", e);
-                Error::MongoDB
-            })?;
+            .map_err(Error::MongoDB)?;
         let mr = &self.db.mr;
-        while let Some(meta) = cursor.try_next().await.map_err(|_| Error::MongoDB)? {
+        while let Some(meta) = cursor.try_next().await.map_err(Error::MongoDB)? {
             // Remove them on S3 first to prevent leakage.
             let oid = meta.get_str("oid").map_err(Error::BsonValueAccess)?;
             mr.delete_object(oid).await.map_err(Error::S3)?;
             // Remove them on MongoDB
-            let id = meta.get_object_id("_id").map_err(|_| Error::MongoDB)?;
+            let id = meta.get_object_id("_id").map_err(Error::BsonValueAccess)?;
             mm.find_one_and_delete(doc! { "_id": id }, None)
                 .await
-                .map_err(|_| Error::MongoDB)?;
+                .map_err(Error::MongoDB)?;
         }
         Ok(())
     }
 
     /// Return meme metadata if meme is public or belongs to uid.
     /// The driver of MongoDB breaks if internal futures are dropped.
-    /// This limitation hinders tokio::select! style timeout.
+    /// This limitation hinders tokio::select style timeout.
     pub async fn get_meta(
         &self,
         uid: &Id,
@@ -114,7 +103,7 @@ impl Meme {
             .await
             .map_err(|_| Error::CostTime)?
             .map_err(|_| Error::CostTime)?
-            .map_err(|_| Error::MongoDB)?;
+            .map_err(Error::MongoDB)?;
         if let Some(meta) = option_meta {
             if meta.get_bool("public").map_err(|_| Error::Logical)? {
                 return Ok(meta.to_string());
@@ -132,10 +121,10 @@ impl Meme {
     pub async fn put_meme(
         &self,
         uid: &Id,
-        changes: Costs,
+        mut changes: Costs,
         deadline: Instant,
         days: u64,
-        raw: QueryBody,
+        mut raw: QueryBody,
     ) -> Result<Reply, Error> {
         // Create object with a random name.
         let oid = {
@@ -150,33 +139,57 @@ impl Meme {
             .await
             .map_err(Error::S3)?;
         let (path, upload_id) = (msg.key, msg.upload_id);
-        // Put chunks.
-        let putter = Putter {
-            space_cost_obj: self.space_cost_obj,
-            content_type: Arc::from(content_type),
-            mr,
-            changes,
-            deadline,
-            days,
-            raw,
-            path: Arc::from(path),
-            upload_id: Arc::from(upload_id),
-            size: 0,
-            hasher: blake3::Hasher::new(),
-            part_number: 0,
-            chunk_future: None,
-        };
-        let (mut changes, hash, size, maybe_error) = putter.await;
-        if let Some(error) = maybe_error {
-            return Err(error);
+        // Upload chunks.
+        let mut hasher = blake3::Hasher::new();
+        let mut size = 0;
+        let mut part_number = 0;
+        let mut parts = vec![];
+        while let Some(result) = raw.frame().await {
+            let frame = result.map_err(Error::Hyper)?;
+            if let Ok(data) = frame.into_data() {
+                hasher.update(&data);
+                // Space check
+                let cost = match (data.len() as u64 * self.space_cost_obj).checked_mul(days) {
+                    Some(i) => i / 1000, // per day per KB
+                    None => return Err(Error::CostSpaceTooLarge),
+                };
+                if changes.space < cost {
+                    changes.space = 0;
+                    return Err(Error::CostSpace);
+                } else {
+                    changes.space -= cost;
+                }
+                // Time check
+                if Instant::now() > deadline {
+                    return Err(Error::CostTime);
+                }
+                size += data.len();
+                part_number += 1;
+                let part = mr
+                    .put_multipart_chunk(
+                        data.to_vec(),
+                        &path,
+                        part_number,
+                        &upload_id,
+                        &content_type,
+                    )
+                    .await
+                    .map_err(Error::S3)?;
+                parts.push(part);
+            }
         }
+        // Complete chunk upload.
+        mr.complete_multipart_upload(&path, &upload_id, parts)
+            .await
+            .map_err(Error::S3)?;
         // Create metadata
+        let hash = hasher.finalize();
         let now: DateTime<Utc> = Utc::now();
         let eol = now.checked_add_days(Days::new(days));
         let doc = doc! {
             "uid": uid.to_string(),
             "oid": oid.to_string(),
-            "hash": hex::encode(hash),
+            "hash": hex::encode(hash.as_bytes()),
             "size": size as i64,
             "public": false,
             "tips": 0,
@@ -190,8 +203,12 @@ impl Meme {
             changes.space -= cost;
         }
         let mm = &self.db.mm;
-        mm.insert_one(doc, None).await.map_err(|_| Error::MongoDB)?;
-        Ok(Reply::MemePut { changes, hash })
+        mm.insert_one(doc, None).await.map_err(Error::MongoDB)?;
+        //TODO Refund
+        Ok(Reply::MemePut {
+            changes,
+            hash: hash.into(),
+        })
     }
 
     /// Current implementation uses high-level stream.
@@ -253,166 +270,10 @@ impl Meme {
         let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
         let mr = &self.db.mr;
         let stream = Box::pin(mr.get_object_stream(oid).await.map_err(Error::S3)?);
-        // Check costs
+        //TODO refund
         Ok(Reply::MemeGet {
             changes,
             raw: stream,
         })
-    }
-}
-
-type ChunkFuture = Option<Pin<Box<dyn Future<Output = Result<Part, S3Error>> + Send>>>;
-
-struct Putter {
-    space_cost_obj: Uint,
-    content_type: Arc<str>,
-    mr: &'static Bucket,
-    changes: Costs,
-    deadline: Instant,
-    days: u64,
-    raw: QueryBody,
-    path: Arc<str>,
-    upload_id: Arc<str>,
-    size: usize,
-    hasher: blake3::Hasher,
-    part_number: u32,
-    chunk_future: ChunkFuture,
-}
-
-type PutterOutput = (Costs, Hash, usize, Option<Error>);
-
-impl Putter {
-    fn get_output(&self, maybe_error: Option<Error>) -> PutterOutput {
-        (
-            self.changes,
-            *self.hasher.finalize().as_bytes(),
-            self.size,
-            maybe_error,
-        )
-    }
-}
-
-impl Future for Putter {
-    type Output = PutterOutput;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Putting a chunk now?
-        if self.chunk_future.is_some() {
-            let poll = self.chunk_future.as_mut().unwrap().as_mut().poll(cx);
-            if poll.is_pending() {
-                cx.waker().wake_by_ref();
-                return Poll::Pending;
-            }
-            let mut result = Err(S3Error::HttpFail);
-            let _ = poll.map(|r| result = r);
-            self.chunk_future = None;
-            return match result {
-                Ok(_) => Poll::Pending,
-                Err(error) => Poll::Ready(self.get_output(Some(Error::S3(error)))),
-            };
-        }
-        // Flags.
-        let mut is_trailer = false;
-        let mut bad_frame = false;
-        let mut body_eof = false;
-        let mut overflow = false;
-        let mut space_out = false;
-        let mut time_out = false;
-        // If buffer is at its end, get a new frame.
-        let poll = self.raw.as_mut().poll_frame(cx).map(|option| {
-            match option {
-                // Body reached the end?
-                Some(result) => match result {
-                    // Frame
-                    Ok(frame) => {
-                        if frame.is_data() {
-                            let data = frame.into_data().unwrap_or_default();
-                            self.hasher.update(&data);
-                            // Space check
-                            let cost = match (data.len() as u64 * self.space_cost_obj)
-                                .checked_mul(self.days)
-                            {
-                                Some(i) => i / 1000, // per day per KB
-                                None => return overflow = true,
-                            };
-                            if self.changes.space < cost {
-                                self.changes.space = 0;
-                                return space_out = true;
-                            } else {
-                                self.changes.space -= cost;
-                            }
-                            // Time check
-                            if Instant::now() > self.deadline {
-                                return time_out = true;
-                            }
-                            self.size += data.len();
-                            self.part_number += 1;
-                            //TODO wrap this future to pass argument by move.
-                            let future = Box::pin(ChunkPutter {
-                                mr: self.mr,
-                                chunck: data,
-                                path: self.path.clone(),
-                                part_number: self.part_number,
-                                upload_id: self.upload_id.clone(),
-                                content_type: self.content_type.clone(),
-                            });
-                            self.chunk_future = Some(future);
-                        } else {
-                            is_trailer = true;
-                        }
-                    }
-                    Err(_) => bad_frame = true,
-                },
-                None => body_eof = true,
-            }
-        });
-        if poll.is_pending() {
-            cx.waker().wake_by_ref();
-            return Poll::Pending;
-        }
-        // Handle flags.
-        if body_eof {
-            return Poll::Ready(self.get_output(None));
-        }
-        if bad_frame {
-            return Poll::Ready(self.get_output(Some(Error::MemePut)));
-        }
-        if is_trailer {
-            return Poll::Pending;
-        }
-        if overflow {
-            return Poll::Ready(self.get_output(Some(Error::CostSpaceTooLarge)));
-        }
-        if space_out {
-            return Poll::Ready(self.get_output(Some(Error::CostSpace)));
-        }
-        if time_out {
-            return Poll::Ready(self.get_output(Some(Error::CostTime)));
-        }
-        Poll::Pending
-    }
-}
-
-/// A wrapper to extend the lifetime of arguments.
-struct ChunkPutter {
-    mr: &'static Bucket,
-    chunck: Bytes,
-    path: Arc<str>,
-    part_number: u32,
-    upload_id: Arc<str>,
-    content_type: Arc<str>,
-}
-
-impl Future for ChunkPutter {
-    type Output = Result<Part, S3Error>;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut future = Box::pin(self.mr.put_multipart_chunk(
-            self.chunck.to_vec(),
-            &self.path,
-            self.part_number,
-            &self.upload_id,
-            &self.content_type,
-        ));
-        future.as_mut().poll(cx)
     }
 }

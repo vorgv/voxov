@@ -31,7 +31,7 @@ pub enum Error {
     MemePut,
     MemeGet,
     Redis,
-    MongoDB,
+    MongoDB(mongodb::error::Error),
     S3(s3::error::S3Error),
     Os,
     Hyper(hyper::Error),
