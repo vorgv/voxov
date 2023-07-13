@@ -3,6 +3,7 @@ use http_body_util::BodyExt;
 use mongodb::bson::doc;
 use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::IndexModel;
+use s3::bucket::CHUNK_SIZE;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::StreamExt;
@@ -18,6 +19,7 @@ pub struct Meme {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
+    time_cost: Uint,
     space_cost_obj: Uint,
     space_cost_doc: Uint,
     traffic_cost: Uint,
@@ -29,6 +31,7 @@ impl Meme {
             db,
             ripperd_disabled: config.ripperd_disabled,
             ripperd_interval: config.ripperd_interval,
+            time_cost: config.time_cost,
             space_cost_obj: config.space_cost_obj,
             space_cost_doc: config.space_cost_doc,
             traffic_cost: config.traffic_cost,
@@ -121,7 +124,7 @@ impl Meme {
     pub async fn put_meme(
         &self,
         uid: &Id,
-        mut changes: Costs,
+        changes: &mut Costs,
         deadline: Instant,
         days: u64,
         mut raw: QueryBody,
@@ -144,10 +147,11 @@ impl Meme {
         let mut size = 0;
         let mut part_number = 0;
         let mut parts = vec![];
+        let mut stack = vec![];
+        let mut chunk_size = 0;
         while let Some(result) = raw.frame().await {
             let frame = result.map_err(Error::Hyper)?;
             if let Ok(data) = frame.into_data() {
-                hasher.update(&data);
                 // Space check
                 let cost = match (data.len() as u64 * self.space_cost_obj).checked_mul(days) {
                     Some(i) => i / 1000, // per day per KB
@@ -163,20 +167,45 @@ impl Meme {
                 if Instant::now() > deadline {
                     return Err(Error::CostTime);
                 }
+                // Update metadata
+                hasher.update(&data);
                 size += data.len();
-                part_number += 1;
-                let part = mr
-                    .put_multipart_chunk(
-                        data.to_vec(),
-                        &path,
-                        part_number,
-                        &upload_id,
-                        &content_type,
-                    )
-                    .await
-                    .map_err(Error::S3)?;
-                parts.push(part);
+                // Append to stack;
+                chunk_size += data.len();
+                stack.push(data);
+                if chunk_size >= CHUNK_SIZE {
+                    part_number += 1;
+                    let part = mr
+                        .put_multipart_chunk(
+                            stack.concat(),
+                            &path,
+                            part_number,
+                            &upload_id,
+                            &content_type,
+                        )
+                        .await
+                        .map_err(Error::S3)?;
+                    parts.push(part);
+                    // Reset stack
+                    chunk_size = 0;
+                    stack.clear();
+                }
             }
+        }
+        // Upload the last chunk.
+        if chunk_size != 0 {
+            part_number += 1;
+            let part = mr
+                .put_multipart_chunk(
+                    stack.concat(),
+                    &path,
+                    part_number,
+                    &upload_id,
+                    &content_type,
+                )
+                .await
+                .map_err(Error::S3)?;
+            parts.push(part);
         }
         // Complete chunk upload.
         mr.complete_multipart_upload(&path, &upload_id, parts)
@@ -204,9 +233,16 @@ impl Meme {
         }
         let mm = &self.db.mm;
         mm.insert_one(doc, None).await.map_err(Error::MongoDB)?;
-        //TODO Refund
+        let now = Instant::now();
+        if now > deadline {
+            return Err(Error::CostTime);
+        } else {
+            let remaining: Duration = deadline - now;
+            changes.time = remaining.as_millis() as Uint * self.time_cost;
+        }
+
         Ok(Reply::MemePut {
-            changes,
+            changes: *changes,
             hash: hash.into(),
         })
     }
@@ -216,8 +252,8 @@ impl Meme {
     pub async fn get_meme(
         &self,
         uid: &Id,
-        mut changes: Costs,
-        _deadline: Instant,
+        changes: &mut Costs,
+        deadline: Instant,
         hash: Hash,
         public: bool,
     ) -> Result<Reply, Error> {
@@ -270,9 +306,16 @@ impl Meme {
         let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
         let mr = &self.db.mr;
         let stream = Box::pin(mr.get_object_stream(oid).await.map_err(Error::S3)?);
-        //TODO refund
+        let now = Instant::now();
+        if now > deadline {
+            return Err(Error::CostTime);
+        } else {
+            let remaining: Duration = deadline - now;
+            changes.time = remaining.as_millis() as Uint * self.time_cost;
+        }
+
         Ok(Reply::MemeGet {
-            changes,
+            changes: *changes,
             raw: stream,
         })
     }

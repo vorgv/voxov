@@ -149,7 +149,12 @@ impl Gene {
             }
 
             Query::MemePut { head: _, days, raw } => {
-                self.meme.put_meme(uid, changes, deadline, days, raw).await
+                let reply = self
+                    .meme
+                    .put_meme(uid, &mut changes, deadline, days, raw)
+                    .await;
+                refund!();
+                reply
             }
 
             Query::MemeGet {
@@ -157,9 +162,12 @@ impl Gene {
                 hash,
                 public,
             } => {
-                self.meme
-                    .get_meme(uid, changes, deadline, hash, public)
-                    .await
+                let reply = self
+                    .meme
+                    .get_meme(uid, &mut changes, deadline, hash, public)
+                    .await;
+                refund!();
+                reply
             }
 
             _ => Err(Error::Logical), // This arm should be unreachable.
