@@ -4,6 +4,7 @@ use mongodb::bson::doc;
 use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::IndexModel;
 use s3::bucket::CHUNK_SIZE;
+use std::mem::replace;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::StreamExt;
@@ -147,7 +148,7 @@ impl Meme {
         let mut size = 0;
         let mut part_number = 0;
         let mut parts = vec![];
-        let mut stack = vec![];
+        let mut stack = Vec::with_capacity(CHUNK_SIZE * 2);
         let mut chunk_size = 0;
         while let Some(result) = raw.frame().await {
             let frame = result.map_err(Error::Hyper)?;
@@ -172,12 +173,12 @@ impl Meme {
                 size += data.len();
                 // Append to stack;
                 chunk_size += data.len();
-                stack.push(data);
+                stack.append(&mut data.to_vec());
                 if chunk_size >= CHUNK_SIZE {
                     part_number += 1;
                     let part = mr
                         .put_multipart_chunk(
-                            stack.concat(),
+                            replace(&mut stack, Vec::with_capacity(CHUNK_SIZE * 2)),
                             &path,
                             part_number,
                             &upload_id,
@@ -196,13 +197,7 @@ impl Meme {
         if chunk_size != 0 {
             part_number += 1;
             let part = mr
-                .put_multipart_chunk(
-                    stack.concat(),
-                    &path,
-                    part_number,
-                    &upload_id,
-                    &content_type,
-                )
+                .put_multipart_chunk(stack, &path, part_number, &upload_id, &content_type)
                 .await
                 .map_err(Error::S3)?;
             parts.push(part);
