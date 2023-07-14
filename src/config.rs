@@ -4,6 +4,7 @@
 
 use crate::message::{Int, Uint};
 use crate::{gene::GeneMeta, to_static};
+use serde::Serialize;
 use std::net::IpAddr;
 use std::{
     env,
@@ -12,11 +13,14 @@ use std::{
 
 /// Static config struct. Modification requires relaunch.
 /// All constants are from environment variables.
+#[derive(Serialize)]
 pub struct Config {
     /// Redis URI.
+    #[serde(skip_serializing)]
     pub redis_addr: String,
 
     /// MongoDB URI.
+    #[serde(skip_serializing)]
     pub mongo_addr: String,
 
     /// Ripperd handles meme expiration.
@@ -27,15 +31,18 @@ pub struct Config {
     pub ripperd_interval: u64,
 
     /// S3 or compatible object storage URI.
+    #[serde(skip_serializing)]
     pub s3_addr: String,
 
     /// S3 or compativle objest storage region.
     pub s3_region: String,
 
     /// S3 access key.
+    #[serde(skip_serializing)]
     pub s3_access_key: String,
 
     /// S3 secret key.
+    #[serde(skip_serializing)]
     pub s3_secret_key: String,
 
     /// Endpoint API in http.

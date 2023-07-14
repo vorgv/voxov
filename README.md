@@ -2,9 +2,10 @@
 
 A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
+Not ready for production.
+
 ## Todos
 
-- Impl gene: info
 - Impl gene: map
 - Impl gene: human
 - Impl gene: censor

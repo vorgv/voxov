@@ -1,22 +1,21 @@
 //! Genes are just functions.
 
-use mongodb::bson::doc;
-use serde::Serialize;
-use tokio::time::{Duration, Instant};
-
 use crate::config::Config;
 use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::meme::Meme;
 use crate::message::{Costs, Id, Query, Reply, Uint};
+use mongodb::bson::doc;
+use serde::Serialize;
+use tokio::time::{Duration, Instant};
 
 mod info;
 mod map;
 
 pub struct Gene {
     meme: &'static Meme,
-    c: &'static Config,
+    config_json: String,
     db: &'static Database,
     metas: &'static Vec<GeneMeta>,
     time_cost: Uint,
@@ -28,7 +27,7 @@ impl Gene {
     pub fn new(c: &'static Config, db: &'static Database, meme: &'static Meme) -> Gene {
         Gene {
             meme,
-            c,
+            config_json: serde_json::to_string_pretty(c).unwrap_or_default(),
             db,
             metas: c.gene_metas,
             time_cost: c.time_cost,
@@ -132,7 +131,7 @@ impl Gene {
             Query::GeneCall { head: _, gid, arg } => {
                 traffic!(arg);
                 let result = match gid {
-                    0 => info::v1(uid, &arg, self.c).await,
+                    0 => info::v1(uid, &arg, self.config_json.clone()).await,
                     1 => map::v1(uid, &arg, &mut changes, self.space_cost_doc, deadline).await,
                     _ => {
                         return Err(Error::GeneInvalidId);
