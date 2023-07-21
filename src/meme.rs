@@ -108,7 +108,7 @@ impl Meme {
             .map_err(|_| Error::CostTime)?
             .map_err(Error::MongoDB)?;
         if let Some(meta) = option_meta {
-            if meta.get_bool("public").map_err(|_| Error::Logical)? {
+            if meta.get_bool("pub").map_err(|_| Error::Logical)? {
                 return Ok(meta.to_string());
             }
             let m_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
@@ -220,7 +220,7 @@ impl Meme {
             "oid": oid.to_string(),
             "hash": hex::encode(hash.as_bytes()),
             "size": size as i64,
-            "public": false,
+            "pub": false,
             "tips": 0,
             "eol": eol,
         };
@@ -261,7 +261,7 @@ impl Meme {
         // Filter
         let filter = match public {
             true => doc! {
-                "public": true,
+                "pub": true,
                 "hash": hash.clone(),
             },
             false => doc! {
