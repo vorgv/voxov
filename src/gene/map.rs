@@ -25,33 +25,61 @@
 //! _kn can have various types. Their meaning is defined by _ns.
 //! Range query is supported for _k*.
 //! _geo is managed by gene geo.
-//!
-//! # User defined fields
-//! 
-//! Everything other than _*.
-//!
-//! # Query syntax
-//!
-//! Query object is in json format.
-//!
-//! ```
-//! {
-//!     _type: insert/find/delete/prolong,
-//!     _id: no insert query,
-//!     _pub: bool,
-//!     _eol: insert/prolong only,
-//!     _tips: uint,
-//!     _size: usize,
-//!     _ns: string,
-//!     _kn: [(range_start, range_end), key, ...]
-//!     _geo: TODO
-//!     user: any,
-//! }
-//! ```
 
+use chrono::serde::ts_seconds;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::BTreeMap as Map;
 use tokio::time::Instant;
 
-use crate::message::{Costs, Id, Uint};
+use crate::message::{Costs, Id, Int, Uint};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Request {
+    _type: String,
+    _id: Option<String>,
+
+    #[serde(default)]
+    _pub: bool,
+    _eol: Option<String>,
+    _tips: Option<Int>,
+    _size: usize,
+    _ns: Option<String>,
+
+    _k0: Option<Value>,
+    _k1: Option<Value>,
+    _k2: Option<Value>,
+    _k3: Option<Value>,
+
+    _k0_: Option<Value>,
+    _k1_: Option<Value>,
+    _k2_: Option<Value>,
+    _k3_: Option<Value>,
+
+    _geo: String,
+
+    _v: Vec<String>,
+
+    #[serde(flatten)]
+    v: Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct DocHeader {
+    _id: String,
+    _pub: bool,
+    #[serde(with = "ts_seconds")]
+    _eol: DateTime<Utc>,
+    _tips: i64,
+    _size: u64,
+    _ns: String,
+    _k0: Value,
+    _k1: Value,
+    _k2: Value,
+    _k3: Value,
+    _geo: Vec<f64>,
+}
 
 pub async fn v1(
     _uid: &Id,
