@@ -27,7 +27,8 @@
 //! Range query is supported as [_u, _u_].
 //! _geo is managed by gene geo.
 
-use chrono::serde::ts_seconds;
+use bson::oid::ObjectId;
+use chrono::serde::ts_seconds_option;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -37,13 +38,43 @@ use tokio::time::Instant;
 use crate::message::{Costs, Id, Int, Uint};
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Request {
+struct RequestInsert {
     _type: String,
-    _id: Option<String>,
+    // Id is managed by database.
+
+    // Pub is managed by censor.
+    #[serde(with = "ts_seconds_option")]
+    _eol: Option<DateTime<Utc>>,
+    _tips: Option<Int>,
+    // Size is counted by backend.
+    _ns: Option<String>,
+
+    _0: Option<Value>,
+    _1: Option<Value>,
+    _2: Option<Value>,
+    _3: Option<Value>,
+
+    _0_: Option<Value>,
+    _1_: Option<Value>,
+    _2_: Option<Value>,
+    _3_: Option<Value>,
+
+    _geo: Option<Vec<f64>>,
+
+    #[serde(flatten)]
+    v: Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct RequestQuery {
+    _type: String,
+    _id: Option<ObjectId>,
+    _uid: String,
 
     #[serde(default)]
     _pub: bool,
-    _eol: Option<String>,
+    #[serde(with = "ts_seconds_option")]
+    _eol: Option<DateTime<Utc>>,
     _tips: Option<Int>,
     _size: usize,
     _ns: Option<String>,
@@ -58,31 +89,50 @@ struct Request {
     _2_: Option<Value>,
     _3_: Option<Value>,
 
-    /// Max doc count
+    /// Max doc count.
     _n: i32,
 
-    _geo: Vec<f64>,
+    _geo: Option<Vec<f64>>,
 
-    _v: Vec<String>,
+    /// Selected fields.
+    _v: Option<Vec<String>>,
 
     #[serde(flatten)]
     v: Map<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct DocHeader {
-    _id: String,
-    _pub: bool,
-    #[serde(with = "ts_seconds")]
-    _eol: DateTime<Utc>,
-    _tips: i64,
-    _size: u64,
-    _ns: String,
-    _k0: Value,
-    _k1: Value,
-    _k2: Value,
-    _k3: Value,
-    _geo: Vec<f64>,
+struct RequestUpdate {
+    _type: String,
+    _id: Option<ObjectId>,
+
+    // Pub is managed by censor.
+    #[serde(with = "ts_seconds_option")]
+    _eol: Option<DateTime<Utc>>,
+    _tips: Option<Int>,
+    // Size is counted by backend.
+    _ns: Option<String>,
+
+    _0: Option<Value>,
+    _1: Option<Value>,
+    _2: Option<Value>,
+    _3: Option<Value>,
+
+    _0_: Option<Value>,
+    _1_: Option<Value>,
+    _2_: Option<Value>,
+    _3_: Option<Value>,
+
+    _geo: Option<Vec<f64>>,
+
+    #[serde(flatten)]
+    v: Map<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct RequestDelete {
+    _type: String,
+    _id: Option<ObjectId>,
 }
 
 pub async fn v1(
