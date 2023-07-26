@@ -35,10 +35,11 @@ use serde_json::Value;
 use std::collections::BTreeMap as Map;
 use tokio::time::Instant;
 
+use crate::error::Error;
 use crate::message::{Costs, Id, Int, Uint};
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RequestInsert {
+struct Insert {
     _type: String,
     // Id is managed by database.
 
@@ -66,7 +67,7 @@ struct RequestInsert {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RequestQuery {
+struct Query {
     _type: String,
     _id: Option<ObjectId>,
     _uid: String,
@@ -102,7 +103,7 @@ struct RequestQuery {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RequestUpdate {
+struct Update {
     _type: String,
     _id: Option<ObjectId>,
 
@@ -130,17 +131,32 @@ struct RequestUpdate {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RequestDelete {
+struct Delete {
     _type: String,
     _id: Option<ObjectId>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(tag = "_type")]
+enum Request {
+    Insert(Insert),
+    Query(Query),
+    Update(Update),
+    Delete(Delete),
+}
+
 pub async fn v1(
     _uid: &Id,
-    _arg: &str,
+    arg: &str,
     _changes: &mut Costs,
     _space: Uint,
     _deadline: Instant,
-) -> String {
-    "".to_string()
+) -> Result<String, Error> {
+    let request: Request = serde_json::from_str(arg).map_err(|e| Error::ParseJson(e))?;
+    match request {
+        Request::Insert(insert) => todo!(),
+        Request::Query(query) => todo!(),
+        Request::Update(update) => todo!(),
+        Request::Delete(delete) => todo!(),
+    }
 }

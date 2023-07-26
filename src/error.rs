@@ -37,6 +37,7 @@ pub enum Error {
     Hyper(hyper::Error),
     Logical,
     BsonValueAccess(bson::document::ValueAccessError),
+    ParseJson(serde_json::error::Error),
 }
 
 impl std::error::Error for Error {}
