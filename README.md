@@ -7,10 +7,11 @@ Not ready for production. I patch dependencies without forking. This crate may n
 ## Todos
 
 - Impl gene: map
+- Impl gene: chan
+- Impl gene: notify
 - Impl gene: human
 - Impl gene: censor
 - Impl gene: like
-- Impl gene: chan 
 - Impl gene: auto
 - Impl gene: xr
 - Impl gene: wiki
@@ -56,7 +57,8 @@ Not ready for production. I patch dependencies without forking. This crate may n
         - new/delete
         - push
         - pull
-        - application: notification, chat, forum
+        - application: chat, forum
+    - notify
     - like
         - pay to get
         - spend credit to give

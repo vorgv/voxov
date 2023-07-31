@@ -69,22 +69,20 @@ impl Database {
         value: V,
         seconds: Uint,
     ) -> Result<(), Error> {
-        cmd("SETEX")
+        Ok(cmd("SETEX")
             .arg(key)
             .arg(seconds)
             .arg(value)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 
     /// Get value by key.
     pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
-        cmd("GET")
+        Ok(cmd("GET")
             .arg(key)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 
     /// Get value by key and set TTL.
@@ -93,52 +91,47 @@ impl Database {
         key: K,
         seconds: Uint,
     ) -> Result<V, Error> {
-        cmd("GETEX")
+        Ok(cmd("GETEX")
             .arg(key)
             .arg("EX")
             .arg(seconds)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 
     /// Set expiration.
     pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: Uint) -> Result<(), Error> {
-        cmd("EXPIRE")
+        Ok(cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 
     /// Increment the number.
     pub async fn incrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
-        cmd("INCRBY")
+        Ok(cmd("INCRBY")
             .arg(key)
             .arg(number)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 
     /// Decrement the number.
     pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
-        cmd("DECRBY")
+        Ok(cmd("DECRBY")
             .arg(key)
             .arg(number)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 
     /// Delete key.
     pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
-        cmd("DEL")
+        Ok(cmd("DEL")
             .arg(key)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
-            .await
-            .map_err(|_| Error::Redis)
+            .await?)
     }
 }
 

@@ -74,18 +74,15 @@ impl Meme {
                 },
                 options,
             )
-            .await
-            .map_err(Error::MongoDB)?;
+            .await?;
         let mr = &self.db.mr;
-        while let Some(meta) = cursor.try_next().await.map_err(Error::MongoDB)? {
+        while let Some(meta) = cursor.try_next().await? {
             // Remove them on S3 first to prevent leakage.
-            let oid = meta.get_str("oid").map_err(Error::BsonValueAccess)?;
-            mr.delete_object(oid).await.map_err(Error::S3)?;
+            let oid = meta.get_str("oid")?;
+            mr.delete_object(oid).await?;
             // Remove them on MongoDB
-            let id = meta.get_object_id("_id").map_err(Error::BsonValueAccess)?;
-            mm.find_one_and_delete(doc! { "_id": id }, None)
-                .await
-                .map_err(Error::MongoDB)?;
+            let id = meta.get_object_id("_id")?;
+            mm.find_one_and_delete(doc! { "_id": id }, None).await?;
         }
         Ok(())
     }
@@ -105,8 +102,7 @@ impl Meme {
         let option_meta = tokio::time::timeout_at(deadline, handle)
             .await
             .map_err(|_| Error::CostTime)?
-            .map_err(|_| Error::CostTime)?
-            .map_err(Error::MongoDB)?;
+            .map_err(|_| Error::CostTime)??;
         if let Some(meta) = option_meta {
             if meta.get_bool("pub").map_err(|_| Error::Logical)? {
                 return Ok(meta.to_string());
@@ -139,8 +135,7 @@ impl Meme {
         let content_type = "".to_string();
         let msg = mr
             .initiate_multipart_upload(&oid.to_string(), &content_type)
-            .await
-            .map_err(Error::S3)?;
+            .await?;
         let (path, upload_id) = (msg.key, msg.upload_id);
         // Upload chunks.
         let mut hasher = blake3::Hasher::new();
@@ -150,7 +145,7 @@ impl Meme {
         let mut stack = vec![];
         let mut chunk_size = 0;
         while let Some(result) = raw.frame().await {
-            let frame = result.map_err(Error::Hyper)?;
+            let frame = result?;
             if let Ok(data) = frame.into_data() {
                 // Space check
                 let cost = match (data.len() as u64 * self.space_cost_obj).checked_mul(days) {
@@ -183,8 +178,7 @@ impl Meme {
                             &upload_id,
                             &content_type,
                         )
-                        .await
-                        .map_err(Error::S3)?;
+                        .await?;
                     parts.push(part);
                     // Reset stack
                     chunk_size = 0;
@@ -203,14 +197,12 @@ impl Meme {
                     &upload_id,
                     &content_type,
                 )
-                .await
-                .map_err(Error::S3)?;
+                .await?;
             parts.push(part);
         }
         // Complete chunk upload.
         mr.complete_multipart_upload(&path, &upload_id, parts)
-            .await
-            .map_err(Error::S3)?;
+            .await?;
         // Create metadata
         let hash = hasher.finalize();
         let now: DateTime<Utc> = Utc::now();
@@ -232,7 +224,7 @@ impl Meme {
             changes.space -= cost;
         }
         let mm = &self.db.mm;
-        mm.insert_one(doc, None).await.map_err(Error::MongoDB)?;
+        mm.insert_one(doc, None).await?;
         let now = Instant::now();
         if now > deadline {
             return Err(Error::CostTime);
@@ -305,7 +297,7 @@ impl Meme {
         // Stream object
         let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
         let mr = &self.db.mr;
-        let stream = Box::pin(mr.get_object_stream(oid).await.map_err(Error::S3)?);
+        let stream = Box::pin(mr.get_object_stream(oid).await?);
         let now = Instant::now();
         if now > deadline {
             return Err(Error::CostTime);

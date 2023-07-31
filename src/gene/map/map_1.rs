@@ -27,12 +27,16 @@
 //! Range query is supported as [_u, _u_].
 //! _geo is managed by gene geo.
 
+#![allow(clippy::just_underscores_and_digits)]
+
+use bson::doc;
 use bson::oid::ObjectId;
-use chrono::serde::ts_seconds_option;
-use chrono::{DateTime, Utc};
+use chrono::serde::{ts_seconds, ts_seconds_option};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap as Map;
+use std::io::Write;
 use tokio::time::Instant;
 
 use crate::error::Error;
@@ -45,16 +49,16 @@ struct Insert {
     // Uid is managed by auth.
 
     // Pub is managed by censor.
-    #[serde(with = "ts_seconds_option")]
-    _eol: Option<DateTime<Utc>>,
+    #[serde(with = "ts_seconds")]
+    _eol: DateTime<Utc>,
     _tip: Option<Int>,
     // Size is counted by backend.
     _ns: Option<String>,
 
-    _0: Option<Value>,
-    _1: Option<Value>,
-    _2: Option<Value>,
-    _3: Option<Value>,
+    _0: Value,
+    _1: Value,
+    _2: Value,
+    _3: Value,
 
     _geo: Option<Vec<f64>>,
 
@@ -143,29 +147,66 @@ enum Request {
 }
 
 pub async fn v1(
-    _uid: &Id,
+    uid: &Id,
     arg: &str,
     _changes: &mut Costs,
     _space: Uint,
     _deadline: Instant,
 ) -> Result<String, Error> {
-    let request: Request = serde_json::from_str(arg).map_err(|e| Error::ParseJson(e))?;
+    let request: Request = serde_json::from_str(arg)?;
     match request {
         Request::Insert(insert) => {
-            // Set uid.
-            // Set pub to false.
-            // Calculate eol -> ttl -> space.
-            // Check tip & space.
-            // Check ns. Reserve "_*".
-            // Insert indexed keys.
-            // Insert geo (length is 2)
-            // Insert other fields. Reserve "_*".
-            // Count & Try removing from space.
+            let ttl = insert._eol - Utc::now();
+            if ttl <= Duration::zero() {
+                return Err(Error::CostTime);
+            }
+
+            let tip = insert._tip.unwrap_or_default();
+
+            let ns = insert._ns.unwrap_or_default();
+            if !ns.is_empty() && ns.starts_with('_') {
+                return Err(Error::Namespace);
+            }
+
+            if insert._geo.is_some() && insert._geo.as_ref().unwrap().len() != 2 {
+                return Err(Error::GeoDim);
+            }
+
+            for (k, _) in insert.v {
+                if !k.is_empty() && k.starts_with('_') {
+                    return Err(Error::ReservedKey);
+                }
+            }
+
+            let _0 = bson::to_bson(&insert._0).unwrap();
+            let _1 = bson::to_bson(&insert._1).unwrap();
+            let _2 = bson::to_bson(&insert._2).unwrap();
+            let _3 = bson::to_bson(&insert._3).unwrap();
+
+            let mut d = doc! {
+                "_uid": uid.to_string(),
+                "_pub": false,
+                "_eol": insert._eol,
+                "_tip": tip,
+                "_ns": ns,
+                "_0": _0,
+                "_1": _1,
+                "_2": _2,
+                "_3": _3,
+                "_geo": insert._geo,
+                "_size": 0_i64,
+            };
+
+            let mut c = Counter { n: 0 };
+            let _ = d.to_writer(&mut c);
+            let s = d.get_i64_mut("_size").unwrap();
+            *s = c.n as i64;
             // Insert document with deadline.
-            // Reply
+            // Reply.
             todo!()
+            //TODO Index these fields in db init.
         }
-        Request::Query(query) => {
+        Request::Query(_query) => {
             // Set id.
             // Set uid.
             // Set pub.
@@ -181,7 +222,7 @@ pub async fn v1(
             // Reply.
             todo!()
         }
-        Request::Update(update) => {
+        Request::Update(_update) => {
             // Set id.
             // Set uid.
             // Get original doc eol & size.
@@ -197,7 +238,7 @@ pub async fn v1(
             // Reply.
             todo!()
         }
-        Request::Delete(delete) => {
+        Request::Delete(_delete) => {
             // Set id.
             // Set uid.
             // Calculate eol & size -> space.
@@ -205,5 +246,20 @@ pub async fn v1(
             // Add space to changes & reply.
             todo!()
         }
+    }
+}
+
+struct Counter {
+    pub n: usize,
+}
+
+impl Write for Counter {
+    fn write (&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.n = buf.len();
+        Ok(self.n)
+    }
+
+    fn flush (&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
