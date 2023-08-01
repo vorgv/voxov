@@ -24,7 +24,7 @@ pub struct Costs {
     pub time: Uint,
     pub space: Uint,
     pub traffic: Uint,
-    pub tips: Uint,
+    pub tip: Uint,
 }
 
 #[derive(Debug)]
@@ -36,14 +36,14 @@ pub struct Head {
 
 impl Costs {
     pub fn sum(&self) -> Uint {
-        self.time + self.space + self.traffic + self.tips
+        self.time + self.space + self.traffic + self.tip
     }
     pub fn try_get(req: &Request<Incoming>) -> Result<Self, Error> {
         Ok(Costs {
             time: try_get::<Uint>(req, "time")?,
             space: try_get::<Uint>(req, "space")?,
             traffic: try_get::<Uint>(req, "traffic")?,
-            tips: try_get::<Uint>(req, "tips")?,
+            tip: try_get::<Uint>(req, "tip")?,
         })
     }
 }

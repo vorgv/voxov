@@ -20,7 +20,7 @@ pub enum Error {
     CostSpace,
     CostSpaceTooLarge,
     CostTraffic,
-    CostTips,
+    CostTip,
 
     Fed,
 
@@ -30,16 +30,20 @@ pub enum Error {
     MemeNotFound,
     MemePut,
     MemeGet,
+
     Redis(redis::RedisError),
     MongoDB(mongodb::error::Error),
+    BsonValueAccess(bson::document::ValueAccessError),
     S3(s3::error::S3Error),
+
     Os,
     Hyper(hyper::Error),
-    Logical,
-    BsonValueAccess(bson::document::ValueAccessError),
     ParseJson(serde_json::error::Error),
-    Namespace,
+
     GeoDim,
+    Logical,
+    Namespace,
+    NumCheck,
     ReservedKey,
 }
 

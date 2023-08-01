@@ -1,5 +1,7 @@
 use crate::error::Error;
 use crate::{config::Config, message::Uint};
+use bson::doc;
+use mongodb::IndexModel;
 use mongodb::{self, bson::Document, options::ClientOptions};
 use redis::{aio::ConnectionManager, RedisError};
 use s3::creds::Credentials;
@@ -10,10 +12,13 @@ pub struct Database {
     /// Redis connection manager with auto retry
     cm: ConnectionManager,
 
+    /// Map collection
+    pub map: mongodb::Collection<Document>,
+
     /// Meme metadata collection
     pub mm: mongodb::Collection<Document>,
 
-    /// Meme data collection
+    /// Meme data bucket
     pub mr: Bucket,
 }
 
@@ -42,6 +47,7 @@ impl Database {
                 .await
                 .expect("Redis offline?"),
             mm: mdb.collection::<Document>("mm"),
+            map: mdb.collection::<Document>("map"),
             mr: Bucket::new(
                 "voxov",
                 Region::Custom {
@@ -132,6 +138,35 @@ impl Database {
             .arg(key)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await?)
+    }
+
+    /// Index MongoDB.
+    pub async fn create_index(&self) -> Result<(), Error> {
+        self.mm
+            .create_index(IndexModel::builder().keys(doc! { "eol": 1 }).build(), None)
+            .await?;
+
+        self.map
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! {
+                        "_uid": "hashed",
+                        "_pub": -1,
+                        "_eol": 1,
+                        "_tip": 1,
+                        "_ns": 1,
+                        "_0": 1,
+                        "_1": 1,
+                        "_2": 1,
+                        "_3": 1,
+                        "_geo": "2dsphere",
+                    })
+                    .build(),
+                None,
+            )
+            .await?;
+
+        Ok(())
     }
 }
 

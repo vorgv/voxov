@@ -8,7 +8,7 @@
 //! - _uid: user identifier.
 //! - _pub: visibility.
 //! - _eol: end of life.
-//! - _tips: price.
+//! - _tip: price.
 //! - _size: the size of doc.
 //!
 //! _id and _uid are immutable.
@@ -29,18 +29,17 @@
 
 #![allow(clippy::just_underscores_and_digits)]
 
-use bson::doc;
+use crate::error::Error;
+use crate::message::{Costs, Id, Int, Uint};
 use bson::oid::ObjectId;
+use bson::{doc, to_bson, Document};
 use chrono::serde::{ts_seconds, ts_seconds_option};
 use chrono::{DateTime, Duration, Utc};
+use mongodb::Collection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap as Map;
 use std::io::Write;
-use tokio::time::Instant;
-
-use crate::error::Error;
-use crate::message::{Costs, Id, Int, Uint};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Insert {
@@ -149,19 +148,22 @@ enum Request {
 pub async fn v1(
     uid: &Id,
     arg: &str,
-    _changes: &mut Costs,
-    _space: Uint,
-    _deadline: Instant,
+    changes: &mut Costs,
+    space_cost: Uint,
+    map: &'static Collection<Document>,
 ) -> Result<String, Error> {
     let request: Request = serde_json::from_str(arg)?;
     match request {
         Request::Insert(insert) => {
             let ttl = insert._eol - Utc::now();
-            if ttl <= Duration::zero() {
+            if ttl < Duration::days(1) {
                 return Err(Error::CostTime);
             }
 
             let tip = insert._tip.unwrap_or_default();
+            if tip < 0 || tip > changes.tip as i64 {
+                return Err(Error::CostTip);
+            }
 
             let ns = insert._ns.unwrap_or_default();
             if !ns.is_empty() && ns.starts_with('_') {
@@ -172,16 +174,16 @@ pub async fn v1(
                 return Err(Error::GeoDim);
             }
 
-            for (k, _) in insert.v {
+            for k in insert.v.keys() {
                 if !k.is_empty() && k.starts_with('_') {
                     return Err(Error::ReservedKey);
                 }
             }
 
-            let _0 = bson::to_bson(&insert._0).unwrap();
-            let _1 = bson::to_bson(&insert._1).unwrap();
-            let _2 = bson::to_bson(&insert._2).unwrap();
-            let _3 = bson::to_bson(&insert._3).unwrap();
+            let _0 = to_bson(&insert._0).unwrap();
+            let _1 = to_bson(&insert._1).unwrap();
+            let _2 = to_bson(&insert._2).unwrap();
+            let _3 = to_bson(&insert._3).unwrap();
 
             let mut d = doc! {
                 "_uid": uid.to_string(),
@@ -197,14 +199,28 @@ pub async fn v1(
                 "_size": 0_i64,
             };
 
+            for (k, v) in insert.v {
+                let v_bson = to_bson(&v).unwrap();
+                d.insert(k, v_bson);
+            }
+
             let mut c = Counter { n: 0 };
             let _ = d.to_writer(&mut c);
             let s = d.get_i64_mut("_size").unwrap();
             *s = c.n as i64;
-            // Insert document with deadline.
-            // Reply.
-            todo!()
-            //TODO Index these fields in db init.
+
+            let kb = (c.n as u64 + 1023) / 1024;
+            let days = ttl.num_days() as u64;
+            let mut space: u64 = kb.checked_mul(days).ok_or(Error::NumCheck)?;
+            space = space.checked_mul(space_cost).ok_or(Error::NumCheck)?;
+            if changes.space < space {
+                return Err(Error::CostSpace);
+            }
+            changes.space -= space;
+
+            map.insert_one(d, None).await?;
+
+            Ok("{}".into())
         }
         Request::Query(_query) => {
             // Set id.
@@ -254,12 +270,12 @@ struct Counter {
 }
 
 impl Write for Counter {
-    fn write (&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.n = buf.len();
         Ok(self.n)
     }
 
-    fn flush (&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
 }

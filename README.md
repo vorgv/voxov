@@ -36,7 +36,7 @@ Not ready for production. I patch dependencies without forking. This crate may n
     - time cost
     - traffic cost
     - space cost
-    - tips
+    - tip
 - TODO fed (static only)
     - optional jwt (for untrusted nodes)
     - exchange rate (static range, local currency)

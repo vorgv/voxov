@@ -35,7 +35,7 @@ impl Reply {
                     .header("time", $changes.time)
                     .header("space", $changes.space)
                     .header("traffic", $changes.traffic)
-                    .header("tips", $changes.tips)
+                    .header("tip", $changes.tip)
             };
         }
 

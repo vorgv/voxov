@@ -2,7 +2,6 @@ use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
 use mongodb::bson::doc;
 use mongodb::options::{FindOneOptions, FindOptions};
-use mongodb::IndexModel;
 use s3::bucket::CHUNK_SIZE;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -43,13 +42,6 @@ impl Meme {
     pub async fn ripperd(&self) {
         if self.ripperd_disabled {
             return;
-        }
-        let mm = &self.db.mm;
-        if let Err(error) = mm
-            .create_index(IndexModel::builder().keys(doc! { "eol": 1 }).build(), None)
-            .await
-        {
-            println!("Ripperd error: {}", error);
         }
         loop {
             sleep(Duration::from_secs(self.ripperd_interval)).await;
@@ -213,7 +205,7 @@ impl Meme {
             "hash": hex::encode(hash.as_bytes()),
             "size": size as i64,
             "pub": false,
-            "tips": 0,
+            "tip": 0,
             "eol": eol,
         };
         let cost = self.space_cost_doc * days;
@@ -226,12 +218,8 @@ impl Meme {
         let mm = &self.db.mm;
         mm.insert_one(doc, None).await?;
         let now = Instant::now();
-        if now > deadline {
-            return Err(Error::CostTime);
-        } else {
-            let remaining: Duration = deadline - now;
-            changes.time = remaining.as_millis() as Uint * self.time_cost;
-        }
+        let remaining: Duration = deadline - now;
+        changes.time = remaining.as_millis() as Uint * self.time_cost;
 
         Ok(Reply::MemePut {
             changes: *changes,
@@ -261,10 +249,10 @@ impl Meme {
                 "hash": hash.clone(),
             },
         };
-        // Sort by tips
+        // Sort by tip
         let options = FindOneOptions::builder()
-            .projection(doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tips": 1, "_id": 0 })
-            .sort(doc! { "tips": 1 })
+            .projection(doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tip": 1, "_id": 0 })
+            .sort(doc! { "tip": 1 })
             .build();
         let mm = &self.db.mm;
         let meta = mm
@@ -281,30 +269,26 @@ impl Meme {
             return Err(Error::CostTraffic);
         }
         changes.traffic -= cost;
-        // Pay tips
+        // Pay tip
         if public {
-            let tips = meta.get_i64("tips").map_err(|_| Error::Logical)? as u64;
-            if tips > changes.tips {
-                return Err(Error::CostTips);
+            let tip = meta.get_i64("tip").map_err(|_| Error::Logical)? as u64;
+            if tip > changes.tip {
+                return Err(Error::CostTip);
             }
-            changes.tips -= tips;
+            changes.tip -= tip;
             let uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
             use std::str::FromStr;
             let uid = Id::from_str(uid)?;
             let u2c = ns(UID2CREDIT, &uid);
-            self.db.incrby(&u2c[..], tips).await?;
+            self.db.incrby(&u2c[..], tip).await?;
         }
         // Stream object
         let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
         let mr = &self.db.mr;
         let stream = Box::pin(mr.get_object_stream(oid).await?);
         let now = Instant::now();
-        if now > deadline {
-            return Err(Error::CostTime);
-        } else {
-            let remaining: Duration = deadline - now;
-            changes.time = remaining.as_millis() as Uint * self.time_cost;
-        }
+        let remaining: Duration = deadline - now;
+        changes.time = remaining.as_millis() as Uint * self.time_cost;
 
         Ok(Reply::MemeGet {
             changes: *changes,

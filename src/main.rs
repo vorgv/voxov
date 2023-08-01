@@ -6,7 +6,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Config: collect ENV to global variable only once
     let c = to_static!(config::Config::new());
     // Database: stateless global database struct
-    let db = to_static!(database::Database::new(c).await);
+    let db: &'static database::Database = to_static!(database::Database::new(c).await);
+    db.create_index()
+        .await
+        .expect("Database index creation failed.");
     // Meme: data types
     let meme: &'static meme::Meme = to_static!(meme::Meme::new(c, db));
     tokio::spawn(meme.ripperd());
