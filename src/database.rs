@@ -42,7 +42,7 @@ impl Database {
         let mdb = connect_mongo(&config.mongo_addr)
             .await
             .expect("MongoDB offline?");
-        Database {
+        let db = Database {
             cm: connect_redis(&config.redis_addr)
                 .await
                 .expect("Redis offline?"),
@@ -65,7 +65,11 @@ impl Database {
             )
             .expect("S3 offline?")
             .with_path_style(),
-        }
+        };
+        db.create_index()
+            .await
+            .expect("Database index creation failed.");
+        db
     }
 
     /// Set key-value pair with TTL by seconds.
