@@ -82,8 +82,8 @@ struct Query {
     _tip: Option<Int>,
     _tip_: Option<Int>,
 
-    _size: usize,
-    _size_: usize,
+    _size: Option<i64>,
+    _size_: Option<i64>,
 
     _ns: Option<String>,
     _ns_: Option<String>,
@@ -180,10 +180,10 @@ pub async fn v1(
                 }
             }
 
-            let _0 = to_bson(&insert._0).unwrap();
-            let _1 = to_bson(&insert._1).unwrap();
-            let _2 = to_bson(&insert._2).unwrap();
-            let _3 = to_bson(&insert._3).unwrap();
+            let _0 = to_bson(&insert._0)?;
+            let _1 = to_bson(&insert._1)?;
+            let _2 = to_bson(&insert._2)?;
+            let _3 = to_bson(&insert._3)?;
 
             let mut d = doc! {
                 "_uid": uid.to_string(),
@@ -200,13 +200,13 @@ pub async fn v1(
             };
 
             for (k, v) in insert.v {
-                let v_bson = to_bson(&v).unwrap();
+                let v_bson = to_bson(&v)?;
                 d.insert(k, v_bson);
             }
 
             let mut c = Counter { n: 0 };
             let _ = d.to_writer(&mut c);
-            let s = d.get_i64_mut("_size").unwrap();
+            let s = d.get_i64_mut("_size")?;
             *s = c.n as i64;
 
             let kb = (c.n as u64 + 1023) / 1024;
@@ -222,20 +222,60 @@ pub async fn v1(
 
             Ok("{}".into())
         }
-        Request::Query(_query) => {
-            // Set id.
-            // Set uid.
-            // Set pub.
-            // Set eol.
-            // Set tip.
-            // Set size.
-            // Set ns.
-            // Set keys.
-            // Set max doc count.
+        Request::Query(query) => {
+            let mut filter = Document::new();
+
+            query._id.and_then(|id| filter.insert("_id", id));
+
+            if let Some(doc_uid) = query._uid {
+                if uid.to_string() == doc_uid {
+                    query._pub.and_then(|p| filter.insert("_pub", p));
+                } else {
+                    filter.insert("_pub", true);
+                }
+                filter.insert("_uid", doc_uid);
+            }
+
+            macro_rules! filte_range {
+                ($k:expr, $b:expr, $e:expr) => {
+                    if let Some(begin) = $b {
+                        if let Some(end) = $e {
+                            filter.insert($k, doc! { "$gt": begin, "$lt": end });
+                        } else {
+                            filter.insert($k, begin);
+                        }
+                    }
+                };
+            }
+
+            macro_rules! filte_key {
+                ($k:expr, $b:expr, $e:expr) => {
+                    if let Some(begin) = $b {
+                        let begin = to_bson(&begin)?;
+                        if let Some(end) = $e {
+                            let end = to_bson(&end)?;
+                            filter.insert($k, doc! { "$gt": begin, "$lt": end });
+                        } else {
+                            filter.insert($k, begin);
+                        }
+                    }
+                };
+            }
+
+            filte_range!("_eol", query._eol, query._eol_);
+            filte_range!("_tip", query._tip, query._tip_);
+            filte_range!("_size", query._size, query._size_);
+            filte_range!("_ns", query._ns, query._ns_);
+
+            filte_key!("_0", query._0, query._0_);
+            filte_key!("_1", query._1, query._1_);
+            filte_key!("_2", query._2, query._2_);
+            filte_key!("_3", query._3, query._3_);
+
             // Set geo.
             // Select fields.
-            // Query document with deadline.
-            // Reply.
+            // Reply stream body.
+            // Spawn query document with deadline & max doc count.
             todo!()
         }
         Request::Update(_update) => {
