@@ -35,11 +35,14 @@ use bson::oid::ObjectId;
 use bson::{doc, to_bson, Document};
 use chrono::serde::{ts_seconds, ts_seconds_option};
 use chrono::{DateTime, Duration, Utc};
+use mongodb::options::FindOptions;
 use mongodb::Collection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap as Map;
 use std::io::Write;
+use tokio::time::Instant;
+use tokio_stream::StreamExt;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Insert {
@@ -70,8 +73,6 @@ struct Query {
     _type: String,
     _id: Option<ObjectId>,
     _uid: Option<String>,
-
-    /// Default: public and self.
     _pub: Option<bool>,
 
     #[serde(with = "ts_seconds_option")]
@@ -99,7 +100,7 @@ struct Query {
     _3_: Option<Value>,
 
     /// Max doc count.
-    _n: i32,
+    _n: Option<u64>,
 
     _geo: Option<Vec<f64>>,
 
@@ -149,7 +150,9 @@ pub async fn v1(
     uid: &Id,
     arg: &str,
     changes: &mut Costs,
+    deadline: Instant,
     space_cost: Uint,
+    traffic_cost: Uint,
     map: &'static Collection<Document>,
 ) -> Result<String, Error> {
     let request: Request = serde_json::from_str(arg)?;
@@ -204,12 +207,11 @@ pub async fn v1(
                 d.insert(k, v_bson);
             }
 
-            let mut c = Counter { n: 0 };
-            let _ = d.to_writer(&mut c);
+            let d_size = doc_size(&d) as i64;
             let s = d.get_i64_mut("_size")?;
-            *s = c.n as i64;
+            *s = d_size;
 
-            let kb = (c.n as u64 + 1023) / 1024;
+            let kb = (d_size as u64 + 1023) / 1024;
             let days = ttl.num_days() as u64;
             let mut space: u64 = kb.checked_mul(days).ok_or(Error::NumCheck)?;
             space = space.checked_mul(space_cost).ok_or(Error::NumCheck)?;
@@ -222,6 +224,7 @@ pub async fn v1(
 
             Ok("{}".into())
         }
+
         Request::Query(query) => {
             let mut filter = Document::new();
 
@@ -272,15 +275,58 @@ pub async fn v1(
             filte_key!("_2", query._2, query._2_);
             filte_key!("_3", query._3, query._3_);
 
-            // Set geo.
-            // Select fields.
-            // Reply stream body.
-            // Spawn query document with deadline & max doc count.
-            todo!()
+            if let Some(geo) = query._geo {
+                if geo.len() != 3 {
+                    return Err(Error::GeoDim);
+                }
+                filter.insert(
+                    "_geo",
+                    doc! { "$geoWithin": {
+                        "$centerSphere": [[geo[0], geo[1]], geo[2]],
+                    }},
+                );
+            }
+
+            let mut options = FindOptions::default();
+
+            if let Some(values) = query._v {
+                let mut proj = Document::new();
+                for value in values {
+                    proj.insert(value, 1);
+                }
+                options.projection = Some(proj);
+            }
+
+            options.max_time = Some(deadline - Instant::now());
+
+            let mut i = 0;
+            let mut b = Document::new();
+            let mut s = changes.traffic / traffic_cost;
+            let mut cursor = map.find(filter, options).await?;
+            while let Some(d) = cursor.try_next().await? {
+                if let Some(n) = query._n {
+                    if n == i {
+                        break;
+                    }
+                }
+
+                let d_size = doc_size(&d) as u64;
+                if d_size > s {
+                    return Err(Error::CostTraffic);
+                }
+                s -= d_size;
+
+                b.insert(i.to_string(), d);
+                i += 1;
+            }
+
+            Ok(b.to_string())
         }
+
         Request::Update(_update) => {
-            // Set id.
+            // Select id.
             // Set uid.
+            // Set pub to false.
             // Get original doc eol & size.
             // Set eol.
             // Set tip.
@@ -294,6 +340,7 @@ pub async fn v1(
             // Reply.
             todo!()
         }
+
         Request::Delete(_delete) => {
             // Set id.
             // Set uid.
@@ -303,6 +350,12 @@ pub async fn v1(
             todo!()
         }
     }
+}
+
+fn doc_size(d: &Document) -> usize {
+    let mut c = Counter { n: 0 };
+    let _ = d.to_writer(&mut c);
+    c.n
 }
 
 struct Counter {

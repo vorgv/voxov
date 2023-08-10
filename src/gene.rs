@@ -134,7 +134,16 @@ impl Gene {
                 let result = match gid {
                     0 => info::v1(uid, &arg, self.config_json.clone()).await,
                     1 => {
-                        map::v1(uid, &arg, &mut changes, self.space_cost_doc, &self.db.map).await?
+                        map::v1(
+                            uid,
+                            &arg,
+                            &mut changes,
+                            deadline,
+                            self.space_cost_doc,
+                            self.traffic_cost,
+                            &self.db.map,
+                        )
+                        .await?
                     }
                     _ => {
                         return Err(Error::GeneInvalidId);
