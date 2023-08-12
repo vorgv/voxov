@@ -35,7 +35,7 @@ use bson::oid::ObjectId;
 use bson::{doc, to_bson, Document};
 use chrono::serde::{ts_seconds, ts_seconds_option};
 use chrono::{DateTime, Duration, Utc};
-use mongodb::options::FindOptions;
+use mongodb::options::{FindOneAndDeleteOptions, FindOptions};
 use mongodb::Collection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -239,7 +239,7 @@ pub async fn v1(
                 filter.insert("_uid", doc_uid);
             }
 
-            macro_rules! filte_range {
+            macro_rules! filter_range {
                 ($k:expr, $b:expr, $e:expr) => {
                     if let Some(begin) = $b {
                         if let Some(end) = $e {
@@ -251,7 +251,7 @@ pub async fn v1(
                 };
             }
 
-            macro_rules! filte_key {
+            macro_rules! filter_key {
                 ($k:expr, $b:expr, $e:expr) => {
                     if let Some(begin) = $b {
                         let begin = to_bson(&begin)?;
@@ -265,15 +265,15 @@ pub async fn v1(
                 };
             }
 
-            filte_range!("_eol", query._eol, query._eol_);
-            filte_range!("_tip", query._tip, query._tip_);
-            filte_range!("_size", query._size, query._size_);
-            filte_range!("_ns", query._ns, query._ns_);
+            filter_range!("_eol", query._eol, query._eol_);
+            filter_range!("_tip", query._tip, query._tip_);
+            filter_range!("_size", query._size, query._size_);
+            filter_range!("_ns", query._ns, query._ns_);
 
-            filte_key!("_0", query._0, query._0_);
-            filte_key!("_1", query._1, query._1_);
-            filte_key!("_2", query._2, query._2_);
-            filte_key!("_3", query._3, query._3_);
+            filter_key!("_0", query._0, query._0_);
+            filter_key!("_1", query._1, query._1_);
+            filter_key!("_2", query._2, query._2_);
+            filter_key!("_3", query._3, query._3_);
 
             if let Some(geo) = query._geo {
                 if geo.len() != 3 {
@@ -341,13 +341,36 @@ pub async fn v1(
             todo!()
         }
 
-        Request::Delete(_delete) => {
-            // Set id.
-            // Set uid.
-            // Calculate eol & size -> space.
-            // Delete document with deadline.
-            // Add space to changes & reply.
-            todo!()
+        Request::Delete(delete) => {
+            let filter = doc! {
+                "id": delete._id,
+                "uid": uid.to_string(),
+            };
+
+            let options = FindOneAndDeleteOptions::builder()
+                .projection(doc! {
+                    "_id": 0,
+                    "eol": 1,
+                    "size": 1,
+                })
+                .build();
+
+            let d = map
+                .find_one_and_delete(filter.clone(), options)
+                .await?
+                .ok_or(Error::GeneMapNotFound)?;
+
+            let eol: chrono::DateTime<Utc> = (*d.get_datetime("_eol")?).into();
+            let now = Utc::now();
+            if now > eol {
+                return Err(Error::GeneMapExpired);
+            }
+            let ttl = eol - now;
+            let size = d.get_i64("_eol")?;
+            let space = ((size / 1024) * ttl.num_days()) as u64 * space_cost;
+            changes.space += space;
+
+            Ok("{}".into())
         }
     }
 }

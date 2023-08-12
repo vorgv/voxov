@@ -26,6 +26,8 @@ pub enum Error {
 
     Gene,
     GeneInvalidId,
+    GeneMapNotFound,
+    GeneMapExpired,
 
     MemeNotFound,
     MemePut,

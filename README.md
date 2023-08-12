@@ -1,4 +1,4 @@
-# VOxOV Rain Shell
+# VOxOV Shell
 
 A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
