@@ -8,7 +8,7 @@
 //! - _uid: user identifier.
 //! - _pub: visibility.
 //! - _eol: end of life.
-//! - _tip: price.
+//! - _tip: price for get.
 //! - _size: the size of doc.
 //!
 //! _id and _uid are immutable.
@@ -37,14 +37,14 @@ use chrono::serde::{ts_seconds, ts_seconds_option};
 use chrono::{DateTime, Duration, Utc};
 use mongodb::options::{FindOneAndDeleteOptions, FindOptions};
 use mongodb::Collection;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap as Map;
 use std::io::Write;
 use tokio::time::Instant;
 use tokio_stream::StreamExt;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 struct Insert {
     _type: String,
     // Id is managed by database.
@@ -68,7 +68,10 @@ struct Insert {
     v: Map<String, Value>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
+struct GetTip {}
+
+#[derive(Deserialize, Debug)]
 struct Query {
     _type: String,
     _id: Option<ObjectId>,
@@ -108,41 +111,18 @@ struct Query {
     _v: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Update {
-    _type: String,
-    _id: Option<ObjectId>,
-
-    // Pub is managed by censor.
-    #[serde(with = "ts_seconds_option")]
-    _eol: Option<DateTime<Utc>>,
-    _tip: Option<Int>,
-    // Size is counted by backend.
-    _ns: Option<String>,
-
-    _0: Option<Value>,
-    _1: Option<Value>,
-    _2: Option<Value>,
-    _3: Option<Value>,
-
-    _geo: Option<Vec<f64>>,
-
-    #[serde(flatten)]
-    v: Map<String, Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 struct Delete {
     _type: String,
     _id: Option<ObjectId>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(tag = "_type")]
 enum Request {
     Insert(Insert),
+    GetTip(GetTip),
     Query(Query),
-    Update(Update),
     Delete(Delete),
 }
 
@@ -223,6 +203,10 @@ pub async fn v1(
             map.insert_one(d, None).await?;
 
             Ok("{}".into())
+        }
+
+        Request::GetTip(_get_tip) => {
+            todo!()
         }
 
         Request::Query(query) => {
@@ -321,24 +305,6 @@ pub async fn v1(
             }
 
             Ok(b.to_string())
-        }
-
-        Request::Update(_update) => {
-            // Select id.
-            // Set uid.
-            // Set pub to false.
-            // Get original doc eol & size.
-            // Set eol.
-            // Set tip.
-            // Set ns.
-            // Set keys.
-            // Set geo.
-            // Set user fields.
-            // Count new size.
-            // Calculate diff between eol and size, then update space.
-            // Update document with deadline.
-            // Reply.
-            todo!()
         }
 
         Request::Delete(delete) => {
