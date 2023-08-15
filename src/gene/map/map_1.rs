@@ -45,9 +45,9 @@ use tokio::time::Instant;
 use tokio_stream::StreamExt;
 
 #[derive(Deserialize, Debug)]
-struct Set {
+struct Put {
     _type: String,
-    // Id is managed by database.
+    _id: Option<ObjectId>,
     // Uid is managed by auth.
 
     // Pub is managed by censor.
@@ -117,7 +117,7 @@ struct Drop {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "_type")]
 enum Request {
-    Set(Set),
+    Put(Put),
     Get(Get),
     Drop(Drop),
 }
@@ -131,9 +131,23 @@ pub async fn v1(
     traffic_cost: Uint,
     map: &'static Collection<Document>,
 ) -> Result<String, Error> {
+    macro_rules! refund_space {
+        ($d: expr) => {
+            let eol: chrono::DateTime<Utc> = (*$d.get_datetime("_eol")?).into();
+            let size = $d.get_i64("_size")?;
+            let now = Utc::now();
+            if now > eol {
+                return Err(Error::GeneMapExpired);
+            }
+            let ttl = eol - now;
+            let space = ((size / 1024) * ttl.num_days()) as u64 * space_cost;
+            changes.space += space;
+        };
+    }
+
     let request: Request = serde_json::from_str(arg)?;
     match request {
-        Request::Set(request) => {
+        Request::Put(request) => {
             let ttl = request._eol - Utc::now();
             if ttl < Duration::days(1) {
                 return Err(Error::CostTime);
@@ -196,7 +210,17 @@ pub async fn v1(
             }
             changes.space -= space;
 
-            map.insert_one(d, None).await?;
+            if let Some(id) = request._id {
+                let mut filter = Document::new();
+                filter.insert("_id", id);
+                filter.insert("_uid", uid.to_string());
+                let found = map.find_one_and_replace(filter, d, None).await?;
+                if let Some(old) = found {
+                    refund_space!(old);
+                }
+            } else {
+                map.insert_one(d, None).await?;
+            }
 
             Ok("{}".into())
         }
@@ -322,20 +346,11 @@ pub async fn v1(
                 })
                 .build();
 
-            let d = map
+            let dropped = map
                 .find_one_and_delete(filter.clone(), options)
                 .await?
                 .ok_or(Error::GeneMapNotFound)?;
-
-            let eol: chrono::DateTime<Utc> = (*d.get_datetime("_eol")?).into();
-            let now = Utc::now();
-            if now > eol {
-                return Err(Error::GeneMapExpired);
-            }
-            let ttl = eol - now;
-            let size = d.get_i64("_eol")?;
-            let space = ((size / 1024) * ttl.num_days()) as u64 * space_cost;
-            changes.space += space;
+            refund_space!(dropped);
 
             Ok("{}".into())
         }
