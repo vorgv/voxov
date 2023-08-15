@@ -18,13 +18,13 @@
 //! # Indexed fields
 //!
 //! - _ns: namespace.
-//! - _u: indexed keys. Current range is [0, 3].
+//! - _i: indexed keys. They are _0, _1, _2 and _3.
 //! - _n: max doc count.
 //! - _geo: geospacial information.
 //!
 //! _ns is a history lesson in engineering.
-//! _u can have various types. Their meaning is defined under _ns.
-//! Range query is supported as [_u, _u_].
+//! _i can have various types. Their meaning is defined under _ns.
+//! Range query is supported as [_i, _i_].
 //! _geo is managed by gene geo.
 
 #![allow(clippy::just_underscores_and_digits)]
@@ -45,7 +45,7 @@ use tokio::time::Instant;
 use tokio_stream::StreamExt;
 
 #[derive(Deserialize, Debug)]
-struct Insert {
+struct Set {
     _type: String,
     // Id is managed by database.
     // Uid is managed by auth.
@@ -69,10 +69,7 @@ struct Insert {
 }
 
 #[derive(Deserialize, Debug)]
-struct GetTip {}
-
-#[derive(Deserialize, Debug)]
-struct Query {
+struct Get {
     _type: String,
     _id: Option<ObjectId>,
     _uid: Option<String>,
@@ -112,7 +109,7 @@ struct Query {
 }
 
 #[derive(Deserialize, Debug)]
-struct Delete {
+struct Drop {
     _type: String,
     _id: Option<ObjectId>,
 }
@@ -120,10 +117,9 @@ struct Delete {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "_type")]
 enum Request {
-    Insert(Insert),
-    GetTip(GetTip),
-    Query(Query),
-    Delete(Delete),
+    Set(Set),
+    Get(Get),
+    Drop(Drop),
 }
 
 pub async fn v1(
@@ -137,52 +133,52 @@ pub async fn v1(
 ) -> Result<String, Error> {
     let request: Request = serde_json::from_str(arg)?;
     match request {
-        Request::Insert(insert) => {
-            let ttl = insert._eol - Utc::now();
+        Request::Set(request) => {
+            let ttl = request._eol - Utc::now();
             if ttl < Duration::days(1) {
                 return Err(Error::CostTime);
             }
 
-            let tip = insert._tip.unwrap_or_default();
+            let tip = request._tip.unwrap_or_default();
             if tip < 0 || tip > changes.tip as i64 {
                 return Err(Error::CostTip);
             }
 
-            let ns = insert._ns.unwrap_or_default();
+            let ns = request._ns.unwrap_or_default();
             if !ns.is_empty() && ns.starts_with('_') {
                 return Err(Error::Namespace);
             }
 
-            if insert._geo.is_some() && insert._geo.as_ref().unwrap().len() != 2 {
+            if request._geo.is_some() && request._geo.as_ref().unwrap().len() != 2 {
                 return Err(Error::GeoDim);
             }
 
-            for k in insert.v.keys() {
+            for k in request.v.keys() {
                 if !k.is_empty() && k.starts_with('_') {
                     return Err(Error::ReservedKey);
                 }
             }
 
-            let _0 = to_bson(&insert._0)?;
-            let _1 = to_bson(&insert._1)?;
-            let _2 = to_bson(&insert._2)?;
-            let _3 = to_bson(&insert._3)?;
+            let _0 = to_bson(&request._0)?;
+            let _1 = to_bson(&request._1)?;
+            let _2 = to_bson(&request._2)?;
+            let _3 = to_bson(&request._3)?;
 
             let mut d = doc! {
                 "_uid": uid.to_string(),
                 "_pub": false,
-                "_eol": insert._eol,
+                "_eol": request._eol,
                 "_tip": tip,
                 "_ns": ns,
                 "_0": _0,
                 "_1": _1,
                 "_2": _2,
                 "_3": _3,
-                "_geo": insert._geo,
+                "_geo": request._geo,
                 "_size": 0_i64,
             };
 
-            for (k, v) in insert.v {
+            for (k, v) in request.v {
                 let v_bson = to_bson(&v)?;
                 d.insert(k, v_bson);
             }
@@ -205,18 +201,14 @@ pub async fn v1(
             Ok("{}".into())
         }
 
-        Request::GetTip(_get_tip) => {
-            todo!()
-        }
-
-        Request::Query(query) => {
+        Request::Get(request) => {
             let mut filter = Document::new();
 
-            query._id.and_then(|id| filter.insert("_id", id));
+            request._id.and_then(|id| filter.insert("_id", id));
 
-            if let Some(doc_uid) = query._uid {
+            if let Some(doc_uid) = request._uid {
                 if uid.to_string() == doc_uid {
-                    query._pub.and_then(|p| filter.insert("_pub", p));
+                    request._pub.and_then(|p| filter.insert("_pub", p));
                 } else {
                     filter.insert("_pub", true);
                 }
@@ -249,17 +241,17 @@ pub async fn v1(
                 };
             }
 
-            filter_range!("_eol", query._eol, query._eol_);
-            filter_range!("_tip", query._tip, query._tip_);
-            filter_range!("_size", query._size, query._size_);
-            filter_range!("_ns", query._ns, query._ns_);
+            filter_range!("_eol", request._eol, request._eol_);
+            filter_range!("_tip", request._tip, request._tip_);
+            filter_range!("_size", request._size, request._size_);
+            filter_range!("_ns", request._ns, request._ns_);
 
-            filter_key!("_0", query._0, query._0_);
-            filter_key!("_1", query._1, query._1_);
-            filter_key!("_2", query._2, query._2_);
-            filter_key!("_3", query._3, query._3_);
+            filter_key!("_0", request._0, request._0_);
+            filter_key!("_1", request._1, request._1_);
+            filter_key!("_2", request._2, request._2_);
+            filter_key!("_3", request._3, request._3_);
 
-            if let Some(geo) = query._geo {
+            if let Some(geo) = request._geo {
                 if geo.len() != 3 {
                     return Err(Error::GeoDim);
                 }
@@ -273,7 +265,7 @@ pub async fn v1(
 
             let mut options = FindOptions::default();
 
-            if let Some(values) = query._v {
+            if let Some(values) = request._v {
                 let mut proj = Document::new();
                 for value in values {
                     proj.insert(value, 1);
@@ -288,7 +280,7 @@ pub async fn v1(
             let mut s = changes.traffic / traffic_cost;
             let mut cursor = map.find(filter, options).await?;
             while let Some(d) = cursor.try_next().await? {
-                if let Some(n) = query._n {
+                if let Some(n) = request._n {
                     if n == i {
                         break;
                     }
@@ -300,6 +292,15 @@ pub async fn v1(
                 }
                 s -= d_size;
 
+                let tip = d.get_i64("_tip")? as u64;
+                if tip > changes.tip {
+                    b.insert("_error", "tip");
+                    b.insert("_error_id", d.get_object_id("_id")?);
+                    b.insert("_error_tip", tip as i64);
+                    break;
+                }
+                changes.tip -= tip;
+
                 b.insert(i.to_string(), d);
                 i += 1;
             }
@@ -307,9 +308,9 @@ pub async fn v1(
             Ok(b.to_string())
         }
 
-        Request::Delete(delete) => {
+        Request::Drop(request) => {
             let filter = doc! {
-                "id": delete._id,
+                "id": request._id,
                 "uid": uid.to_string(),
             };
 
