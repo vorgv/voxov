@@ -6,10 +6,12 @@ use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::meme::Meme;
 use crate::message::{Costs, Id, Query, Reply, Uint};
+use crate::Result;
 use mongodb::bson::doc;
 use serde::Serialize;
 use tokio::time::{Duration, Instant};
 
+mod chan;
 mod info;
 mod map;
 
@@ -42,7 +44,7 @@ impl Gene {
         uid: &Id,
         mut changes: Costs,
         deadline: Instant,
-    ) -> Result<Reply, Error> {
+    ) -> Result<Reply> {
         // The same as the two combined in self.handle_ignore_error().
         macro_rules! time_refund {
             () => {
@@ -74,7 +76,7 @@ impl Gene {
         uid: &Id,
         mut changes: Costs,
         deadline: Instant,
-    ) -> Result<Reply, Error> {
+    ) -> Result<Reply> {
         /// Subtract traffic from changes based on $s.len().
         macro_rules! traffic {
             ($s: expr) => {
@@ -145,6 +147,7 @@ impl Gene {
                         )
                         .await?
                     }
+                    2 => chan::v1().await?,
                     _ => {
                         return Err(Error::GeneInvalidId);
                     }
@@ -205,13 +208,19 @@ impl GeneMeta {
             GeneMeta {
                 name: "info".into(),
                 version: 1,
-                description: "Return infomantion about this server.".into(),
+                description: "Infomantion about this server.".into(),
             },
             // 1
             GeneMeta {
                 name: "map".into(),
                 version: 1,
-                description: "Mapping over document data backed by MongoDB.".into(),
+                description: "Mapping abstraction backed by MongoDB.".into(),
+            },
+            // 2
+            GeneMeta {
+                name: "chan".into(),
+                version: 1,
+                description: "Messaging another user".into(),
             },
         ]
     }

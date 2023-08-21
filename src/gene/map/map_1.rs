@@ -33,6 +33,7 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::message::{Costs, Id, Int, Uint};
+use crate::Result;
 use bson::oid::ObjectId;
 use bson::{doc, to_bson, Document};
 use chrono::serde::{ts_seconds, ts_seconds_option};
@@ -132,7 +133,7 @@ pub async fn v1(
     space_cost: Uint,
     traffic_cost: Uint,
     db: &'static Database,
-) -> Result<String, Error> {
+) -> Result<String> {
     macro_rules! refund_space {
         ($d: expr) => {
             let eol: chrono::DateTime<Utc> = (*$d.get_datetime("_eol")?).into();

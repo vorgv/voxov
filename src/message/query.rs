@@ -2,6 +2,7 @@ use std::pin::Pin;
 
 use super::{try_get, try_get_hash, Costs, Hash, Head, Id, Uint};
 use crate::error::Error;
+use crate::Result;
 use hyper::{body::Incoming, Request};
 
 type OptionId = Option<Id>;
@@ -95,7 +96,7 @@ impl Query {
         }
     }
     /// Retrive value by key from header map
-    pub fn retrieve<'a>(req: &'a Request<Incoming>, key: &'a str) -> Result<&'a str, Error> {
+    pub fn retrieve<'a>(req: &'a Request<Incoming>, key: &'a str) -> Result<&'a str> {
         if let Some(r) = req.headers().get(key) {
             if let Ok(s) = r.to_str() {
                 return Ok(s);
@@ -108,7 +109,7 @@ impl Query {
 /// Try from http request to rust struct
 impl TryFrom<Request<Incoming>> for Query {
     type Error = Error;
-    fn try_from(req: Request<Incoming>) -> Result<Self, Self::Error> {
+    fn try_from(req: Request<Incoming>) -> Result<Self> {
         match Query::retrieve(&req, "type") {
             Ok(v) => match v {
                 "AuthSessionStart" => Ok(Query::AuthSessionStart),

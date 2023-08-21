@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::Result;
 use crate::{config::Config, message::Uint};
 use bson::doc;
 use mongodb::IndexModel;
@@ -7,6 +7,7 @@ use redis::{aio::ConnectionManager, RedisError};
 use s3::creds::Credentials;
 use s3::region::Region;
 use s3::Bucket;
+use std::result::Result as StdResult;
 
 pub struct Database {
     /// Redis connection manager with auto retry
@@ -22,12 +23,12 @@ pub struct Database {
     pub mr: Bucket,
 }
 
-async fn connect_redis(addr: &str) -> Result<ConnectionManager, RedisError> {
+async fn connect_redis(addr: &str) -> StdResult<ConnectionManager, RedisError> {
     let client = redis::Client::open(addr).unwrap();
     client.get_tokio_connection_manager().await
 }
 
-async fn connect_mongo(addr: &str) -> Result<mongodb::Database, mongodb::error::Error> {
+async fn connect_mongo(addr: &str) -> StdResult<mongodb::Database, mongodb::error::Error> {
     let mut client_options = ClientOptions::parse(addr).await?;
     client_options.app_name = Some("voxov".to_string());
     let client = mongodb::Client::with_options(client_options)?;
@@ -78,7 +79,7 @@ impl Database {
         key: K,
         value: V,
         seconds: Uint,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(cmd("SETEX")
             .arg(key)
             .arg(seconds)
@@ -88,7 +89,7 @@ impl Database {
     }
 
     /// Get value by key.
-    pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V, Error> {
+    pub async fn get<K: ToRedisArgs, V: FromRedisValue>(&self, key: K) -> Result<V> {
         Ok(cmd("GET")
             .arg(key)
             .query_async::<ConnectionManager, V>(&mut self.cm.clone())
@@ -100,7 +101,7 @@ impl Database {
         &self,
         key: K,
         seconds: Uint,
-    ) -> Result<V, Error> {
+    ) -> Result<V> {
         Ok(cmd("GETEX")
             .arg(key)
             .arg("EX")
@@ -110,7 +111,7 @@ impl Database {
     }
 
     /// Set expiration.
-    pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: Uint) -> Result<(), Error> {
+    pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: Uint) -> Result<()> {
         Ok(cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
@@ -119,7 +120,7 @@ impl Database {
     }
 
     /// Increment the number.
-    pub async fn incrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
+    pub async fn incrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<()> {
         Ok(cmd("INCRBY")
             .arg(key)
             .arg(number)
@@ -128,7 +129,7 @@ impl Database {
     }
 
     /// Decrement the number.
-    pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<(), Error> {
+    pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<()> {
         Ok(cmd("DECRBY")
             .arg(key)
             .arg(number)
@@ -137,7 +138,7 @@ impl Database {
     }
 
     /// Delete key.
-    pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<(), Error> {
+    pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<()> {
         Ok(cmd("DEL")
             .arg(key)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
@@ -145,7 +146,7 @@ impl Database {
     }
 
     /// Index MongoDB.
-    pub async fn create_index(&self) -> Result<(), Error> {
+    pub async fn create_index(&self) -> Result<()> {
         self.mm
             .create_index(IndexModel::builder().keys(doc! { "eol": 1 }).build(), None)
             .await?;

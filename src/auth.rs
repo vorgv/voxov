@@ -14,6 +14,7 @@ use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::message::Uint;
 use crate::message::{Id, Query, Reply, IDL};
+use crate::Result;
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {
@@ -37,7 +38,7 @@ impl Auth {
         }
     }
 
-    pub async fn handle(&self, query: Query) -> Result<Reply, Error> {
+    pub async fn handle(&self, query: Query) -> Result<Reply> {
         match query {
             // Session management
             Query::AuthSessionStart => self.handle_session_start().await,
@@ -70,7 +71,7 @@ impl Auth {
     }
 
     /// Generate two random tokens.
-    async fn handle_session_start(&self) -> Result<Reply, Error> {
+    async fn handle_session_start(&self) -> Result<Reply> {
         let (access, refresh) = {
             let mut rng = rand::thread_rng();
             (Id::rand(&mut rng)?, Id::rand(&mut rng)?)
@@ -84,7 +85,7 @@ impl Auth {
     }
 
     /// If refresh exists, reset its TTL, then gengerate a new access.
-    async fn handle_session_refresh(&self, refresh: &Id) -> Result<Reply, Error> {
+    async fn handle_session_refresh(&self, refresh: &Id) -> Result<Reply> {
         let r = ns(REFRESH, refresh);
         let uid: Vec<u8> = match self.db.getex(&r[..], self.refresh_ttl).await? {
             Some(v) => v,
@@ -100,11 +101,7 @@ impl Auth {
     }
 
     /// If access is valid, delete access and optionally refresh.
-    async fn handle_session_end(
-        &self,
-        access: &Id,
-        option_refresh: &Option<Id>,
-    ) -> Result<Reply, Error> {
+    async fn handle_session_end(&self, access: &Id, option_refresh: &Option<Id>) -> Result<Reply> {
         let access_uid = self.authenticate(access).await?;
         let a = ns(ACCESS, access);
         self.db.del(&a[..]).await?;
@@ -124,7 +121,7 @@ impl Auth {
     }
 
     /// Query UID from access token, zero is anonymous.
-    async fn authenticate(&self, access: &Id) -> Result<Id, Error> {
+    async fn authenticate(&self, access: &Id) -> Result<Id> {
         let a = ns(ACCESS, access);
         match self.db.get::<_, Option<Vec<u8>>>(&a[..]).await? {
             Some(uid) => Ok(Id::try_from(uid)?),
@@ -133,7 +130,7 @@ impl Auth {
     }
 
     /// Send what to who to authenticate.
-    async fn handle_sms_send_to(&self, access: &Id) -> Result<Reply, Error> {
+    async fn handle_sms_send_to(&self, access: &Id) -> Result<Reply> {
         self.authenticate(access).await?;
         let (phone, message): (&'static _, _) = {
             let mut rng = rand::thread_rng();
@@ -155,7 +152,7 @@ impl Auth {
         refresh: &Id,
         phone: &String,
         message: &Id,
-    ) -> Result<Reply, Error> {
+    ) -> Result<Reply> {
         self.authenticate(access).await?;
         // Find user's phone in SMSSENT, phone, message.
         let key = nspm(SMSSENT, phone, message);

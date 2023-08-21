@@ -6,7 +6,6 @@ Not ready for production. I patch dependencies without forking. This crate may n
 
 ## Todos
 
-- Impl gene: map
 - Impl gene: chan
 - Impl gene: notify
 - Impl gene: human

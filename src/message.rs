@@ -16,6 +16,7 @@ pub use query::Query;
 pub use reply::Reply;
 
 use crate::error::Error;
+use crate::Result;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};
 
@@ -38,7 +39,7 @@ impl Costs {
     pub fn sum(&self) -> Uint {
         self.time + self.space + self.traffic + self.tip
     }
-    pub fn try_get(req: &Request<Incoming>) -> Result<Self, Error> {
+    pub fn try_get(req: &Request<Incoming>) -> Result<Self> {
         Ok(Costs {
             time: try_get::<Uint>(req, "time")?,
             space: try_get::<Uint>(req, "space")?,
@@ -49,7 +50,7 @@ impl Costs {
 }
 
 impl Head {
-    pub fn try_get(req: &Request<Incoming>) -> Result<Self, Error> {
+    pub fn try_get(req: &Request<Incoming>) -> Result<Self> {
         Ok(Head {
             access: Id::try_get(req, "access")?,
             costs: Costs::try_get(req)?,
@@ -58,7 +59,7 @@ impl Head {
     }
 }
 
-pub fn try_get<T: FromStr>(req: &Request<Incoming>, key: &str) -> Result<T, Error> {
+pub fn try_get<T: FromStr>(req: &Request<Incoming>, key: &str) -> Result<T> {
     let s = Query::retrieve(req, key)?;
     match s.parse::<T>() {
         Ok(u) => Ok(u),
@@ -66,7 +67,7 @@ pub fn try_get<T: FromStr>(req: &Request<Incoming>, key: &str) -> Result<T, Erro
     }
 }
 
-fn try_get_hash(req: &Request<Incoming>) -> Result<Hash, Error> {
+fn try_get_hash(req: &Request<Incoming>) -> Result<Hash> {
     let s = Query::retrieve(req, "hash")?;
     match <[u8; 32]>::from_hex(s) {
         Ok(u) => Ok(u),

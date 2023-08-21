@@ -20,3 +20,5 @@ pub mod macros {
         };
     }
 }
+
+type Result<T> = std::result::Result<T, error::Error>;

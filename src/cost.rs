@@ -7,6 +7,7 @@ use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::fed::Fed;
 use crate::message::{Id, Int, Query, Reply, Uint};
+use crate::Result;
 use tokio::time::{Duration, Instant};
 
 pub struct Cost {
@@ -26,7 +27,7 @@ impl Cost {
         }
     }
 
-    pub async fn handle(&self, query: Query, uid: &Id) -> Result<Reply, Error> {
+    pub async fn handle(&self, query: Query, uid: &Id) -> Result<Reply> {
         match query {
             Query::CostPay { access: _, vendor } => Ok(Reply::CostPay {
                 uri: format!("Not implemented: {}, {}", vendor, uid),

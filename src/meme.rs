@@ -1,3 +1,10 @@
+use crate::config::Config;
+use crate::database::namespace::UID2CREDIT;
+use crate::database::{ns, Database};
+use crate::error::Error;
+use crate::message::query::QueryBody;
+use crate::message::{Costs, Hash, Id, Reply, Uint};
+use crate::Result;
 use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
 use mongodb::bson::doc;
@@ -6,13 +13,6 @@ use s3::bucket::CHUNK_SIZE;
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::StreamExt;
-
-use crate::config::Config;
-use crate::database::namespace::UID2CREDIT;
-use crate::database::{ns, Database};
-use crate::error::Error;
-use crate::message::query::QueryBody;
-use crate::message::{Costs, Hash, Id, Reply, Uint};
 
 pub struct Meme {
     db: &'static Database,
@@ -52,7 +52,7 @@ impl Meme {
     }
 
     /// Fallible wrapper for a rip operation.
-    async fn rip(&self) -> Result<(), Error> {
+    async fn rip(&self) -> Result<()> {
         // Get all memes with EOL < now
         let options = FindOptions::builder()
             .projection(doc! { "_id": 1, "eol": 1, "oid": 1 })
@@ -82,12 +82,7 @@ impl Meme {
     /// Return meme metadata if meme is public or belongs to uid.
     /// The driver of MongoDB breaks if internal futures are dropped.
     /// This limitation hinders tokio::select style timeout.
-    pub async fn get_meta(
-        &self,
-        uid: &Id,
-        deadline: Instant,
-        hash: &Hash,
-    ) -> Result<String, Error> {
+    pub async fn get_meta(&self, uid: &Id, deadline: Instant, hash: &Hash) -> Result<String> {
         let mm = &self.db.mm;
         let filter = doc! { "hash": hex::encode(hash) };
         let handle = tokio::task::spawn(async move { mm.find_one(filter, None).await });
@@ -116,7 +111,7 @@ impl Meme {
         deadline: Instant,
         days: u64,
         mut raw: QueryBody,
-    ) -> Result<Reply, Error> {
+    ) -> Result<Reply> {
         // Create object with a random name.
         let oid = {
             let mut rng = rand::thread_rng();
@@ -236,7 +231,7 @@ impl Meme {
         deadline: Instant,
         hash: Hash,
         public: bool,
-    ) -> Result<Reply, Error> {
+    ) -> Result<Reply> {
         let hash = hex::encode(hash);
         // Filter
         let filter = match public {

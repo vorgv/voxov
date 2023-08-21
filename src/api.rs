@@ -1,19 +1,17 @@
 //! All have http endpoint.
 //! Only GeneCall implements GraphQL.
 
-use std::convert::Infallible;
-use std::error::Error;
-use std::net::SocketAddr;
-
-use http_body_util::{BodyExt, Empty, Full};
-use hyper::server::conn::http1;
-use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
-use tokio::net::TcpListener;
-
 use crate::auth::Auth;
 use crate::body::ResponseBody as RB;
 use crate::config::Config;
 use crate::message::Query;
+use http_body_util::{BodyExt, Empty, Full};
+use hyper::server::conn::http1;
+use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
+use std::convert::Infallible;
+use std::error::Error;
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 pub struct Api {
     auth: &'static Auth,

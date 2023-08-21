@@ -1,5 +1,6 @@
 use super::Query;
 use crate::error::Error;
+use crate::Result;
 use core::fmt;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};
@@ -15,7 +16,7 @@ pub struct Id(pub [u8; IDL]);
 
 impl FromStr for Id {
     type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         match <[u8; 16]>::from_hex(s) {
             Ok(u) => Ok(Id(u)),
             Err(_) => Err(Error::ApiParseId),
@@ -31,7 +32,7 @@ impl fmt::Display for Id {
 
 impl TryFrom<Vec<u8>> for Id {
     type Error = Error;
-    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
+    fn try_from(v: Vec<u8>) -> Result<Self> {
         let _: [u8; 16] = match v.try_into() {
             Ok(a) => return Ok(Id(a)),
             Err(_) => return Err(Error::Logical),
@@ -52,14 +53,14 @@ impl Id {
     pub fn is_zero(&self) -> bool {
         self.0 == ID0
     }
-    pub fn rand(rng: &mut ThreadRng) -> Result<Self, Error> {
+    pub fn rand(rng: &mut ThreadRng) -> Result<Self> {
         let mut s = ID0;
         match s.try_fill(rng) {
             Ok(_) => Ok(Id(s)),
             Err(_) => Err(Error::Os),
         }
     }
-    pub fn try_get(req: &Request<Incoming>, key: &str) -> Result<Self, Error> {
+    pub fn try_get(req: &Request<Incoming>, key: &str) -> Result<Self> {
         Id::from_str(Query::retrieve(req, key)?)
     }
     pub fn opt(req: &Request<Incoming>, key: &str) -> Option<Self> {
