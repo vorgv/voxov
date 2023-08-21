@@ -29,6 +29,8 @@
 
 #![allow(clippy::just_underscores_and_digits)]
 
+use crate::database::namespace::UID2CREDIT;
+use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::message::{Costs, Id, Int, Uint};
 use bson::oid::ObjectId;
@@ -36,11 +38,11 @@ use bson::{doc, to_bson, Document};
 use chrono::serde::{ts_seconds, ts_seconds_option};
 use chrono::{DateTime, Duration, Utc};
 use mongodb::options::{FindOneAndDeleteOptions, FindOptions};
-use mongodb::Collection;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap as Map;
 use std::io::Write;
+use std::str::FromStr;
 use tokio::time::Instant;
 use tokio_stream::StreamExt;
 
@@ -129,7 +131,7 @@ pub async fn v1(
     deadline: Instant,
     space_cost: Uint,
     traffic_cost: Uint,
-    map: &'static Collection<Document>,
+    db: &'static Database,
 ) -> Result<String, Error> {
     macro_rules! refund_space {
         ($d: expr) => {
@@ -145,6 +147,7 @@ pub async fn v1(
         };
     }
 
+    let map = &db.map;
     let request: Request = serde_json::from_str(arg)?;
     match request {
         Request::Put(request) => {
@@ -316,6 +319,11 @@ pub async fn v1(
                 }
                 s -= d_size;
 
+                let doc_uid = d.get_str("_uid")?;
+                if doc_uid == uid.to_string() {
+                    continue;
+                }
+
                 let tip = d.get_i64("_tip")? as u64;
                 if tip > changes.tip {
                     b.insert("_error", "tip");
@@ -324,6 +332,8 @@ pub async fn v1(
                     break;
                 }
                 changes.tip -= tip;
+                let u2c = ns(UID2CREDIT, &Id::from_str(doc_uid)?);
+                db.incrby(&u2c[..], tip).await?;
 
                 b.insert(i.to_string(), d);
                 i += 1;

@@ -141,7 +141,7 @@ impl Gene {
                             deadline,
                             self.space_cost_doc,
                             self.traffic_cost,
-                            &self.db.map,
+                            self.db,
                         )
                         .await?
                     }
