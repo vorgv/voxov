@@ -3,8 +3,8 @@ use std::process::exit;
 use std::str::FromStr;
 use voxov::auth::nspm;
 use voxov::config::Config;
-use voxov::database::namespace::SMSSENT;
-use voxov::database::Database;
+use voxov::database::namespace::{SMSSENT, UID2CREDIT};
+use voxov::database::{Database, ns};
 use voxov::message::Id;
 use voxov::to_static;
 
@@ -12,6 +12,7 @@ use voxov::to_static;
 async fn main() {
     let c = to_static!(Config::new());
     let db: &Database = to_static!(Database::new(c).await);
+
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Sent { from, to, message } => {
@@ -19,8 +20,13 @@ async fn main() {
             let s = nspm(SMSSENT, &to, &message);
             db.set(&s[..], from, c.access_ttl).await
         }
-        _ => todo!(),
+
+        Command::AddCredit { uid, credit } => {
+            let u2c = ns(UID2CREDIT, &Id::from_str(&uid).unwrap());
+            db.incrby(&u2c[..], credit).await
+        }
     };
+
     if result.is_err() {
         exit(1);
     }
@@ -41,6 +47,7 @@ pub enum Command {
         to: String,
         message: String,
     },
+
     /// Add credit to UID
     AddCredit { uid: String, credit: u64 },
 }
