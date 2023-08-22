@@ -4,7 +4,7 @@ use std::str::FromStr;
 use voxov::auth::nspm;
 use voxov::config::Config;
 use voxov::database::namespace::{SMSSENT, UID2CREDIT};
-use voxov::database::{Database, ns};
+use voxov::database::{ns, Database};
 use voxov::message::Id;
 use voxov::to_static;
 
@@ -41,7 +41,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// MESSAGE recieved from FROM to TO.
+    /// MESSAGE received from FROM to TO.
     Sent {
         from: String,
         to: String,

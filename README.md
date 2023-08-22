@@ -6,7 +6,7 @@ Not ready for production. I patch dependencies without forking. This crate may n
 
 ## Todos
 
-- Impl gene: chan
+- Impl gene: msg
 - Impl gene: notify
 - Impl gene: human
 - Impl gene: censor
@@ -47,16 +47,13 @@ Not ready for production. I patch dependencies without forking. This crate may n
     - info
     - map
         - document database
+    - msg
+        - chat
     - human
     - censor
         - publish: at least 6 months remaining
         - argue/report: do expensive publish
         - human verification
-    - chan (buffer/cursor)
-        - new/delete
-        - push
-        - pull
-        - application: chat, forum
     - notify
     - like
         - pay to get

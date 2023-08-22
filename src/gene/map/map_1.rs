@@ -18,7 +18,7 @@
 //! # Indexed fields
 //!
 //! - _ns: namespace.
-//! - _i: indexed keys. They are _0, _1, _2 and _3.
+//! - _i: indexed keys. They are _0, _1, _2, ... , _7.
 //! - _n: max doc count.
 //! - _geo: geospacial information.
 //!
@@ -64,6 +64,10 @@ struct Put {
     _1: Value,
     _2: Value,
     _3: Value,
+    _4: Value,
+    _5: Value,
+    _6: Value,
+    _7: Value,
 
     _geo: Option<Vec<f64>>,
 
@@ -96,11 +100,19 @@ struct Get {
     _1: Option<Value>,
     _2: Option<Value>,
     _3: Option<Value>,
+    _4: Option<Value>,
+    _5: Option<Value>,
+    _6: Option<Value>,
+    _7: Option<Value>,
 
     _0_: Option<Value>,
     _1_: Option<Value>,
     _2_: Option<Value>,
     _3_: Option<Value>,
+    _4_: Option<Value>,
+    _5_: Option<Value>,
+    _6_: Option<Value>,
+    _7_: Option<Value>,
 
     /// Max doc count.
     _n: Option<u64>,
@@ -133,6 +145,7 @@ pub async fn v1(
     space_cost: Uint,
     traffic_cost: Uint,
     db: &'static Database,
+    internal: bool,
 ) -> Result<String> {
     macro_rules! refund_space {
         ($d: expr) => {
@@ -163,7 +176,7 @@ pub async fn v1(
             }
 
             let ns = request._ns.unwrap_or_default();
-            if !ns.is_empty() && ns.starts_with('_') {
+            if !internal && !ns.is_empty() && ns.starts_with('_') {
                 return Err(Error::Namespace);
             }
 
@@ -181,6 +194,10 @@ pub async fn v1(
             let _1 = to_bson(&request._1)?;
             let _2 = to_bson(&request._2)?;
             let _3 = to_bson(&request._3)?;
+            let _4 = to_bson(&request._4)?;
+            let _5 = to_bson(&request._5)?;
+            let _6 = to_bson(&request._6)?;
+            let _7 = to_bson(&request._7)?;
 
             let mut d = doc! {
                 "_uid": uid.to_string(),
@@ -192,6 +209,10 @@ pub async fn v1(
                 "_1": _1,
                 "_2": _2,
                 "_3": _3,
+                "_4": _4,
+                "_5": _5,
+                "_6": _6,
+                "_7": _7,
                 "_geo": request._geo,
                 "_size": 0_i64,
             };
@@ -278,6 +299,10 @@ pub async fn v1(
             filter_key!("_1", request._1, request._1_);
             filter_key!("_2", request._2, request._2_);
             filter_key!("_3", request._3, request._3_);
+            filter_key!("_4", request._4, request._4_);
+            filter_key!("_5", request._5, request._5_);
+            filter_key!("_6", request._6, request._6_);
+            filter_key!("_7", request._7, request._7_);
 
             if let Some(geo) = request._geo {
                 if geo.len() != 3 {
@@ -310,6 +335,7 @@ pub async fn v1(
             while let Some(d) = cursor.try_next().await? {
                 if let Some(n) = request._n {
                     if n == i {
+                        b.insert("_error", "n");
                         break;
                     }
                 }

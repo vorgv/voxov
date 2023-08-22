@@ -11,9 +11,9 @@ use mongodb::bson::doc;
 use serde::Serialize;
 use tokio::time::{Duration, Instant};
 
-mod chan;
 mod info;
 mod map;
+mod msg;
 
 pub struct Gene {
     meme: &'static Meme,
@@ -144,10 +144,22 @@ impl Gene {
                             self.space_cost_doc,
                             self.traffic_cost,
                             self.db,
+                            false,
                         )
                         .await?
                     }
-                    2 => chan::v1().await?,
+                    2 => {
+                        msg::v1(
+                            uid,
+                            &arg,
+                            &mut changes,
+                            deadline,
+                            self.space_cost_doc,
+                            self.traffic_cost,
+                            self.db,
+                        )
+                        .await?
+                    }
                     _ => {
                         return Err(Error::GeneInvalidId);
                     }
@@ -218,9 +230,9 @@ impl GeneMeta {
             },
             // 2
             GeneMeta {
-                name: "chan".into(),
+                name: "msg".into(),
                 version: 1,
-                description: "Messaging another user".into(),
+                description: "Messaging another user.".into(),
             },
         ]
     }
