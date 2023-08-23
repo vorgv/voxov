@@ -32,7 +32,7 @@
 use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::message::{Costs, Id, Int, Uint};
+use crate::message::{Costs, Id};
 use crate::Result;
 use bson::oid::ObjectId;
 use bson::{doc, to_bson, Document};
@@ -56,7 +56,7 @@ struct Put {
     // Pub is managed by censor.
     #[serde(with = "ts_seconds")]
     _eol: DateTime<Utc>,
-    _tip: Option<Int>,
+    _tip: Option<i64>,
     // Size is counted by backend.
     _ns: Option<String>,
 
@@ -87,8 +87,8 @@ struct Get {
     #[serde(with = "ts_seconds_option")]
     _eol_: Option<DateTime<Utc>>,
 
-    _tip: Option<Int>,
-    _tip_: Option<Int>,
+    _tip: Option<i64>,
+    _tip_: Option<i64>,
 
     _size: Option<i64>,
     _size_: Option<i64>,
@@ -142,8 +142,8 @@ pub async fn v1(
     arg: &str,
     changes: &mut Costs,
     deadline: Instant,
-    space_cost: Uint,
-    traffic_cost: Uint,
+    space_cost: u64,
+    traffic_cost: u64,
     db: &'static Database,
     internal: bool,
 ) -> Result<String> {

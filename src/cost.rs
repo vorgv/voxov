@@ -6,15 +6,15 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::fed::Fed;
-use crate::message::{Id, Int, Query, Reply, Uint};
+use crate::message::{Id, Query, Reply};
 use crate::Result;
 use tokio::time::{Duration, Instant};
 
 pub struct Cost {
     fed: &'static Fed,
     db: &'static Database,
-    credit_limit: Int,
-    time_cost: Uint,
+    credit_limit: i64,
+    time_cost: u64,
 }
 
 impl Cost {
@@ -35,7 +35,7 @@ impl Cost {
 
             Query::CostGet { access: _ } => {
                 let u2p = ns(UID2CREDIT, uid);
-                let credit = self.db.get::<&[u8], Int>(&u2p).await?;
+                let credit = self.db.get::<&[u8], i64>(&u2p).await?;
                 Ok(Reply::CostGet { credit })
             }
 
@@ -43,8 +43,8 @@ impl Cost {
                 // Check if cost exceeds credit.
                 let costs = query.get_costs();
                 let u2p = ns(UID2CREDIT, uid);
-                let credit = self.db.get::<&[u8], Int>(&u2p).await?;
-                if costs.sum() as Int > credit - self.credit_limit {
+                let credit = self.db.get::<&[u8], i64>(&u2p).await?;
+                if costs.sum() as i64 > credit - self.credit_limit {
                     return Err(Error::CostInsufficientCredit);
                 } else {
                     // Decrement then refund to prevent double pay.

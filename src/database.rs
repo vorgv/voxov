@@ -1,5 +1,5 @@
+use crate::config::Config;
 use crate::Result;
-use crate::{config::Config, message::Uint};
 use bson::doc;
 use mongodb::IndexModel;
 use mongodb::{self, bson::Document, options::ClientOptions};
@@ -78,7 +78,7 @@ impl Database {
         &self,
         key: K,
         value: V,
-        seconds: Uint,
+        seconds: u64,
     ) -> Result<()> {
         Ok(cmd("SETEX")
             .arg(key)
@@ -100,7 +100,7 @@ impl Database {
     pub async fn getex<K: ToRedisArgs, V: FromRedisValue>(
         &self,
         key: K,
-        seconds: Uint,
+        seconds: u64,
     ) -> Result<V> {
         Ok(cmd("GETEX")
             .arg(key)
@@ -111,7 +111,7 @@ impl Database {
     }
 
     /// Set expiration.
-    pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: Uint) -> Result<()> {
+    pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: u64) -> Result<()> {
         Ok(cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
@@ -120,7 +120,7 @@ impl Database {
     }
 
     /// Increment the number.
-    pub async fn incrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<()> {
+    pub async fn incrby<K: ToRedisArgs>(&self, key: K, number: u64) -> Result<()> {
         Ok(cmd("INCRBY")
             .arg(key)
             .arg(number)
@@ -129,7 +129,7 @@ impl Database {
     }
 
     /// Decrement the number.
-    pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: Uint) -> Result<()> {
+    pub async fn decrby<K: ToRedisArgs>(&self, key: K, number: u64) -> Result<()> {
         Ok(cmd("DECRBY")
             .arg(key)
             .arg(number)

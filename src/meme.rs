@@ -3,7 +3,7 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::message::query::QueryBody;
-use crate::message::{Costs, Hash, Id, Reply, Uint};
+use crate::message::{Costs, Hash, Id, Reply};
 use crate::Result;
 use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
@@ -18,10 +18,10 @@ pub struct Meme {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
-    time_cost: Uint,
-    space_cost_obj: Uint,
-    space_cost_doc: Uint,
-    traffic_cost: Uint,
+    time_cost: u64,
+    space_cost_obj: u64,
+    space_cost_doc: u64,
+    traffic_cost: u64,
 }
 
 impl Meme {
@@ -214,7 +214,7 @@ impl Meme {
         mm.insert_one(doc, None).await?;
         let now = Instant::now();
         let remaining: Duration = deadline - now;
-        changes.time = remaining.as_millis() as Uint * self.time_cost;
+        changes.time = remaining.as_millis() as u64 * self.time_cost;
 
         Ok(Reply::MemePut {
             changes: *changes,
@@ -283,7 +283,7 @@ impl Meme {
         let stream = Box::pin(mr.get_object_stream(oid).await?);
         let now = Instant::now();
         let remaining: Duration = deadline - now;
-        changes.time = remaining.as_millis() as Uint * self.time_cost;
+        changes.time = remaining.as_millis() as u64 * self.time_cost;
 
         Ok(Reply::MemeGet {
             changes: *changes,

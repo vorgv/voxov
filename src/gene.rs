@@ -5,7 +5,7 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::meme::Meme;
-use crate::message::{Costs, Id, Query, Reply, Uint};
+use crate::message::{Costs, Id, Query, Reply};
 use crate::Result;
 use mongodb::bson::doc;
 use serde::Serialize;
@@ -20,9 +20,9 @@ pub struct Gene {
     config_json: String,
     db: &'static Database,
     metas: &'static Vec<GeneMeta>,
-    time_cost: Uint,
-    space_cost_doc: Uint,
-    traffic_cost: Uint,
+    time_cost: u64,
+    space_cost_doc: u64,
+    traffic_cost: u64,
 }
 
 impl Gene {
@@ -53,7 +53,7 @@ impl Gene {
                     return Err(Error::CostTime);
                 } else {
                     let remaining: Duration = deadline - now;
-                    changes.time = remaining.as_millis() as Uint * self.time_cost;
+                    changes.time = remaining.as_millis() as u64 * self.time_cost;
                 }
                 let u2c = ns(UID2CREDIT, uid);
                 self.db.incrby(&u2c[..], changes.sum()).await?;
@@ -81,7 +81,7 @@ impl Gene {
         macro_rules! traffic {
             ($s: expr) => {
                 // Traffic cost is server-to-client for now.
-                let traffic = $s.len() as Uint * self.traffic_cost;
+                let traffic = $s.len() as u64 * self.traffic_cost;
                 if traffic > changes.traffic {
                     return Err(Error::CostTraffic);
                 } else {
@@ -99,7 +99,7 @@ impl Gene {
                     return Err(Error::CostTime);
                 } else {
                     let remaining: Duration = deadline - now;
-                    changes.time = remaining.as_millis() as Uint * self.time_cost;
+                    changes.time = remaining.as_millis() as u64 * self.time_cost;
                 }
             };
         }

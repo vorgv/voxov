@@ -12,7 +12,6 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::message::Uint;
 use crate::message::{Id, Query, Reply, IDL};
 use crate::Result;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -20,9 +19,9 @@ use bytes::{BufMut, Bytes, BytesMut};
 pub struct Auth {
     cost: &'static Cost,
     db: &'static Database,
-    access_ttl: Uint,
-    refresh_ttl: Uint,
-    user_ttl: Uint,
+    access_ttl: u64,
+    refresh_ttl: u64,
+    user_ttl: u64,
     phones: &'static Vec<String>,
 }
 

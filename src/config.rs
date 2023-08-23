@@ -2,7 +2,6 @@
 //! A restart is required to update any config.
 //! To avoid interruption, prepend a load balancer.
 
-use crate::message::{Int, Uint};
 use crate::{gene::GeneMeta, to_static};
 use serde::Serialize;
 use std::net::IpAddr;
@@ -50,28 +49,28 @@ pub struct Config {
 
     // graphql_addr
     /// Seconds before access token expire.
-    pub access_ttl: Uint,
+    pub access_ttl: u64,
 
     /// Seconds before refresh token expire.
-    pub refresh_ttl: Uint,
+    pub refresh_ttl: u64,
 
     /// Seconds before user account expire.
-    pub user_ttl: Uint,
+    pub user_ttl: u64,
 
     /// Minimum credit.
-    pub credit_limit: Int,
+    pub credit_limit: i64,
 
     /// Cost per millisecond.
-    pub time_cost: Uint,
+    pub time_cost: u64,
 
     /// Cost per KB per day in MongoDB.
-    pub space_cost_doc: Uint,
+    pub space_cost_doc: u64,
 
     /// Cost per KB per day in S3.
-    pub space_cost_obj: Uint,
+    pub space_cost_obj: u64,
 
     /// Cost per byte.
-    pub traffic_cost: Uint,
+    pub traffic_cost: u64,
 
     /// SMS receivers for authentication.
     pub auth_phones: &'static Vec<String>,
@@ -127,21 +126,21 @@ impl Config {
                 }
             },
 
-            access_ttl: env_or!("ACCESS_TTL", 60 * 60 as Uint), // one hour
+            access_ttl: env_or!("ACCESS_TTL", 60 * 60_u64), // one hour
 
-            refresh_ttl: env_or!("REFRESH_TTL", 60 * 60 * 24 * 30 as Uint), // one month
+            refresh_ttl: env_or!("REFRESH_TTL", 60 * 60 * 24 * 30_u64), // one month
 
-            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5 as Uint), // five years
+            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5_u64), // five years
 
-            credit_limit: env_or!("INIT_CREDIT", -10_000_000_000 as Int), // one USD
+            credit_limit: env_or!("INIT_CREDIT", -10_000_000_000_i64), // one USD
 
-            time_cost: env_or!("TIME_COST", 1_000 as Uint), // per millisecond
+            time_cost: env_or!("TIME_COST", 1_000_u64), // per millisecond
 
-            space_cost_doc: env_or!("SPACE_COST_DOC", 100 as Uint), // per KB per day
+            space_cost_doc: env_or!("SPACE_COST_DOC", 100_u64), // per KB per day
 
-            space_cost_obj: env_or!("SPACE_COST_OBJ", 10 as Uint), // per KB per day
+            space_cost_obj: env_or!("SPACE_COST_OBJ", 10_u64), // per KB per day
 
-            traffic_cost: env_or!("TRAFFIC_COST", 1 as Uint), // per byte outbound
+            traffic_cost: env_or!("TRAFFIC_COST", 1_u64), // per byte outbound
 
             auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {

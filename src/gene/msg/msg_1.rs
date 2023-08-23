@@ -2,7 +2,7 @@
 
 use crate::{
     database::Database,
-    message::{Costs, Id, Uint},
+    message::{Costs, Id},
     Result,
 };
 use bson::{doc, oid::ObjectId};
@@ -72,8 +72,8 @@ pub async fn v1(
     arg: &str,
     changes: &mut Costs,
     deadline: Instant,
-    space_cost: Uint,
-    traffic_cost: Uint,
+    space_cost: u64,
+    traffic_cost: u64,
     db: &'static Database,
 ) -> Result<String> {
     todo!()

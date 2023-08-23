@@ -1,15 +1,11 @@
 //! Internal representation of messages.
 //! Shoud work with both http and GraphQL APIs.
 
-pub type Int = i64;
-pub type Uint = u64;
 pub type Hash = [u8; 32]; // BLAKE3
 
 pub mod id;
 pub mod query;
 pub mod reply;
-
-use std::str::FromStr;
 
 pub use id::{Id, IDL};
 pub use query::Query;
@@ -19,13 +15,14 @@ use crate::error::Error;
 use crate::Result;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};
+use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Costs {
-    pub time: Uint,
-    pub space: Uint,
-    pub traffic: Uint,
-    pub tip: Uint,
+    pub time: u64,
+    pub space: u64,
+    pub traffic: u64,
+    pub tip: u64,
 }
 
 #[derive(Debug)]
@@ -36,15 +33,15 @@ pub struct Head {
 }
 
 impl Costs {
-    pub fn sum(&self) -> Uint {
+    pub fn sum(&self) -> u64 {
         self.time + self.space + self.traffic + self.tip
     }
     pub fn try_get(req: &Request<Incoming>) -> Result<Self> {
         Ok(Costs {
-            time: try_get::<Uint>(req, "time")?,
-            space: try_get::<Uint>(req, "space")?,
-            traffic: try_get::<Uint>(req, "traffic")?,
-            tip: try_get::<Uint>(req, "tip")?,
+            time: try_get::<u64>(req, "time")?,
+            space: try_get::<u64>(req, "space")?,
+            traffic: try_get::<u64>(req, "traffic")?,
+            tip: try_get::<u64>(req, "tip")?,
         })
     }
 }

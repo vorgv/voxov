@@ -1,4 +1,4 @@
-use super::{Costs, Hash, Id, Int};
+use super::{Costs, Hash, Id};
 use crate::api::{empty, full, not_implemented};
 use crate::body::ResponseBody as RB;
 use crate::error::Error;
@@ -19,7 +19,7 @@ pub enum Reply {
     AuthSmsSendTo { phone: &'static String, message: Id },
     AuthSmsSent { uid: Id },
     CostPay { uri: String },
-    CostGet { credit: Int },
+    CostGet { credit: i64 },
     GeneMeta { changes: Costs, meta: String },
     GeneCall { changes: Costs, result: String },
     MemeMeta { changes: Costs, meta: String },
