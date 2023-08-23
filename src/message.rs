@@ -19,10 +19,10 @@ use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Costs {
-    pub time: u64,
-    pub space: u64,
-    pub traffic: u64,
-    pub tip: u64,
+    pub time: i64,
+    pub space: i64,
+    pub traffic: i64,
+    pub tip: i64,
 }
 
 #[derive(Debug)]
@@ -33,15 +33,15 @@ pub struct Head {
 }
 
 impl Costs {
-    pub fn sum(&self) -> u64 {
+    pub fn sum(&self) -> i64 {
         self.time + self.space + self.traffic + self.tip
     }
     pub fn try_get(req: &Request<Incoming>) -> Result<Self> {
         Ok(Costs {
-            time: try_get::<u64>(req, "time")?,
-            space: try_get::<u64>(req, "space")?,
-            traffic: try_get::<u64>(req, "traffic")?,
-            tip: try_get::<u64>(req, "tip")?,
+            time: try_get::<i64>(req, "time")?,
+            space: try_get::<i64>(req, "space")?,
+            traffic: try_get::<i64>(req, "traffic")?,
+            tip: try_get::<i64>(req, "tip")?,
         })
     }
 }

@@ -14,7 +14,7 @@ pub struct Cost {
     fed: &'static Fed,
     db: &'static Database,
     credit_limit: i64,
-    time_cost: u64,
+    time_cost: i64,
 }
 
 impl Cost {
@@ -44,7 +44,7 @@ impl Cost {
                 let costs = query.get_costs();
                 let u2p = ns(UID2CREDIT, uid);
                 let credit = self.db.get::<&[u8], i64>(&u2p).await?;
-                if costs.sum() as i64 > credit - self.credit_limit {
+                if costs.sum() > credit - self.credit_limit {
                     return Err(Error::CostInsufficientCredit);
                 } else {
                     // Decrement then refund to prevent double pay.
@@ -53,7 +53,8 @@ impl Cost {
                 }
 
                 // Set limits.
-                let deadline = Instant::now() + Duration::from_millis(costs.time / self.time_cost);
+                let deadline = Instant::now()
+                    + Duration::from_millis((costs.time / self.time_cost).try_into()?);
                 self.fed.handle(query, uid, costs, deadline).await
             }
         }

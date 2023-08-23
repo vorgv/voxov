@@ -19,9 +19,9 @@ use bytes::{BufMut, Bytes, BytesMut};
 pub struct Auth {
     cost: &'static Cost,
     db: &'static Database,
-    access_ttl: u64,
-    refresh_ttl: u64,
-    user_ttl: u64,
+    access_ttl: i64,
+    refresh_ttl: i64,
+    user_ttl: i64,
     phones: &'static Vec<String>,
 }
 

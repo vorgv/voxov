@@ -142,8 +142,8 @@ pub async fn v1(
     arg: &str,
     changes: &mut Costs,
     deadline: Instant,
-    space_cost: u64,
-    traffic_cost: u64,
+    space_cost: i64,
+    traffic_cost: i64,
     db: &'static Database,
     internal: bool,
 ) -> Result<String> {
@@ -156,7 +156,7 @@ pub async fn v1(
                 return Err(Error::GeneMapExpired);
             }
             let ttl = eol - now;
-            let space = ((size / 1024) * ttl.num_days()) as u64 * space_cost;
+            let space = (size / 1024) * ttl.num_days() * space_cost;
             changes.space += space;
         };
     }
@@ -171,7 +171,7 @@ pub async fn v1(
             }
 
             let tip = request._tip.unwrap_or_default();
-            if tip < 0 || tip > changes.tip as i64 {
+            if tip < 0 || tip > changes.tip {
                 return Err(Error::CostTip);
             }
 
@@ -226,9 +226,9 @@ pub async fn v1(
             let s = d.get_i64_mut("_size")?;
             *s = d_size;
 
-            let kb = (d_size as u64 + 1023) / 1024;
-            let days = ttl.num_days() as u64;
-            let mut space: u64 = kb.checked_mul(days).ok_or(Error::NumCheck)?;
+            let kb = (d_size + 1023) / 1024;
+            let days = ttl.num_days();
+            let mut space = kb.checked_mul(days).ok_or(Error::NumCheck)?;
             space = space.checked_mul(space_cost).ok_or(Error::NumCheck)?;
             if changes.space < space {
                 return Err(Error::CostSpace);
@@ -340,7 +340,7 @@ pub async fn v1(
                     }
                 }
 
-                let d_size = doc_size(&d) as u64;
+                let d_size = doc_size(&d) as i64;
                 if d_size > s {
                     return Err(Error::CostTraffic);
                 }
@@ -351,11 +351,11 @@ pub async fn v1(
                     continue;
                 }
 
-                let tip = d.get_i64("_tip")? as u64;
+                let tip = d.get_i64("_tip")?;
                 if tip > changes.tip {
                     b.insert("_error", "tip");
                     b.insert("_error_id", d.get_object_id("_id")?);
-                    b.insert("_error_tip", tip as i64);
+                    b.insert("_error_tip", tip);
                     break;
                 }
                 changes.tip -= tip;

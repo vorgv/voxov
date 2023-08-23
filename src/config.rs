@@ -49,28 +49,28 @@ pub struct Config {
 
     // graphql_addr
     /// Seconds before access token expire.
-    pub access_ttl: u64,
+    pub access_ttl: i64,
 
     /// Seconds before refresh token expire.
-    pub refresh_ttl: u64,
+    pub refresh_ttl: i64,
 
     /// Seconds before user account expire.
-    pub user_ttl: u64,
+    pub user_ttl: i64,
 
     /// Minimum credit.
     pub credit_limit: i64,
 
     /// Cost per millisecond.
-    pub time_cost: u64,
+    pub time_cost: i64,
 
     /// Cost per KB per day in MongoDB.
-    pub space_cost_doc: u64,
+    pub space_cost_doc: i64,
 
     /// Cost per KB per day in S3.
-    pub space_cost_obj: u64,
+    pub space_cost_obj: i64,
 
     /// Cost per byte.
-    pub traffic_cost: u64,
+    pub traffic_cost: i64,
 
     /// SMS receivers for authentication.
     pub auth_phones: &'static Vec<String>,
@@ -126,21 +126,21 @@ impl Config {
                 }
             },
 
-            access_ttl: env_or!("ACCESS_TTL", 60 * 60_u64), // one hour
+            access_ttl: env_or!("ACCESS_TTL", 60 * 60_i64), // one hour
 
-            refresh_ttl: env_or!("REFRESH_TTL", 60 * 60 * 24 * 30_u64), // one month
+            refresh_ttl: env_or!("REFRESH_TTL", 60 * 60 * 24 * 30_i64), // one month
 
-            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5_u64), // five years
+            user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5_i64), // five years
 
             credit_limit: env_or!("INIT_CREDIT", -10_000_000_000_i64), // one USD
 
-            time_cost: env_or!("TIME_COST", 1_000_u64), // per millisecond
+            time_cost: env_or!("TIME_COST", 1_000_i64), // per millisecond
 
-            space_cost_doc: env_or!("SPACE_COST_DOC", 100_u64), // per KB per day
+            space_cost_doc: env_or!("SPACE_COST_DOC", 100_i64), // per KB per day
 
-            space_cost_obj: env_or!("SPACE_COST_OBJ", 10_u64), // per KB per day
+            space_cost_obj: env_or!("SPACE_COST_OBJ", 10_i64), // per KB per day
 
-            traffic_cost: env_or!("TRAFFIC_COST", 1_u64), // per byte outbound
+            traffic_cost: env_or!("TRAFFIC_COST", 1_i64), // per byte outbound
 
             auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {

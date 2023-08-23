@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 use strum_macros::Display;
 
 #[derive(Display, Debug)]
@@ -48,6 +50,7 @@ pub enum Error {
     Namespace,
     NumCheck,
     ReservedKey,
+    TryFromIntError(TryFromIntError),
 }
 
 impl std::error::Error for Error {}
@@ -91,5 +94,11 @@ impl From<bson::document::ValueAccessError> for Error {
 impl From<serde_json::error::Error> for Error {
     fn from(error: serde_json::error::Error) -> Self {
         Self::ParseJson(error)
+    }
+}
+
+impl From<TryFromIntError> for Error {
+    fn from(error: TryFromIntError) -> Self {
+        Self::TryFromIntError(error)
     }
 }

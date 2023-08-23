@@ -18,10 +18,10 @@ pub struct Meme {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
-    time_cost: u64,
-    space_cost_obj: u64,
-    space_cost_doc: u64,
-    traffic_cost: u64,
+    time_cost: i64,
+    space_cost_obj: i64,
+    space_cost_doc: i64,
+    traffic_cost: i64,
 }
 
 impl Meme {
@@ -135,7 +135,8 @@ impl Meme {
             let frame = result?;
             if let Ok(data) = frame.into_data() {
                 // Space check
-                let cost = match (data.len() as u64 * self.space_cost_obj).checked_mul(days) {
+                let cost = match (data.len() as i64 * self.space_cost_obj).checked_mul(days as i64)
+                {
                     Some(i) => i / 1000, // per day per KB
                     None => return Err(Error::CostSpaceTooLarge),
                 };
@@ -203,7 +204,7 @@ impl Meme {
             "tip": 0,
             "eol": eol,
         };
-        let cost = self.space_cost_doc * days;
+        let cost = self.space_cost_doc * days as i64;
         if cost > changes.space {
             changes.space = 0;
             return Err(Error::CostSpace);
@@ -214,7 +215,7 @@ impl Meme {
         mm.insert_one(doc, None).await?;
         let now = Instant::now();
         let remaining: Duration = deadline - now;
-        changes.time = remaining.as_millis() as u64 * self.time_cost;
+        changes.time = remaining.as_millis() as i64 * self.time_cost;
 
         Ok(Reply::MemePut {
             changes: *changes,
@@ -259,14 +260,14 @@ impl Meme {
         }
         let meta = meta.unwrap();
         // Is fund enough for the file size
-        let cost = self.traffic_cost * meta.get_i64("size").map_err(|_| Error::Logical)? as u64;
+        let cost = self.traffic_cost * meta.get_i64("size").map_err(|_| Error::Logical)?;
         if cost > changes.traffic {
             return Err(Error::CostTraffic);
         }
         changes.traffic -= cost;
         // Pay tip
         if public {
-            let tip = meta.get_i64("tip").map_err(|_| Error::Logical)? as u64;
+            let tip = meta.get_i64("tip").map_err(|_| Error::Logical)?;
             if tip > changes.tip {
                 return Err(Error::CostTip);
             }
@@ -283,7 +284,7 @@ impl Meme {
         let stream = Box::pin(mr.get_object_stream(oid).await?);
         let now = Instant::now();
         let remaining: Duration = deadline - now;
-        changes.time = remaining.as_millis() as u64 * self.time_cost;
+        changes.time = remaining.as_millis() as i64 * self.time_cost;
 
         Ok(Reply::MemeGet {
             changes: *changes,

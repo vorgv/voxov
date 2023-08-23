@@ -49,5 +49,5 @@ pub enum Command {
     },
 
     /// Add credit to UID
-    AddCredit { uid: String, credit: u64 },
+    AddCredit { uid: String, credit: i64 },
 }

@@ -1,3 +1,6 @@
+#![allow(unused_variables)]
+#![allow(unused_assignments)]
+#![allow(dead_code)]
 #![allow(clippy::just_underscores_and_digits)]
 
 use crate::{
@@ -72,8 +75,8 @@ pub async fn v1(
     arg: &str,
     changes: &mut Costs,
     deadline: Instant,
-    space_cost: u64,
-    traffic_cost: u64,
+    space_cost: i64,
+    traffic_cost: i64,
     db: &'static Database,
 ) -> Result<String> {
     todo!()
