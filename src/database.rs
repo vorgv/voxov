@@ -187,7 +187,7 @@ pub mod namespace {
     pub const UID2CREDIT: u8 = 7;
 }
 
-use crate::message::id::{Id, IDL};
+use crate::ir::id::{Id, IDL};
 use bytes::{Buf, Bytes};
 
 /// Prepend namespace tag before Id.

@@ -4,7 +4,7 @@
 use crate::auth::Auth;
 use crate::body::ResponseBody as RB;
 use crate::config::Config;
-use crate::message::Query;
+use crate::ir::Query;
 use http_body_util::{BodyExt, Empty, Full};
 use hyper::server::conn::http1;
 use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
@@ -62,7 +62,7 @@ async fn handle_http(
             Ok(q) => Ok(auth
                 .handle(q)
                 .await
-                .unwrap_or_else(|error| crate::message::Reply::Error { error })
+                .unwrap_or_else(|error| crate::ir::Reply::Error { error })
                 .to_response()),
             Err(_) => Ok(bad_request()),
         },

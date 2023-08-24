@@ -6,7 +6,7 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::fed::Fed;
-use crate::message::{Id, Query, Reply};
+use crate::ir::{Id, Query, Reply};
 use crate::Result;
 use tokio::time::{Duration, Instant};
 

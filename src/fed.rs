@@ -3,7 +3,7 @@
 
 use crate::config::Config;
 use crate::gene::Gene;
-use crate::message::{Costs, Id, Query, Reply};
+use crate::ir::{Costs, Id, Query, Reply};
 use crate::Result;
 
 pub struct Fed {

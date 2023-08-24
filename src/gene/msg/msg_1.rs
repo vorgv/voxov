@@ -5,7 +5,7 @@
 
 use crate::{
     database::Database,
-    message::{Costs, Id},
+    ir::{Costs, Id},
     Result,
 };
 use bson::{doc, oid::ObjectId};

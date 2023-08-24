@@ -9,8 +9,8 @@ pub mod database;
 pub mod error;
 pub mod fed;
 pub mod gene;
+pub mod ir;
 pub mod meme;
-pub mod message;
 
 pub mod macros {
     #[macro_export]

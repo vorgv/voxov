@@ -5,7 +5,7 @@ use voxov::auth::nspm;
 use voxov::config::Config;
 use voxov::database::namespace::{SMSSENT, UID2CREDIT};
 use voxov::database::{ns, Database};
-use voxov::message::Id;
+use voxov::ir::Id;
 use voxov::to_static;
 
 #[tokio::main]

@@ -32,7 +32,7 @@
 use crate::database::namespace::UID2CREDIT;
 use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::message::{Costs, Id};
+use crate::ir::{Costs, Id};
 use crate::Result;
 use bson::oid::ObjectId;
 use bson::{doc, to_bson, Document};

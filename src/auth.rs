@@ -12,7 +12,7 @@ use crate::database::namespace::UID2CREDIT;
 use crate::database::namespace::UID2PHONE;
 use crate::database::{ns, Database};
 use crate::error::Error;
-use crate::message::{Id, Query, Reply, IDL};
+use crate::ir::{Id, Query, Reply, IDL};
 use crate::Result;
 use bytes::{BufMut, Bytes, BytesMut};
 

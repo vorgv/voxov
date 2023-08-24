@@ -7,6 +7,7 @@ Not ready for production. I patch dependencies without forking. This crate may n
 ## Todos
 
 - Impl gene: msg
+- Improve bounds checking
 - Impl gene: notify
 - Impl gene: human
 - Impl gene: censor
