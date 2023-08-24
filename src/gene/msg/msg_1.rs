@@ -3,15 +3,10 @@
 #![allow(dead_code)]
 #![allow(clippy::just_underscores_and_digits)]
 
-use crate::{
-    database::Database,
-    ir::{Costs, Id},
-    Result,
-};
+use crate::{gene::map, Result};
 use bson::{doc, oid::ObjectId};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use tokio::time::Instant;
 
 const NS: &str = "_chan";
 const FROM: &str = "_0";
@@ -70,14 +65,6 @@ enum Request {
     Unread(Unread),
 }
 
-pub async fn v1(
-    uid: &Id,
-    arg: &str,
-    changes: &mut Costs,
-    deadline: Instant,
-    space_cost: i64,
-    traffic_cost: i64,
-    db: &'static Database,
-) -> Result<String> {
+pub async fn v1(cx: map::V1Context<'_>) -> Result<String> {
     todo!()
 }

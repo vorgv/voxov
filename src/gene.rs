@@ -132,38 +132,29 @@ impl Gene {
             }
 
             Query::GeneCall { head: _, gid, arg } => {
-                traffic!(arg);
+                macro_rules! map_1_cx {
+                    () => {
+                        map::V1Context {
+                            uid,
+                            arg: &arg,
+                            changes: &mut changes,
+                            deadline,
+                            space_cost: self.space_cost_doc,
+                            traffic_cost: self.traffic_cost,
+                            db: self.db,
+                        }
+                    };
+                }
+
                 let result = match gid {
                     0 => info::v1(uid, &arg, self.config_json.clone()).await,
-                    1 => {
-                        map::v1(
-                            uid,
-                            &arg,
-                            &mut changes,
-                            deadline,
-                            self.space_cost_doc,
-                            self.traffic_cost,
-                            self.db,
-                            false,
-                        )
-                        .await?
-                    }
-                    2 => {
-                        msg::v1(
-                            uid,
-                            &arg,
-                            &mut changes,
-                            deadline,
-                            self.space_cost_doc,
-                            self.traffic_cost,
-                            self.db,
-                        )
-                        .await?
-                    }
+                    1 => map::v1(map_1_cx!(), false).await?,
+                    2 => msg::v1(map_1_cx!()).await?,
                     _ => {
                         return Err(Error::GeneInvalidId);
                     }
                 };
+
                 traffic_time_refund!(result);
                 Ok(Reply::GeneCall { changes, result })
             }

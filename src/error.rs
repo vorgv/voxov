@@ -1,5 +1,4 @@
 use std::num::TryFromIntError;
-
 use strum_macros::Display;
 
 #[derive(Display, Debug)]

@@ -137,16 +137,17 @@ enum Request {
     Drop(Drop),
 }
 
-pub async fn v1(
-    uid: &Id,
-    arg: &str,
-    changes: &mut Costs,
-    deadline: Instant,
-    space_cost: i64,
-    traffic_cost: i64,
-    db: &'static Database,
-    internal: bool,
-) -> Result<String> {
+pub struct V1Context<'a> {
+    pub uid: &'a Id,
+    pub arg: &'a str,
+    pub changes: &'a mut Costs,
+    pub deadline: Instant,
+    pub space_cost: i64,
+    pub traffic_cost: i64,
+    pub db: &'static Database,
+}
+
+pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
     macro_rules! refund_space {
         ($d: expr) => {
             let eol: chrono::DateTime<Utc> = (*$d.get_datetime("_eol")?).into();
@@ -156,13 +157,13 @@ pub async fn v1(
                 return Err(Error::GeneMapExpired);
             }
             let ttl = eol - now;
-            let space = (size / 1024) * ttl.num_days() * space_cost;
-            changes.space += space;
+            let space = (size / 1024) * ttl.num_days() * cx.space_cost;
+            cx.changes.space += space;
         };
     }
 
-    let map = &db.map;
-    let request: Request = serde_json::from_str(arg)?;
+    let map = &cx.db.map;
+    let request: Request = serde_json::from_str(cx.arg)?;
     match request {
         Request::Put(request) => {
             let ttl = request._eol - Utc::now();
@@ -171,7 +172,7 @@ pub async fn v1(
             }
 
             let tip = request._tip.unwrap_or_default();
-            if tip < 0 || tip > changes.tip {
+            if tip < 0 || tip > cx.changes.tip {
                 return Err(Error::CostTip);
             }
 
@@ -200,7 +201,7 @@ pub async fn v1(
             let _7 = to_bson(&request._7)?;
 
             let mut d = doc! {
-                "_uid": uid.to_string(),
+                "_uid": cx.uid.to_string(),
                 "_pub": false,
                 "_eol": request._eol,
                 "_tip": tip,
@@ -229,16 +230,16 @@ pub async fn v1(
             let kb = (d_size + 1023) / 1024;
             let days = ttl.num_days();
             let mut space = kb.checked_mul(days).ok_or(Error::NumCheck)?;
-            space = space.checked_mul(space_cost).ok_or(Error::NumCheck)?;
-            if changes.space < space {
+            space = space.checked_mul(cx.space_cost).ok_or(Error::NumCheck)?;
+            if cx.changes.space < space {
                 return Err(Error::CostSpace);
             }
-            changes.space -= space;
+            cx.changes.space -= space;
 
             if let Some(id) = request._id {
                 let mut filter = Document::new();
                 filter.insert("_id", id);
-                filter.insert("_uid", uid.to_string());
+                filter.insert("_uid", cx.uid.to_string());
                 let found = map.find_one_and_replace(filter, d, None).await?;
                 if let Some(old) = found {
                     refund_space!(old);
@@ -256,7 +257,7 @@ pub async fn v1(
             request._id.and_then(|id| filter.insert("_id", id));
 
             if let Some(doc_uid) = request._uid {
-                if uid.to_string() == doc_uid {
+                if cx.uid.to_string() == doc_uid {
                     request._pub.and_then(|p| filter.insert("_pub", p));
                 } else {
                     filter.insert("_pub", true);
@@ -326,11 +327,11 @@ pub async fn v1(
                 options.projection = Some(proj);
             }
 
-            options.max_time = Some(deadline - Instant::now());
+            options.max_time = Some(cx.deadline - Instant::now());
 
             let mut i = 0;
             let mut b = Document::new();
-            let mut s = changes.traffic / traffic_cost;
+            let mut s = cx.changes.traffic / cx.traffic_cost;
             let mut cursor = map.find(filter, options).await?;
             while let Some(d) = cursor.try_next().await? {
                 if let Some(n) = request._n {
@@ -347,20 +348,20 @@ pub async fn v1(
                 s -= d_size;
 
                 let doc_uid = d.get_str("_uid")?;
-                if doc_uid == uid.to_string() {
+                if doc_uid == cx.uid.to_string() {
                     continue;
                 }
 
                 let tip = d.get_i64("_tip")?;
-                if tip > changes.tip {
+                if tip > cx.changes.tip {
                     b.insert("_error", "tip");
                     b.insert("_error_id", d.get_object_id("_id")?);
                     b.insert("_error_tip", tip);
                     break;
                 }
-                changes.tip -= tip;
+                cx.changes.tip -= tip;
                 let u2c = ns(UID2CREDIT, &Id::from_str(doc_uid)?);
-                db.incrby(&u2c[..], tip).await?;
+                cx.db.incrby(&u2c[..], tip).await?;
 
                 b.insert(i.to_string(), d);
                 i += 1;
@@ -372,7 +373,7 @@ pub async fn v1(
         Request::Drop(request) => {
             let filter = doc! {
                 "id": request._id,
-                "uid": uid.to_string(),
+                "uid": cx.uid.to_string(),
             };
 
             let options = FindOneAndDeleteOptions::builder()
