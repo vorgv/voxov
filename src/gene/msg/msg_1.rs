@@ -3,6 +3,11 @@
 #![allow(dead_code)]
 #![allow(clippy::just_underscores_and_digits)]
 
+//! Message v1
+//!
+//! Both FROM and TO can delete the message.
+//! No public flag needed, but TO can report.
+
 use crate::{gene::map, Result};
 use bson::{doc, oid::ObjectId};
 use chrono::{DateTime, Utc};
@@ -13,12 +18,14 @@ const FROM: &str = "_0";
 const TO: &str = "_1";
 const SENT: &str = "_2";
 const READ: &str = "_3";
-const TYPE: &str = "_4";
+const TIP: &str = "_4";
+const TYPE: &str = "_5";
 const VALUE: &str = "value";
 
 #[derive(Deserialize, Debug)]
 struct Send {
     to: String,
+    tip: i64,
     r#type: String,
     value: String,
 }
@@ -30,6 +37,7 @@ struct Sent {
     sent_: Option<DateTime<Utc>>,
     read: Option<DateTime<Utc>>,
     read_: Option<DateTime<Utc>>,
+    tip: Option<i64>,
     r#type: Option<String>,
     n: Option<u64>,
 }
@@ -41,6 +49,7 @@ struct Receive {
     sent_: Option<DateTime<Utc>>,
     read: Option<DateTime<Utc>>,
     read_: Option<DateTime<Utc>>,
+    tip: Option<i64>,
     r#type: Option<String>,
     n: Option<u64>,
 }
@@ -56,15 +65,29 @@ struct Unread {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(tag = "_type")]
+struct Report {
+    id: ObjectId,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
 enum Request {
     Send(Send),
     Sent(Sent),
     Receive(Receive),
     Read(Read),
     Unread(Unread),
+    Report(Report),
 }
 
 pub async fn v1(cx: map::V1Context<'_>) -> Result<String> {
-    todo!()
+    let request: Request = serde_json::from_str(cx.arg)?;
+    match request {
+        Request::Send(request) => todo!(),
+        Request::Sent(request) => todo!(),
+        Request::Receive(request) => todo!(),
+        Request::Read(request) => todo!(),
+        Request::Unread(request) => todo!(),
+        Request::Report(request) => todo!(),
+    }
 }
