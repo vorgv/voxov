@@ -139,7 +139,7 @@ enum Request {
 
 pub struct V1Context<'a> {
     pub uid: &'a Id,
-    pub arg: &'a str,
+    pub arg: &'a String,
     pub changes: &'a mut Costs,
     pub deadline: Instant,
     pub space_cost: i64,

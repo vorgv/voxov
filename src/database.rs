@@ -137,6 +137,14 @@ impl Database {
             .await?)
     }
 
+    /// Returns if key exists.
+    pub async fn exits<K: ToRedisArgs>(&self, key: K) -> Result<i64> {
+        Ok(cmd("EXISTS")
+            .arg(key)
+            .query_async::<ConnectionManager, i64>(&mut self.cm.clone())
+            .await?)
+    }
+
     /// Delete key.
     pub async fn del<K: ToRedisArgs>(&self, key: K) -> Result<()> {
         Ok(cmd("DEL")

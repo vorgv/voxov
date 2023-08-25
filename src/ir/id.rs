@@ -24,6 +24,13 @@ impl FromStr for Id {
     }
 }
 
+impl TryFrom<&String> for Id {
+    type Error = Error;
+    fn try_from(s: &String) -> Result<Self> {
+        Id::from_str(s)
+    }
+}
+
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", hex::encode(self.0))

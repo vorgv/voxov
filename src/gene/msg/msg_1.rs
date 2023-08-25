@@ -8,10 +8,19 @@
 //! Both FROM and TO can delete the message.
 //! No public flag needed, but TO can report.
 
-use crate::{gene::map, Result};
+use crate::{
+    database::{namespace::UID2PHONE, ns},
+    error::Error,
+    gene::map,
+    ir::Id,
+    Result,
+};
 use bson::{doc, oid::ObjectId};
 use chrono::{DateTime, Utc};
+use mongodb::options::FindOneOptions;
 use serde::Deserialize;
+use serde_json::json;
+use tokio::time::Instant;
 
 const NS: &str = "_chan";
 const FROM: &str = "_0";
@@ -24,6 +33,8 @@ const VALUE: &str = "value";
 
 #[derive(Deserialize, Debug)]
 struct Send {
+    id: Option<ObjectId>,
+    eol: DateTime<Utc>,
     to: String,
     tip: i64,
     r#type: String,
@@ -80,10 +91,54 @@ enum Request {
     Report(Report),
 }
 
-pub async fn v1(cx: map::V1Context<'_>) -> Result<String> {
+pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
     let request: Request = serde_json::from_str(cx.arg)?;
     match request {
-        Request::Send(request) => todo!(),
+        Request::Send(request) => {
+            let db = &cx.db;
+            let map = &db.map;
+
+            if let Some(doc_id) = request.id {
+                let filter = doc! {
+                    "_id": doc_id,
+                    "_uid": cx.uid.to_string(),
+                    "_ns": NS,
+                };
+
+                let options = FindOneOptions::builder()
+                    .max_time(cx.deadline - Instant::now())
+                    .build();
+
+                if map.find_one(filter, options).await?.is_none() {
+                    return Err(Error::GeneInvalidId);
+                }
+            }
+
+            let to = Id::try_from(&request.to)?;
+            let u2c = ns(UID2PHONE, &to);
+            if db.exits(&u2c[..]).await? < 1 {
+                return Err(Error::AuthInvalidUid);
+            }
+
+            if request.tip < 0 {
+                return Err(Error::CostTip);
+            }
+
+            let arg = json!({
+                "_type": "Put",
+                "_id": request.id,
+                "_eol": request.eol,
+                "_ns": NS,
+                TO: request.to,
+                TIP: request.tip,
+                TYPE: request.r#type,
+                VALUE: request.value,
+            })
+            .to_string();
+
+            cx.arg = &arg;
+            map::v1(cx, true).await
+        }
         Request::Sent(request) => todo!(),
         Request::Receive(request) => todo!(),
         Request::Read(request) => todo!(),

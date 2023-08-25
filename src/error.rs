@@ -14,6 +14,7 @@ pub enum Error {
     AuthInvalidRefreshToken,
     AuthNotAuthenticated,
     AuthInvalidPhone,
+    AuthInvalidUid,
     AuthTokensMismatch,
 
     CostInsufficientCredit,
