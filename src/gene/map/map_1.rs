@@ -256,13 +256,15 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
 
             request._id.and_then(|id| filter.insert("_id", id));
 
-            if let Some(doc_uid) = request._uid {
-                if cx.uid.to_string() == doc_uid {
-                    request._pub.and_then(|p| filter.insert("_pub", p));
-                } else {
-                    filter.insert("_pub", true);
+            if !internal {
+                if let Some(doc_uid) = request._uid {
+                    if cx.uid.to_string() == doc_uid {
+                        request._pub.and_then(|p| filter.insert("_pub", p));
+                    } else {
+                        filter.insert("_pub", true);
+                    }
+                    filter.insert("_uid", doc_uid);
                 }
-                filter.insert("_uid", doc_uid);
             }
 
             macro_rules! filter_range {

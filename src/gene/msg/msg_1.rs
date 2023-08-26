@@ -64,12 +64,18 @@ struct Sent {
 
 #[derive(Deserialize, Debug)]
 struct Receive {
+    id: Option<ObjectId>,
+    eol: DateTime<Utc>,
+    eol_: DateTime<Utc>,
     from: Option<String>,
     sent: Option<DateTime<Utc>>,
     sent_: Option<DateTime<Utc>>,
     read: Option<DateTime<Utc>>,
     read_: Option<DateTime<Utc>>,
     tip: Option<i64>,
+    tip_: Option<i64>,
+    size: Option<i64>,
+    size_: Option<i64>,
     r#type: Option<String>,
     n: Option<u64>,
 }
@@ -81,6 +87,11 @@ struct Read {
 
 #[derive(Deserialize, Debug)]
 struct Unread {
+    id: ObjectId,
+}
+
+#[derive(Deserialize, Debug)]
+struct Delete {
     id: ObjectId,
 }
 
@@ -97,16 +108,17 @@ enum Request {
     Receive(Receive),
     Read(Read),
     Unread(Unread),
+    Delete(Delete),
     Report(Report),
 }
 
 pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
+    let db = &cx.db;
+    let map = &db.map;
+
     let request: Request = serde_json::from_str(cx.arg)?;
     match request {
         Request::Send(request) => {
-            let db = &cx.db;
-            let map = &db.map;
-
             if let Some(doc_id) = request.id {
                 let filter = doc! {
                     "_id": doc_id,
@@ -141,6 +153,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                 "_id": request.id,
                 "_eol": request.eol,
                 "_ns": NS,
+                FROM: cx.uid.to_string(),
                 TO: request.to,
                 TIP: request.tip,
                 TYPE: request.r#type,
@@ -156,10 +169,10 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let arg = json!({
                 "_type": "Get",
                 "_id": request.id,
-                "_uid": cx.uid.to_string(),
                 "_eol": request.eol,
                 "_eol_": request.eol_,
                 "_ns": NS,
+                FROM: cx.uid.to_string(),
                 TO: request.to,
                 SENT: request.sent,
                 SENT_: request.sent_,
@@ -178,9 +191,50 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             map::v1(cx, true).await
         }
 
-        Request::Receive(request) => todo!(),
-        Request::Read(request) => todo!(),
-        Request::Unread(request) => todo!(),
-        Request::Report(request) => todo!(),
+        Request::Receive(request) => {
+            let arg = json!({
+                "_type": "Get",
+                "_id": request.id,
+                "_eol": request.eol,
+                "_eol_": request.eol_,
+                "_ns": NS,
+                FROM: request.from,
+                TO: cx.uid.to_string(),
+                SENT: request.sent,
+                SENT_: request.sent_,
+                READ: request.read,
+                READ_: request.read_,
+                TIP: request.tip,
+                TIP_: request.tip_,
+                "_size": request.size,
+                "_size_": request.size_,
+                TYPE: request.r#type,
+                "_n": request.n,
+            })
+            .to_string();
+
+            cx.arg = &arg;
+            map::v1(cx, true).await
+        }
+
+        Request::Read(request) => {
+            // mongo update
+            todo!()
+        }
+
+        Request::Unread(request) => {
+            // mongo update
+            todo!()
+        }
+
+        Request::Delete(request) => {
+            // Drop
+            todo!()
+        }
+
+        Request::Report(request) => {
+            //TODO censor
+            todo!()
+        }
     }
 }
