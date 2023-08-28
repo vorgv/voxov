@@ -7,28 +7,34 @@ use voxov::database::namespace::{SMSSENT, UID2CREDIT};
 use voxov::database::{ns, Database};
 use voxov::ir::Id;
 use voxov::to_static;
+use voxov::Result;
 
 #[tokio::main]
 async fn main() {
-    let c = to_static!(Config::new());
-    let db: &Database = to_static!(Database::new(c).await);
-
     let cli = Cli::parse();
-    let result = match cli.command {
+    let result = execute(cli).await;
+    if result.is_err() {
+        exit(1);
+    }
+}
+
+async fn execute(cli: Cli) -> Result<()> {
+    let c = to_static!(Config::new());
+    let db: &Database = to_static!(Database::new(c, false).await);
+
+    match cli.command {
         Command::Sent { from, to, message } => {
-            let message = Id::from_str(format!("{:0>32}", message).as_str()).unwrap();
+            let message = Id::from_str(format!("{:0>32}", message).as_str())?;
             let s = nspm(SMSSENT, &to, &message);
             db.set(&s[..], from, c.access_ttl).await
         }
 
         Command::AddCredit { uid, credit } => {
-            let u2c = ns(UID2CREDIT, &Id::from_str(&uid).unwrap());
+            let u2c = ns(UID2CREDIT, &Id::from_str(&uid)?);
             db.incrby(&u2c[..], credit).await
         }
-    };
 
-    if result.is_err() {
-        exit(1);
+        Command::DropIndexes => Ok(db.map.drop_indexes(None).await?),
     }
 }
 
@@ -48,6 +54,9 @@ pub enum Command {
         message: String,
     },
 
-    /// Add credit to UID
+    /// Add credit to UID.
     AddCredit { uid: String, credit: i64 },
+
+    /// Clear indexes of MongoDB,
+    DropIndexes,
 }

@@ -307,6 +307,7 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
             filter_key!("_6", request._6, request._6_);
             filter_key!("_7", request._7, request._7_);
 
+            /*TODO move to gene geo (limitation of multi-indexes)
             if let Some(geo) = request._geo {
                 if geo.len() != 3 {
                     return Err(Error::GeoDim);
@@ -317,7 +318,7 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
                         "$centerSphere": [[geo[0], geo[1]], geo[2]],
                     }},
                 );
-            }
+            }*/
 
             let mut options = FindOptions::default();
 

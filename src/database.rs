@@ -39,7 +39,7 @@ use redis::{cmd, FromRedisValue, ToRedisArgs};
 
 impl Database {
     /// Connect to Redis, panic on failure.
-    pub async fn new(config: &Config) -> Database {
+    pub async fn new(config: &Config, create_index: bool) -> Database {
         let mdb = connect_mongo(&config.mongo_addr)
             .await
             .expect("MongoDB offline?");
@@ -67,9 +67,11 @@ impl Database {
             .expect("S3 offline?")
             .with_path_style(),
         };
-        db.create_index()
-            .await
-            .expect("Database index creation failed.");
+        if create_index {
+            db.create_index()
+                .await
+                .expect("Database index creation failed.");
+        }
         db
     }
 
@@ -160,21 +162,31 @@ impl Database {
             .await?;
 
         self.map
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! {
-                        "_uid": "hashed",
-                        "_pub": -1,
-                        "_eol": 1,
-                        "_tip": 1,
-                        "_ns": 1,
-                        "_0": 1,
-                        "_1": 1,
-                        "_2": 1,
-                        "_3": 1,
-                        "_geo": "2dsphere",
-                    })
-                    .build(),
+            .create_indexes(
+                vec![
+                    IndexModel::builder()
+                        .keys(doc! {
+                            "_uid": "hashed",
+                            "_pub": -1,
+                            "_eol": 1,
+                            "_tip": 1,
+                            "_ns": 1,
+                            "_0": 1,
+                            "_1": 1,
+                            "_2": 1,
+                            "_3": 1,
+                            "_4": 1,
+                            "_5": 1,
+                            "_6": 1,
+                            "_7": 1,
+                        })
+                        .build(),
+                    IndexModel::builder()
+                        .keys(doc! {
+                            "_geo": "2dsphere",
+                        })
+                        .build(),
+                ],
                 None,
             )
             .await?;

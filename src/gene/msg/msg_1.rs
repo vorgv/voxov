@@ -217,7 +217,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
             let update = doc! { READ: Utc::now() };
             let update_result = map.update_one(query, update, None).await?;
-            
+
             if update_result.matched_count == 0 {
                 return Err(Error::GeneMapNotFound);
             }
@@ -229,7 +229,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
             let update = doc! { "$unset": { READ: "" } };
             let update_result = map.update_one(query, update, None).await?;
-            
+
             if update_result.matched_count == 0 {
                 return Err(Error::GeneMapNotFound);
             }
@@ -254,8 +254,6 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             Ok("{}".into())
         }
 
-        Request::Report(_request) => {
-            Err(Error::Todo)
-        }
+        Request::Report(_request) => Err(Error::Todo),
     }
 }
