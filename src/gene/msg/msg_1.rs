@@ -1,8 +1,3 @@
-#![allow(unused_variables)]
-#![allow(unused_assignments)]
-#![allow(dead_code)]
-#![allow(clippy::just_underscores_and_digits)]
-
 //! Message v1
 //!
 //! Both FROM and TO can delete the message.
@@ -97,7 +92,7 @@ struct Delete {
 
 #[derive(Deserialize, Debug)]
 struct Report {
-    id: ObjectId,
+    _id: ObjectId,
 }
 
 #[derive(Deserialize, Debug)]
@@ -155,6 +150,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                 "_ns": NS,
                 FROM: cx.uid.to_string(),
                 TO: request.to,
+                SENT: Utc::now(),
                 TIP: request.tip,
                 TYPE: request.r#type,
                 VALUE: request.value,
@@ -218,23 +214,48 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
         }
 
         Request::Read(request) => {
-            // mongo update
-            todo!()
+            let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
+            let update = doc! { READ: Utc::now() };
+            let update_result = map.update_one(query, update, None).await?;
+            
+            if update_result.matched_count == 0 {
+                return Err(Error::GeneMapNotFound);
+            }
+
+            Ok("{}".into())
         }
 
         Request::Unread(request) => {
-            // mongo update
-            todo!()
+            let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
+            let update = doc! { "$unset": { READ: "" } };
+            let update_result = map.update_one(query, update, None).await?;
+            
+            if update_result.matched_count == 0 {
+                return Err(Error::GeneMapNotFound);
+            }
+
+            Ok("{}".into())
         }
 
         Request::Delete(request) => {
-            // Drop
-            todo!()
+            let query = doc! {
+                "_id": request.id,
+                "$or": [
+                    { FROM: cx.uid.to_string() },
+                    { TO: cx.uid.to_string() },
+                ],
+            };
+            let delete_result = map.delete_one(query, None).await?;
+
+            if delete_result.deleted_count == 0 {
+                return Err(Error::GeneMapNotFound);
+            }
+
+            Ok("{}".into())
         }
 
-        Request::Report(request) => {
-            //TODO censor
-            todo!()
+        Request::Report(_request) => {
+            Err(Error::Todo)
         }
     }
 }

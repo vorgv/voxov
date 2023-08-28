@@ -62,10 +62,8 @@ impl Id {
     }
     pub fn rand(rng: &mut ThreadRng) -> Result<Self> {
         let mut s = ID0;
-        match s.try_fill(rng) {
-            Ok(_) => Ok(Id(s)),
-            Err(_) => Err(Error::Os),
-        }
+        s.try_fill(rng)?;
+        Ok(Id(s))
     }
     pub fn try_get(req: &Request<Incoming>, key: &str) -> Result<Self> {
         Id::from_str(Query::retrieve(req, key)?)

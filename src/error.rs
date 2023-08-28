@@ -41,10 +41,11 @@ pub enum Error {
     BsonValueAccess(bson::document::ValueAccessError),
     S3(s3::error::S3Error),
 
-    Os,
+    Rand(rand::Error),
     Hyper(hyper::Error),
     ParseJson(serde_json::error::Error),
 
+    Todo,
     GeoDim,
     Logical,
     Namespace,
@@ -55,6 +56,11 @@ pub enum Error {
 
 impl std::error::Error for Error {}
 
+impl From<rand::Error> for Error {
+    fn from(error: rand::Error) -> Self {
+        Self::Rand(error)
+    }
+}
 impl From<redis::RedisError> for Error {
     fn from(error: redis::RedisError) -> Self {
         Self::Redis(error)
