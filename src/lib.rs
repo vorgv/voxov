@@ -23,8 +23,7 @@ pub mod macros {
 
 pub type Result<T> = std::result::Result<T, error::Error>;
 
-#[tokio::main]
-pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
     console_subscriber::init();
 
     // Config: collect ENV to static variables.
