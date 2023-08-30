@@ -12,7 +12,7 @@ use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-
+use hyper_util::rt::TokioIo;
 pub struct Api {
     auth: &'static Auth,
     http_addr: SocketAddr,
@@ -38,9 +38,10 @@ impl Api {
         let listener = TcpListener::bind(self.http_addr).await?;
         loop {
             let (stream, _) = listener.accept().await?;
+            let io = TokioIo::new(stream);
             tokio::task::spawn(async move {
                 if let Err(err) = http1::Builder::new()
-                    .serve_connection(stream, service_fn(move |req| handle_http(req, self.auth)))
+                    .serve_connection(io, service_fn(move |req| handle_http(req, self.auth)))
                     .await
                 {
                     panic!("Error serving: {:?}", err);

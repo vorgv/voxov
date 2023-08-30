@@ -2,7 +2,7 @@
 
 A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
-Not ready for production. I patch dependencies without forking. This crate may not compile on your machine.
+Not ready for production. I patch dependencies without forking. Try adding some `+ Send` to `request_traits.rs` in `rust-s3`.
 
 ## Todos
 

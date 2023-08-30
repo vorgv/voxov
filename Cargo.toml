@@ -2,7 +2,7 @@
 members = ["vctl"]
 
 [workspace.dependencies]
-tokio = { version = "1.29.1", features = ["full"] }
+tokio = { version = "1.32.0", features = ["full"] }
 
 [package]
 name = "voxov"
@@ -27,25 +27,26 @@ tokio-stream = "0.1.14"
 bytes = "1.4"
 
 # Hyper
-hyper = { version = "1.0.0-rc.3", features = ["full"] }
-http-body-util = "0.1.0-rc.2"
+hyper = { version = "1.0.0-rc.4", features = ["full"] }
+hyper-util = { git = "https://github.com/hyperium/hyper-util.git" }
+http-body-util = "0.1.0-rc.3"
 
 # Database
-redis = { version = "0.23.0", features = ["tokio-comp", "connection-manager"] }
-mongodb = "2.6.0"
+redis = { version = "0.23.2", features = ["tokio-comp", "connection-manager"] }
+mongodb = "2.6.1"
 bson = { version = "2.6.1", features = ["chrono-0_4"] }
 rust-s3 = { version = "0.33.0", features = ["with-tokio"] }
 
 # Tool
-blake3 = "1.4.0"
-chrono = { version = "0.4.26", features = ["serde"] }
+blake3 = "1.4.1"
+chrono = { version = "0.4.27", features = ["serde"] }
 rand = "0.8.5"
 hex = "0.4"
 
 # Macros
 strum_macros = "0.25"
-serde = { version = "1.0.164", features = ["derive"] }
-serde_json = "1.0.99"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.105"
 console-subscriber = "0.1.10"
 
 # Test
