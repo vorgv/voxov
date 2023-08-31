@@ -2,11 +2,16 @@
 
 A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
-Not ready for production. I patch dependencies without forking. Try adding some `+ Send` to `request_traits.rs` in `rust-s3`.
+Not ready for production.
+
+`rust-s3` patched without forking. Try adding some `+ Send` to `request_traits.rs`.
+
+Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
-- Impl gene: msg
+- Integration tests
+- Impl cost: logging
 - Improve bounds checking
 - Impl gene: notify
 - Impl gene: human
