@@ -8,11 +8,11 @@ use crate::ir::Query;
 use http_body_util::{BodyExt, Empty, Full};
 use hyper::server::conn::http1;
 use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
+use hyper_util::rt::TokioIo;
 use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use hyper_util::rt::TokioIo;
 pub struct Api {
     auth: &'static Auth,
     http_addr: SocketAddr,
