@@ -1,6 +1,8 @@
 mod common;
 
 use common::_post;
+use std::str::FromStr;
+use voxov::ir::id::Id;
 
 #[tokio::test]
 async fn session_start() {
@@ -12,16 +14,46 @@ async fn session_start() {
         .unwrap();
 
     let headers = response.headers();
-    assert!(headers.contains_key("access"));
-    assert!(headers.contains_key("refresh"));
-
-    let id_len = voxov::ir::id::IDL * 2;
-    assert_eq!(headers.get("access").unwrap().len(), id_len);
-    assert_eq!(headers.get("refresh").unwrap().len(), id_len);
+    assert!(Id::from_str(headers.get("access").unwrap().to_str().unwrap()).is_ok());
+    assert!(Id::from_str(headers.get("refresh").unwrap().to_str().unwrap()).is_ok());
 }
 
 #[tokio::test]
-async fn session_refresh() {}
+async fn session_refresh() {
+    // Invalid refresh token
+    let response = _post()
+        .await
+        .header("type", "AuthSessionRefresh")
+        .header("refresh", Id::zero().to_string())
+        .send()
+        .await
+        .unwrap();
+
+    let headers = response.headers();
+    assert_eq!(headers.get("type").unwrap().to_str().unwrap(), "Error");
+
+    // Refreshed access token
+    let response = _post()
+        .await
+        .header("type", "AuthSessionStart")
+        .send()
+        .await
+        .unwrap();
+
+    let headers = response.headers();
+    let access = headers.get("access").unwrap().to_str().unwrap();
+    let refresh = headers.get("refresh").unwrap().to_str().unwrap();
+
+    let response = _post()
+        .await
+        .header("type", "AuthSessionRefresh")
+        .header("refresh", refresh)
+        .send()
+        .await
+        .unwrap();
+
+    assert_ne!(response.headers().get("access").unwrap().to_str().unwrap(), access);
+}
 
 #[tokio::test]
 async fn session_end() {}
