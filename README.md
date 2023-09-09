@@ -4,8 +4,6 @@ A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
 Not ready for production.
 
-`rust-s3` patched without forking. Try adding some `+ Send` to `request_traits.rs`.
-
 Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos

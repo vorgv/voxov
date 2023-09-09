@@ -1,9 +1,10 @@
 use super::{Costs, Hash, Id};
 use crate::api::{empty, full, not_implemented};
 use crate::body::ResponseBody as RB;
+use crate::body::S3StreamItem;
 use crate::error::Error;
 use http_body_util::StreamBody;
-use hyper::{body::Bytes, Response, StatusCode};
+use hyper::{Response, StatusCode};
 use s3::request::ResponseDataStream;
 use std::mem::replace;
 use std::pin::Pin;
@@ -42,9 +43,9 @@ impl Reply {
         if let Reply::MemeGet { changes, raw } = self {
             return response_changes!(changes)
                 .header("type", "MemeGet")
-                .body(RB::Stream(StreamBody::new(replace(
+                .body(RB::S3Stream(StreamBody::new(replace(
                     raw.bytes(),
-                    Box::pin(tokio_stream::empty::<Bytes>()),
+                    Box::pin(tokio_stream::empty::<S3StreamItem>()),
                 ))))
                 .unwrap();
         }
