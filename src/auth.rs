@@ -22,6 +22,7 @@ pub struct Auth {
     access_ttl: i64,
     refresh_ttl: i64,
     user_ttl: i64,
+    skip_auth: bool,
     phones: &'static Vec<String>,
 }
 
@@ -33,6 +34,7 @@ impl Auth {
             access_ttl: config.access_ttl,
             refresh_ttl: config.refresh_ttl,
             user_ttl: config.user_ttl,
+            skip_auth: config.skip_auth,
             phones: config.auth_phones,
         }
     }
@@ -153,16 +155,23 @@ impl Auth {
         message: &Id,
     ) -> Result<Reply> {
         self.authenticate(access).await?;
+        let db = self.db;
+
         // Find user's phone in SMSSENT, phone, message.
-        let key = nspm(SMSSENT, phone, message);
-        let user_phone: String = match self.db.get(&key[..]).await? {
-            Some(up) => up,
-            None => return Err(Error::AuthInvalidPhone),
+        let user_phone = match self.skip_auth {
+            true => phone.clone(),
+            false => {
+                let key = nspm(SMSSENT, phone, message);
+                db.get::<&[u8], Option<String>>(&key[..])
+                    .await?
+                    .ok_or(Error::AuthInvalidPhone)?
+            }
         };
+
         // Find user's uid by phone in PHONE2UID.
         let p2u = nsp(PHONE2UID, &user_phone);
         let mut is_new_user = false;
-        let uid = match self.db.get::<&[u8], Option<Vec<u8>>>(&p2u[..]).await? {
+        let uid = match db.get::<&[u8], Option<Vec<u8>>>(&p2u[..]).await? {
             Some(uid) => Id::try_from(uid)?,
             None => {
                 is_new_user = true;
@@ -170,23 +179,26 @@ impl Auth {
                 Id::rand(&mut rng)?
             }
         };
+
         // Create one in or refresh UID2PHONE & PHONE2UID.
         let u2p = ns(UID2PHONE, &uid);
-        self.db.set(&u2p[..], user_phone, self.user_ttl).await?;
-        self.db.set(&p2u[..], &uid.0, self.user_ttl).await?;
+        db.set(&u2p[..], user_phone, self.user_ttl).await?;
+        db.set(&p2u[..], &uid.0, self.user_ttl).await?;
+
         // Create user account.
         let u2c = ns(UID2CREDIT, &uid);
         if is_new_user {
-            self.db.set(&u2c[..], 0, self.user_ttl).await?;
+            db.set(&u2c[..], 0, self.user_ttl).await?;
         } else {
-            self.db.expire(&u2c[..], self.user_ttl).await?;
+            db.expire(&u2c[..], self.user_ttl).await?;
         }
+
         // Set uid of auth tokens.
         let a = ns(ACCESS, access);
         let r = ns(REFRESH, refresh);
-        self.db.set(&a[..], &uid.0, self.access_ttl).await?;
-        self.db.set(&r[..], &uid.0, self.refresh_ttl).await?;
-        // Return that uid.
+        db.set(&a[..], &uid.0, self.access_ttl).await?;
+        db.set(&r[..], &uid.0, self.refresh_ttl).await?;
+
         Ok(Reply::AuthSmsSent { uid })
     }
 }

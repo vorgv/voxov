@@ -81,6 +81,9 @@ pub struct Config {
     /// SMS receivers for authentication.
     pub auth_phones: &'static Vec<String>,
 
+    /// Skip auth.
+    pub skip_auth: bool,
+
     /// Registered genes.
     pub gene_metas: &'static Vec<GeneMeta>,
     //pub fed_members: &'static HashMap<Id, String>,
@@ -102,6 +105,17 @@ macro_rules! env_or {
     };
 }
 
+/// '0' or unset is false, otherwise is true.
+macro_rules! env_bool {
+    ($e:literal) => {
+        match env::var($e) {
+            Ok(x) if x == "0" => false,
+            Ok(_) => true,
+            _ => false,
+        }
+    };
+}
+
 impl Config {
     pub fn new() -> Config {
         Config {
@@ -109,11 +123,7 @@ impl Config {
 
             mongo_addr: env_or!("MONGO_ADDR", "mongodb://127.0.0.1:27017/"),
 
-            ripperd_disabled: match env::var("RIPPERD_DISABLED") {
-                Ok(x) if x == "0" => false,
-                Ok(_) => true,
-                _ => false,
-            },
+            ripperd_disabled: env_bool!("RIPPERD_DISABLED"),
 
             ripperd_interval: env_or!("RIPPERD_INTERVAL", 60_u64), // seconds
 
@@ -163,6 +173,8 @@ impl Config {
                 }
                 Err(_) => vec!["12345".to_string(), "67890".to_string()],
             }),
+
+            skip_auth: env_bool!("SKIP_AUTH"),
 
             gene_metas: to_static!(GeneMeta::new_vec()),
         }
