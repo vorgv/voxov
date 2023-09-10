@@ -35,6 +35,9 @@ pub enum Query {
     CostGet {
         access: Id,
     },
+    CostCheckIn {
+        access: Id,
+    },
     GeneMeta {
         head: Head,
         gid: usize,
@@ -134,6 +137,9 @@ impl TryFrom<Request<Incoming>> for Query {
                     vendor: Id::try_get(&req, "vendor")?,
                 }),
                 "CostGet" => Ok(Query::CostGet {
+                    access: Id::try_get(&req, "access")?,
+                }),
+                "CostCheckIn" => Ok(Query::CostCheckIn {
                     access: Id::try_get(&req, "access")?,
                 }),
                 "GeneMeta" => Ok(Query::GeneMeta {

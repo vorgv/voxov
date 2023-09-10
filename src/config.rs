@@ -72,6 +72,12 @@ pub struct Config {
     /// Cost per byte.
     pub traffic_cost: i64,
 
+    /// Check-in award.
+    pub check_in_award: i64,
+
+    /// Seconds before check-in refresh.
+    pub check_in_refresh: i64,
+
     /// SMS receivers for authentication.
     pub auth_phones: &'static Vec<String>,
 
@@ -141,6 +147,10 @@ impl Config {
             space_cost_obj: env_or!("SPACE_COST_OBJ", 10_i64), // per KB per day
 
             traffic_cost: env_or!("TRAFFIC_COST", 1_i64), // per byte outbound
+
+            check_in_award: env_or!("CHECK_IN_AWARD", 10_000_000_i64), // 1 GB/day storage
+
+            check_in_refresh: env_or!("CHECK_IN_REFRESH", 60 * 60 * 24_i64), // 1 check-in/day
 
             auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {

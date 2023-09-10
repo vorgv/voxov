@@ -23,6 +23,7 @@ pub enum Error {
     CostSpaceTooLarge,
     CostTraffic,
     CostTip,
+    CostCheckInTooEarly,
 
     Fed,
 

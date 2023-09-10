@@ -21,6 +21,7 @@ pub enum Reply {
     AuthSmsSent { uid: Id },
     CostPay { uri: String },
     CostGet { credit: i64 },
+    CostCheckIn { award: i64 },
     GeneMeta { changes: Costs, meta: String },
     GeneCall { changes: Costs, result: String },
     MemeMeta { changes: Costs, meta: String },
@@ -39,6 +40,8 @@ impl Reply {
                     .header("tip", $changes.tip)
             };
         }
+
+        // Safe to unwrap here. Builders are infallible.
 
         if let Reply::MemeGet { changes, raw } = self {
             return response_changes!(changes)
@@ -92,6 +95,11 @@ impl Reply {
             Reply::CostGet { credit } => Response::builder()
                 .header("type", "CostGet")
                 .header("credit", credit.to_string())
+                .body(empty())
+                .unwrap(),
+            Reply::CostCheckIn { award } => Response::builder()
+                .header("type", "CostCheckIn")
+                .header("award", award.to_string())
                 .body(empty())
                 .unwrap(),
             Reply::GeneMeta { changes, meta } => response_changes!(changes)

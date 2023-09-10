@@ -8,6 +8,7 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
+- Move the client code here
 - Integration tests
 - Impl cost: logging
 - Improve bounds checking

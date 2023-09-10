@@ -2,7 +2,7 @@
 //! Payment is also handled here. Anything behind this is paid.
 
 use crate::config::Config;
-use crate::database::namespace::UID2CREDIT;
+use crate::database::namespace::{UID2CHECKIN, UID2CREDIT};
 use crate::database::{ns, Database};
 use crate::error::Error;
 use crate::fed::Fed;
@@ -15,6 +15,8 @@ pub struct Cost {
     db: &'static Database,
     credit_limit: i64,
     time_cost: i64,
+    check_in_award: i64,
+    check_in_refresh: i64,
 }
 
 impl Cost {
@@ -24,6 +26,8 @@ impl Cost {
             db,
             credit_limit: config.credit_limit,
             time_cost: config.time_cost,
+            check_in_award: config.check_in_award,
+            check_in_refresh: config.check_in_refresh,
         }
     }
 
@@ -37,6 +41,23 @@ impl Cost {
                 let u2p = ns(UID2CREDIT, uid);
                 let credit = self.db.get::<&[u8], i64>(&u2p).await?;
                 Ok(Reply::CostGet { credit })
+            }
+
+            Query::CostCheckIn { access: _ } => {
+                // checked in today?
+                let u2ci = ns(UID2CHECKIN, uid);
+                let last_check_in = self.db.incr(&u2ci[..]).await?;
+                self.db.expire_xx(&u2ci[..], self.check_in_refresh).await?;
+                match last_check_in {
+                    1 => {
+                        let u2c = ns(UID2CREDIT, uid);
+                        self.db.incrby(&u2c[..], self.check_in_award).await?;
+                        Ok(Reply::CostCheckIn {
+                            award: self.check_in_award,
+                        })
+                    }
+                    _ => Err(Error::CostCheckInTooEarly),
+                }
             }
 
             _ => {

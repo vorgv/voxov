@@ -112,11 +112,21 @@ impl Database {
             .await?)
     }
 
-    /// Set expiration.
+    /// Set expiry.
     pub async fn expire<K: ToRedisArgs>(&self, key: K, seconds: i64) -> Result<()> {
         Ok(cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
+            .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
+            .await?)
+    }
+
+    /// Set expiry if no expiry.
+    pub async fn expire_xx<K: ToRedisArgs>(&self, key: K, seconds: i64) -> Result<()> {
+        Ok(cmd("EXPIRE")
+            .arg(key)
+            .arg(seconds)
+            .arg("XX")
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
             .await?)
     }
@@ -127,6 +137,14 @@ impl Database {
             .arg(key)
             .arg(number)
             .query_async::<ConnectionManager, ()>(&mut self.cm.clone())
+            .await?)
+    }
+
+    /// Increment the number by 1.
+    pub async fn incr<K: ToRedisArgs>(&self, key: K) -> Result<i64> {
+        Ok(cmd("INCR")
+            .arg(key)
+            .query_async::<ConnectionManager, i64>(&mut self.cm.clone())
             .await?)
     }
 
@@ -205,6 +223,7 @@ pub mod namespace {
     pub const PHONE2UID: u8 = 5;
     pub const UID2PHONE: u8 = 6;
     pub const UID2CREDIT: u8 = 7;
+    pub const UID2CHECKIN: u8 = 8;
 }
 
 use crate::ir::id::{Id, IDL};
