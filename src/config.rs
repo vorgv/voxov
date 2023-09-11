@@ -14,6 +14,9 @@ use std::{
 /// All constants are from environment variables.
 #[derive(Serialize)]
 pub struct Config {
+    /// Source code. AGPL.
+    pub source_code: String,
+
     /// Redis URI.
     #[serde(skip_serializing)]
     pub redis_addr: String,
@@ -119,6 +122,8 @@ macro_rules! env_bool {
 impl Config {
     pub fn new() -> Config {
         Config {
+            source_code: env_or!("SOURCE_CODE", "https://github.com/vorgv/voxov"),
+
             redis_addr: env_or!("REDIS_ADDR", "redis://localhost/"),
 
             mongo_addr: env_or!("MONGO_ADDR", "mongodb://127.0.0.1:27017/"),
