@@ -8,6 +8,8 @@ use s3::creds::Credentials;
 use s3::region::Region;
 use s3::Bucket;
 use std::result::Result as StdResult;
+use std::time::Duration;
+use sysinfo::{DiskExt, System, SystemExt};
 
 pub struct Database {
     /// Redis connection manager with auto retry
@@ -18,6 +20,9 @@ pub struct Database {
 
     /// Meme metadata collection
     pub mm: mongodb::Collection<Document>,
+
+    /// MongoDB
+    mdb: mongodb::Database,
 
     /// Meme data bucket
     pub mr: Bucket,
@@ -43,12 +48,18 @@ impl Database {
         let mdb = connect_mongo(&config.mongo_addr)
             .await
             .expect("MongoDB offline?");
+
         let db = Database {
             cm: connect_redis(&config.redis_addr)
                 .await
                 .expect("Redis offline?"),
+
             mm: mdb.collection::<Document>("mm"),
+
             map: mdb.collection::<Document>("map"),
+
+            mdb,
+
             mr: Bucket::new(
                 "voxov",
                 Region::Custom {
@@ -67,11 +78,17 @@ impl Database {
             .expect("S3 offline?")
             .with_path_style(),
         };
+
         if create_index {
             db.create_index()
                 .await
                 .expect("Database index creation failed.");
         }
+
+        if config.samsara {
+            db.samsara().await;
+        }
+
         db
     }
 
@@ -174,7 +191,7 @@ impl Database {
     }
 
     /// Index MongoDB.
-    pub async fn create_index(&self) -> Result<()> {
+    async fn create_index(&self) -> Result<()> {
         self.mm
             .create_index(IndexModel::builder().keys(doc! { "eol": 1 }).build(), None)
             .await?;
@@ -211,11 +228,70 @@ impl Database {
 
         Ok(())
     }
+
+    /// Reset databases on resource draining.
+    async fn samsara(&self) {
+        let mut cm = self.cm.clone();
+        let mdb = self.mdb.clone();
+        let mr = self.mr.clone();
+
+        tokio::spawn(async move {
+            let mut sys = System::new_all();
+            loop {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+
+                let mut draining = false;
+                sys.refresh_all();
+
+                let maybe_disk = sys
+                    .disks()
+                    .iter()
+                    .map(|d| (d.total_space(), d.available_space()))
+                    .max();
+
+                if let Some(disk) = maybe_disk {
+                    if (disk.1 as f32 / disk.0 as f32) < 0.1 {
+                        draining = true;
+                    }
+                } else {
+                    println!("Samsara error: disk not found");
+                    break;
+                }
+
+                if (sys.used_memory() as f32 / sys.total_memory() as f32) > 0.9 {
+                    draining = true;
+                }
+
+                if !draining {
+                    continue;
+                }
+
+                println!("Samsara");
+
+                if let Err(error) = cmd("FLUSHALL")
+                    .query_async::<ConnectionManager, ()>(&mut cm)
+                    .await
+                {
+                    println!("Samsara Redis error: {}", error);
+                }
+
+                if let Err(error) = mdb.drop(None).await {
+                    println!("Samsara MongoDB error: {}", error);
+                }
+
+                if let Err(error) = mr.delete().await {
+                    println!("Samsara S3 error: {}", error);
+                }
+            }
+        });
+    }
 }
 
 /// Namespace for keys.
 pub mod namespace {
+    /// Never use the _HIDDEN namespace.
     pub const _HIDDEN: u8 = 0;
+
     pub const ACCESS: u8 = 1;
     pub const REFRESH: u8 = 2;
     pub const SMSSENDTO: u8 = 3;

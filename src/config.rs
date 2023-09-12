@@ -47,6 +47,9 @@ pub struct Config {
     #[serde(skip_serializing)]
     pub s3_secret_key: String,
 
+    /// Reset instance on resource draining.
+    pub samsara: bool,
+
     /// Endpoint API in http.
     pub http_addr: SocketAddr,
 
@@ -139,6 +142,8 @@ impl Config {
             s3_access_key: env_or!("S3_ACCESS_KEY", "example-user"),
 
             s3_secret_key: env_or!("S3_SECRET_KEY", "example-password"),
+
+            samsara: env_bool!("SAMSARA"),
 
             http_addr: match env::var("HTTP_ADDR") {
                 Ok(var) => SocketAddr::parse_ascii(var.as_bytes()).unwrap(),
