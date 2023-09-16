@@ -29,6 +29,7 @@ bytes = "1.4"
 # Hyper
 hyper = { version = "1.0.0-rc.4", features = ["full"] }
 hyper-util = { git = "https://github.com/hyperium/hyper-util.git" }
+http = "0.2.9"
 http-body-util = "0.1.0-rc.3"
 
 # Database

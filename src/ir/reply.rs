@@ -3,9 +3,10 @@ use crate::api::{empty, full, not_implemented};
 use crate::body::ResponseBody as RB;
 use crate::body::S3StreamItem;
 use crate::error::Error;
+use http::response::Builder;
 use http_body_util::StreamBody;
 use hyper::{Response, StatusCode};
-use s3::request::ResponseDataStream;
+use s3::request::{DataStream, ResponseDataStream};
 use std::mem::replace;
 use std::pin::Pin;
 
@@ -30,26 +31,28 @@ pub enum Reply {
 }
 
 impl Reply {
-    pub fn to_response(&mut self) -> Response<RB> {
-        macro_rules! response_changes {
-            ($changes: expr) => {
-                Response::builder()
-                    .header("time", $changes.time)
-                    .header("space", $changes.space)
-                    .header("traffic", $changes.traffic)
-                    .header("tip", $changes.tip)
-            };
+    pub fn to_response(self) -> Response<RB> {
+        fn response_changes(changes: Costs) -> Builder {
+            Response::builder()
+                .header("time", changes.time)
+                .header("space", changes.space)
+                .header("traffic", changes.traffic)
+                .header("tip", changes.tip)
+        }
+
+        fn take_inner(mut s: BoxS3Stream) -> DataStream {
+            replace(
+                &mut s.bytes,
+                Box::pin(tokio_stream::empty::<S3StreamItem>()),
+            )
         }
 
         // Safe to unwrap here. Builders are infallible.
 
         if let Reply::MemeGet { changes, raw } = self {
-            return response_changes!(changes)
+            return response_changes(changes)
                 .header("type", "MemeGet")
-                .body(RB::S3Stream(StreamBody::new(replace(
-                    raw.bytes(),
-                    Box::pin(tokio_stream::empty::<S3StreamItem>()),
-                ))))
+                .body(RB::S3Stream(StreamBody::new(take_inner(raw))))
                 .unwrap();
         }
 
@@ -78,7 +81,7 @@ impl Reply {
                 .unwrap(),
             Reply::AuthSmsSendTo { phone, message } => Response::builder()
                 .header("type", "AuthSmsSendTo")
-                .header("phone", *phone)
+                .header("phone", phone)
                 .header("message", message.to_string())
                 .body(empty())
                 .unwrap(),
@@ -102,19 +105,19 @@ impl Reply {
                 .header("award", award.to_string())
                 .body(empty())
                 .unwrap(),
-            Reply::GeneMeta { changes, meta } => response_changes!(changes)
+            Reply::GeneMeta { changes, meta } => response_changes(changes)
                 .header("type", "GeneMeta")
                 .body(full(meta.clone()))
                 .unwrap(),
-            Reply::GeneCall { changes, result } => response_changes!(changes)
+            Reply::GeneCall { changes, result } => response_changes(changes)
                 .header("type", "GeneCall")
                 .body(full(result.clone()))
                 .unwrap(),
-            Reply::MemeMeta { changes, meta } => response_changes!(changes)
+            Reply::MemeMeta { changes, meta } => response_changes(changes)
                 .header("type", "MemeMeta")
                 .body(full(meta.clone()))
                 .unwrap(),
-            Reply::MemePut { changes, hash } => response_changes!(changes)
+            Reply::MemePut { changes, hash } => response_changes(changes)
                 .header("type", "MemePut")
                 .header("hash", hex::encode(hash))
                 .body(empty())

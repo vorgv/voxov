@@ -8,6 +8,7 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
+- Use gene_name_ver as gid
 - Move the client code here
 - Integration tests
 - Impl cost: logging
