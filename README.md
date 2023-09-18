@@ -4,6 +4,9 @@ A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
 Not ready for production.
 
+Testing server with `$SKIP_AUTH` and `$SAMSARA`
+- http://w.c31.io:8080
+
 Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos

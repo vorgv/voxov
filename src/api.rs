@@ -72,6 +72,7 @@ async fn handle_http(
 }
 
 // Utility functions to make Empty and Full bodies.
+
 pub fn empty() -> RB {
     RB::Box(
         Empty::<Bytes>::new()
@@ -89,6 +90,7 @@ pub fn full<T: Into<Bytes>>(chunk: T) -> RB {
 }
 
 // Empty bodies with status code.
+
 fn empty_with_code(status_code: StatusCode) -> Response<RB> {
     let mut response = Response::new(empty());
     *response.status_mut() = status_code;
