@@ -24,6 +24,7 @@ pub mod macros {
 pub type Result<T> = std::result::Result<T, error::Error>;
 
 pub async fn run() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(feature = "console")]
     console_subscriber::init();
 
     // Config: collect ENV to static variables.

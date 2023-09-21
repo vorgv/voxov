@@ -1,5 +1,5 @@
 [workspace]
-members = ["vctl"]
+members = ["vctl", "vcli"]
 
 [workspace.dependencies]
 tokio = { version = "1.32.0", features = ["full"] }
@@ -18,6 +18,9 @@ readme = "README.md"
 repository = "https://github.com/vorgv/voxov/"
 keywords = ["payg", "baas"]
 categories = ["web-programming"]
+
+[features]
+console = ["dep:console-subscriber"]
 
 [dependencies]
 # Tokio
@@ -48,8 +51,8 @@ hex = "0.4"
 strum_macros = "0.25"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.105"
-console-subscriber = "0.1.10"
 
 # Test
 reqwest = "0.11.20"
 sysinfo = "0.29.10"
+console-subscriber = { version = "0.1.10", optional = true }
