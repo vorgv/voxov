@@ -1,9 +1,7 @@
-use std::pin::Pin;
-
 use super::{try_get, try_get_hash, Costs, Hash, Head, Id};
-use crate::error::Error;
-use crate::Result;
+use crate::{Error, Result};
 use hyper::{body::Incoming, Request};
+use std::pin::Pin;
 
 type OptionId = Option<Id>;
 

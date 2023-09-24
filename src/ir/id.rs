@@ -1,6 +1,5 @@
 use super::Query;
-use crate::error::Error;
-use crate::Result;
+use crate::{Error, Result};
 use core::fmt;
 use hex::FromHex;
 use hyper::{body::Incoming, Request};

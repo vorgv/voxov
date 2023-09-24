@@ -21,7 +21,9 @@ pub mod macros {
     }
 }
 
-pub type Result<T> = std::result::Result<T, error::Error>;
+pub use error::Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub async fn run() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
     #[cfg(feature = "console")]

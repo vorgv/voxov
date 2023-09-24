@@ -29,11 +29,9 @@
 
 #![allow(clippy::just_underscores_and_digits)]
 
-use crate::database::namespace::UID2CREDIT;
-use crate::database::{ns, Database};
-use crate::error::Error;
+use crate::database::Database;
 use crate::ir::{Costs, Id};
-use crate::Result;
+use crate::{Error, Result};
 use bson::oid::ObjectId;
 use bson::{doc, to_bson, Document};
 use chrono::serde::{ts_seconds, ts_seconds_option};
@@ -363,8 +361,9 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
                     break;
                 }
                 cx.changes.tip -= tip;
-                let u2c = ns(UID2CREDIT, &Id::from_str(doc_uid)?);
-                cx.db.incrby(&u2c[..], tip).await?;
+                cx.db
+                    .incr_credit(&Id::from_str(doc_uid)?, tip, "GemeMap1Tip")
+                    .await?;
 
                 b.insert(i.to_string(), d);
                 i += 1;

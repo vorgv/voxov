@@ -1,3 +1,5 @@
+mod credit;
+
 use crate::config::Config;
 use crate::Result;
 use bson::doc;
@@ -15,11 +17,16 @@ pub struct Database {
     /// Redis connection manager with auto retry
     cm: ConnectionManager,
 
+    credit_limit: i64,
+
     /// Map collection
     pub map: mongodb::Collection<Document>,
 
     /// Meme metadata collection
     pub mm: mongodb::Collection<Document>,
+
+    /// Credit log
+    pub cl: mongodb::Collection<Document>,
 
     /// MongoDB
     mdb: mongodb::Database,
@@ -54,9 +61,13 @@ impl Database {
                 .await
                 .expect("Redis offline?"),
 
+            credit_limit: config.credit_limit,
+
             mm: mdb.collection::<Document>("mm"),
 
             map: mdb.collection::<Document>("map"),
+
+            cl: mdb.collection::<Document>("cl"),
 
             mdb,
 

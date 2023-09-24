@@ -5,10 +5,9 @@
 
 use crate::{
     database::{namespace::UID2CREDIT, ns},
-    error::Error,
     gene::map,
     ir::Id,
-    Result,
+    Error, Result,
 };
 use bson::{doc, oid::ObjectId};
 use chrono::{DateTime, Utc};
@@ -141,7 +140,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                 return Err(Error::CostTip);
             }
 
-            db.incrby(&u2c[..], request.tip).await?;
+            db.incr_credit(&to, request.tip, "GeneMsg1Tip").await?;
 
             let arg = json!({
                 "_type": "Put",

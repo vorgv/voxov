@@ -1,10 +1,8 @@
 use crate::config::Config;
-use crate::database::namespace::UID2CREDIT;
-use crate::database::{ns, Database};
-use crate::error::Error;
+use crate::database::Database;
 use crate::ir::query::QueryBody;
 use crate::ir::{Costs, Hash, Id, Reply};
-use crate::Result;
+use crate::{Error, Result};
 use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
 use mongodb::bson::doc;
@@ -275,8 +273,7 @@ impl Meme {
             let uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
             use std::str::FromStr;
             let uid = Id::from_str(uid)?;
-            let u2c = ns(UID2CREDIT, &uid);
-            self.db.incrby(&u2c[..], tip).await?;
+            self.db.incr_credit(&uid, tip, "MemeTip").await?;
         }
         // Stream object
         let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;

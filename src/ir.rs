@@ -11,8 +11,7 @@ pub use id::{Id, IDL};
 pub use query::Query;
 pub use reply::Reply;
 
-use crate::error::Error;
-use crate::Result;
+use crate::{Error, Result};
 use hex::FromHex;
 use hyper::{body::Incoming, Request};
 use std::str::FromStr;

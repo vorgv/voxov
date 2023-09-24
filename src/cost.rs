@@ -4,16 +4,14 @@
 use crate::config::Config;
 use crate::database::namespace::{UID2CHECKIN, UID2CREDIT};
 use crate::database::{ns, Database};
-use crate::error::Error;
 use crate::fed::Fed;
 use crate::ir::{Id, Query, Reply};
-use crate::Result;
+use crate::{Error, Result};
 use tokio::time::{Duration, Instant};
 
 pub struct Cost {
     fed: &'static Fed,
     db: &'static Database,
-    credit_limit: i64,
     time_cost: i64,
     check_in_award: i64,
     check_in_refresh: i64,
@@ -24,7 +22,6 @@ impl Cost {
         Cost {
             fed,
             db,
-            credit_limit: config.credit_limit,
             time_cost: config.time_cost,
             check_in_award: config.check_in_award,
             check_in_refresh: config.check_in_refresh,
@@ -50,8 +47,9 @@ impl Cost {
                 self.db.expire_xx(&u2ci[..], self.check_in_refresh).await?;
                 match last_check_in {
                     1 => {
-                        let u2c = ns(UID2CREDIT, uid);
-                        self.db.incrby(&u2c[..], self.check_in_award).await?;
+                        self.db
+                            .incr_credit(uid, self.check_in_award, "CostCheckIn")
+                            .await?;
                         Ok(Reply::CostCheckIn {
                             award: self.check_in_award,
                         })
@@ -61,17 +59,9 @@ impl Cost {
             }
 
             _ => {
-                // Check if cost exceeds credit.
+                // Entry-refund to prevent double pay.
                 let costs = query.get_costs();
-                let u2p = ns(UID2CREDIT, uid);
-                let credit = self.db.get::<&[u8], i64>(&u2p).await?;
-                if costs.sum() > credit - self.credit_limit {
-                    return Err(Error::CostInsufficientCredit);
-                } else {
-                    // Decrement then refund to prevent double pay.
-                    let u2c = ns(UID2CREDIT, uid);
-                    self.db.decrby(&u2c[..], costs.sum()).await?;
-                }
+                self.db.decr_credit(uid, costs.sum(), "CostEntry").await?;
 
                 // Set limits.
                 let deadline = Instant::now()

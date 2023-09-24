@@ -11,10 +11,11 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
+- TTL for db.cl
+- Refactor macros in gene.rs
 - Use gene_name_ver as gid
 - Move the client code here
 - Integration tests
-- Impl cost: logging
 - Improve bounds checking
 - Impl gene: notify
 - Impl gene: human

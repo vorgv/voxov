@@ -1,12 +1,10 @@
 //! Genes are just functions.
 
 use crate::config::Config;
-use crate::database::namespace::UID2CREDIT;
-use crate::database::{ns, Database};
-use crate::error::Error;
+use crate::database::Database;
 use crate::ir::{Costs, Id, Query, Reply};
 use crate::meme::Meme;
-use crate::Result;
+use crate::{Error, Result};
 use mongodb::bson::doc;
 use serde::Serialize;
 use tokio::time::{Duration, Instant};
@@ -55,8 +53,9 @@ impl Gene {
                     let remaining: Duration = deadline - now;
                     changes.time = remaining.as_millis() as i64 * self.time_cost;
                 }
-                let u2c = ns(UID2CREDIT, uid);
-                self.db.incrby(&u2c[..], changes.sum()).await?;
+                self.db
+                    .incr_credit(uid, changes.sum(), "CostTimeRefund")
+                    .await?;
             };
         }
 
@@ -107,8 +106,9 @@ impl Gene {
         /// Refund current changes.
         macro_rules! refund {
             () => {
-                let u2c = ns(UID2CREDIT, uid);
-                self.db.incrby(&u2c[..], changes.sum()).await?;
+                self.db
+                    .incr_credit(uid, changes.sum(), "CostRefund")
+                    .await?;
             };
         }
 
