@@ -158,7 +158,7 @@ impl Config {
 
             user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5_i64), // five years
 
-            credit_limit: env_or!("INIT_CREDIT", -10_000_000_000_i64), // one USD
+            credit_limit: env_or!("CREDIT_LIMIT", -10_000_000_000_i64), // one USD
 
             time_cost: env_or!("TIME_COST", 1_000_i64), // per millisecond
 
