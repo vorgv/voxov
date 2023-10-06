@@ -13,7 +13,6 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 - TTL for db.cl
 - Refactor macros in gene.rs
-- Use gene_name_ver as gid
 - Move the client code here
 - Integration tests
 - Improve bounds checking

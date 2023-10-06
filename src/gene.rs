@@ -7,6 +7,7 @@ use crate::meme::Meme;
 use crate::{Error, Result};
 use mongodb::bson::doc;
 use serde::Serialize;
+use std::collections::HashMap;
 use tokio::time::{Duration, Instant};
 
 mod info;
@@ -17,7 +18,7 @@ pub struct Gene {
     meme: &'static Meme,
     config_json: String,
     db: &'static Database,
-    metas: &'static Vec<GeneMeta>,
+    metas: &'static HashMap<String, GeneMeta>,
     time_cost: i64,
     space_cost_doc: i64,
     traffic_cost: i64,
@@ -123,10 +124,9 @@ impl Gene {
 
         match query {
             Query::GeneMeta { head: _, gid } => {
-                if gid >= self.metas.len() {
-                    return Err(Error::GeneInvalidId);
-                }
-                let meta = serde_json::to_string(&self.metas[gid]).unwrap();
+                let meta =
+                    serde_json::to_string(&self.metas.get(&gid).ok_or(Error::GeneInvalidId)?)
+                        .unwrap();
                 traffic_time_refund!(meta);
                 Ok(Reply::GeneMeta { changes, meta })
             }
@@ -146,10 +146,10 @@ impl Gene {
                     };
                 }
 
-                let result = match gid {
-                    0 => info::v1(uid, &arg, self.config_json.clone()).await,
-                    1 => map::v1(map_1_cx!(), false).await?,
-                    2 => msg::v1(map_1_cx!()).await?,
+                let result = match gid.as_str() {
+                    "info_v1" => info::v1(uid, &arg, self.config_json.clone()).await,
+                    "map_v1" => map::v1(map_1_cx!(), false).await?,
+                    "msg_v1" => msg::v1(map_1_cx!()).await?,
                     _ => {
                         return Err(Error::GeneInvalidId);
                     }
@@ -205,26 +205,32 @@ pub struct GeneMeta {
 }
 
 impl GeneMeta {
-    pub fn new_vec() -> Vec<GeneMeta> {
-        vec![
-            // 0
-            GeneMeta {
-                name: "info".into(),
-                version: 1,
-                description: "Infomantion about this server.".into(),
-            },
-            // 1
-            GeneMeta {
-                name: "map".into(),
-                version: 1,
-                description: "Mapping abstraction backed by MongoDB.".into(),
-            },
-            // 2
-            GeneMeta {
-                name: "msg".into(),
-                version: 1,
-                description: "Messaging another user.".into(),
-            },
-        ]
+    pub fn new_map() -> HashMap<String, GeneMeta> {
+        HashMap::from([
+            (
+                "info_1".into(),
+                GeneMeta {
+                    name: "info".into(),
+                    version: 1,
+                    description: "Infomantion about this server.".into(),
+                },
+            ),
+            (
+                "map_1".into(),
+                GeneMeta {
+                    name: "map".into(),
+                    version: 1,
+                    description: "Mapping abstraction backed by MongoDB.".into(),
+                },
+            ),
+            (
+                "msg_1".into(),
+                GeneMeta {
+                    name: "msg".into(),
+                    version: 1,
+                    description: "Messaging another user.".into(),
+                },
+            ),
+        ])
     }
 }

@@ -4,6 +4,7 @@
 
 use crate::{gene::GeneMeta, to_static};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::{
     env,
@@ -91,7 +92,7 @@ pub struct Config {
     pub skip_auth: bool,
 
     /// Registered genes.
-    pub gene_metas: &'static Vec<GeneMeta>,
+    pub gene_metas: &'static HashMap<String, GeneMeta>,
     //pub fed_members: &'static HashMap<Id, String>,
 }
 
@@ -186,7 +187,7 @@ impl Config {
 
             skip_auth: env_bool!("SKIP_AUTH"),
 
-            gene_metas: to_static!(GeneMeta::new_vec()),
+            gene_metas: to_static!(GeneMeta::new_map()),
         }
     }
 }
