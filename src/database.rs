@@ -1,4 +1,5 @@
 mod credit;
+pub mod ripperd;
 
 use crate::config::Config;
 use crate::Result;
@@ -19,8 +20,8 @@ pub struct Database {
 
     credit_limit: i64,
 
-    /// Map collection
-    pub map: mongodb::Collection<Document>,
+    /// Map_v1 collection
+    pub map1: mongodb::Collection<Document>,
 
     /// Meme metadata collection
     pub mm: mongodb::Collection<Document>,
@@ -65,7 +66,7 @@ impl Database {
 
             mm: mdb.collection::<Document>("mm"),
 
-            map: mdb.collection::<Document>("map"),
+            map1: mdb.collection::<Document>("map"),
 
             cl: mdb.collection::<Document>("cl"),
 
@@ -207,7 +208,7 @@ impl Database {
             .create_index(IndexModel::builder().keys(doc! { "eol": 1 }).build(), None)
             .await?;
 
-        self.map
+        self.map1
             .create_indexes(
                 vec![
                     IndexModel::builder()

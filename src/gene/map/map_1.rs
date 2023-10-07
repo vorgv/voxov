@@ -160,7 +160,7 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
         };
     }
 
-    let map = &cx.db.map;
+    let map1 = &cx.db.map1;
     let request: Request = serde_json::from_str(cx.arg)?;
     match request {
         Request::Put(request) => {
@@ -238,12 +238,12 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
                 let mut filter = Document::new();
                 filter.insert("_id", id);
                 filter.insert("_uid", cx.uid.to_string());
-                let found = map.find_one_and_replace(filter, d, None).await?;
+                let found = map1.find_one_and_replace(filter, d, None).await?;
                 if let Some(old) = found {
                     refund_space!(old);
                 }
             } else {
-                map.insert_one(d, None).await?;
+                map1.insert_one(d, None).await?;
             }
 
             Ok("{}".into())
@@ -333,7 +333,7 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
             let mut i = 0;
             let mut b = Document::new();
             let mut s = cx.changes.traffic / cx.traffic_cost;
-            let mut cursor = map.find(filter, options).await?;
+            let mut cursor = map1.find(filter, options).await?;
             while let Some(d) = cursor.try_next().await? {
                 if let Some(n) = request._n {
                     if n == i {
@@ -386,7 +386,7 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
                 })
                 .build();
 
-            let dropped = map
+            let dropped = map1
                 .find_one_and_delete(filter.clone(), options)
                 .await?
                 .ok_or(Error::GeneMapNotFound)?;

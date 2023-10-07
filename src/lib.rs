@@ -35,11 +35,13 @@ pub async fn run() -> std::result::Result<(), Box<dyn std::error::Error + Send +
     // Database: stateless database struct.
     let db = to_static!(database::Database::new(c, true).await);
 
-    // Meme: data primitives.
-    let meme: &'static meme::Meme = to_static!(meme::Meme::new(c, db));
+    // Ripperd: remove EOL data.
+    use database::ripperd::Ripperd;
+    let ripperd: &'static Ripperd = to_static!(Ripperd::new(c, db));
+    tokio::spawn(ripperd.ripperd());
 
-    // Ripperd: delete expired data.
-    tokio::spawn(meme.ripperd());
+    // Meme: data primitives.
+    let meme = to_static!(meme::Meme::new(c, db));
 
     // Gene: function primitives.
     let gene = to_static!(gene::Gene::new(c, db, meme));

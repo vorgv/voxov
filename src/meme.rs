@@ -6,16 +6,13 @@ use crate::{Error, Result};
 use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
 use mongodb::bson::doc;
-use mongodb::options::{FindOneOptions, FindOptions};
+use mongodb::options::FindOneOptions;
 use s3::bucket::CHUNK_SIZE;
 use std::time::Duration;
-use tokio::time::{sleep, Instant};
-use tokio_stream::StreamExt;
+use tokio::time::Instant;
 
 pub struct Meme {
     db: &'static Database,
-    ripperd_disabled: bool,
-    ripperd_interval: u64,
     time_cost: i64,
     space_cost_obj: i64,
     space_cost_doc: i64,
@@ -26,55 +23,11 @@ impl Meme {
     pub fn new(config: &Config, db: &'static Database) -> Meme {
         Meme {
             db,
-            ripperd_disabled: config.ripperd_disabled,
-            ripperd_interval: config.ripperd_interval,
             time_cost: config.time_cost,
             space_cost_obj: config.space_cost_obj,
             space_cost_doc: config.space_cost_doc,
             traffic_cost: config.traffic_cost,
         }
-    }
-
-    /// Ripper Daemon periodically deletes memes by the EOL field.
-    /// Enable this on one and only one instance in the cluster.
-    pub async fn ripperd(&self) {
-        if self.ripperd_disabled {
-            return;
-        }
-        loop {
-            sleep(Duration::from_secs(self.ripperd_interval)).await;
-            if let Err(error) = self.rip_meme().await {
-                println!("Ripperd error: {}", error);
-            }
-        }
-    }
-
-    /// Fallible wrapper for a rip operation.
-    async fn rip_meme(&self) -> Result<()> {
-        // Get all memes with EOL < now
-        let options = FindOptions::builder()
-            .projection(doc! { "_id": 1, "eol": 1, "oid": 1 })
-            .sort(doc! { "eol": 1 })
-            .build();
-        let mm = &self.db.mm;
-        let mut cursor = mm
-            .find(
-                doc! {
-                    "eol": { "$lt": Utc::now() }
-                },
-                options,
-            )
-            .await?;
-        let mr = &self.db.mr;
-        while let Some(meta) = cursor.try_next().await? {
-            // Remove them on S3 first to prevent leakage.
-            let oid = meta.get_str("oid")?;
-            mr.delete_object(oid).await?;
-            // Remove them on MongoDB
-            let id = meta.get_object_id("_id")?;
-            mm.find_one_and_delete(doc! { "_id": id }, None).await?;
-        }
-        Ok(())
     }
 
     /// Return meme metadata if meme is public or belongs to uid.

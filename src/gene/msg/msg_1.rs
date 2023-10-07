@@ -108,7 +108,7 @@ enum Request {
 
 pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
     let db = &cx.db;
-    let map = &db.map;
+    let map1 = &db.map1;
 
     let request: Request = serde_json::from_str(cx.arg)?;
     match request {
@@ -124,7 +124,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                     .max_time(cx.deadline - Instant::now())
                     .build();
 
-                if map.find_one(filter, options).await?.is_none() {
+                if map1.find_one(filter, options).await?.is_none() {
                     return Err(Error::GeneInvalidId);
                 }
             }
@@ -216,7 +216,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
         Request::Read(request) => {
             let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
             let update = doc! { READ: Utc::now() };
-            let update_result = map.update_one(query, update, None).await?;
+            let update_result = map1.update_one(query, update, None).await?;
 
             if update_result.matched_count == 0 {
                 return Err(Error::GeneMapNotFound);
@@ -228,7 +228,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
         Request::Unread(request) => {
             let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
             let update = doc! { "$unset": { READ: "" } };
-            let update_result = map.update_one(query, update, None).await?;
+            let update_result = map1.update_one(query, update, None).await?;
 
             if update_result.matched_count == 0 {
                 return Err(Error::GeneMapNotFound);
@@ -245,7 +245,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                     { TO: cx.uid.to_string() },
                 ],
             };
-            let delete_result = map.delete_one(query, None).await?;
+            let delete_result = map1.delete_one(query, None).await?;
 
             if delete_result.deleted_count == 0 {
                 return Err(Error::GeneMapNotFound);
