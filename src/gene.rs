@@ -4,7 +4,7 @@ use crate::config::Config;
 use crate::database::Database;
 use crate::ir::{Costs, Id, Query, Reply};
 use crate::meme::Meme;
-use crate::{Error, Result};
+use crate::{cost_macros, Error, Result};
 use mongodb::bson::doc;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -37,6 +37,7 @@ impl Gene {
         }
     }
 
+    #[allow(unused_macros)]
     pub async fn handle(
         &self,
         query: Query,
@@ -44,27 +45,14 @@ impl Gene {
         mut changes: Costs,
         deadline: Instant,
     ) -> Result<Reply> {
-        // The same as the two combined in self.handle_ignore_error().
-        macro_rules! time_refund {
-            () => {
-                let now = Instant::now();
-                if now > deadline {
-                    return Err(Error::CostTime);
-                } else {
-                    let remaining: Duration = deadline - now;
-                    changes.time = remaining.as_millis() as i64 * self.time_cost;
-                }
-                self.db
-                    .incr_credit(uid, changes.sum(), "CostTimeRefund")
-                    .await?;
-            };
-        }
+        cost_macros!(self, uid, changes, deadline);
 
         let reply = self
             .handle_ignore_error(query, uid, changes, deadline)
             .await;
         if reply.is_err() {
-            time_refund!();
+            time!();
+            refund!();
         }
         reply
     }
@@ -77,50 +65,7 @@ impl Gene {
         mut changes: Costs,
         deadline: Instant,
     ) -> Result<Reply> {
-        /// Subtract traffic from changes based on $s.len().
-        macro_rules! traffic {
-            ($s: expr) => {
-                // Traffic cost is server-to-client for now.
-                let traffic = $s.len() as i64 * self.traffic_cost;
-                if traffic > changes.traffic {
-                    return Err(Error::CostTraffic);
-                } else {
-                    changes.traffic -= traffic;
-                }
-            };
-        }
-
-        /// Update changes.time by the closeness to deadline.
-        macro_rules! time {
-            () => {
-                let now = Instant::now();
-                if now > deadline {
-                    changes.time = 0;
-                    return Err(Error::CostTime);
-                } else {
-                    let remaining: Duration = deadline - now;
-                    changes.time = remaining.as_millis() as i64 * self.time_cost;
-                }
-            };
-        }
-
-        /// Refund current changes.
-        macro_rules! refund {
-            () => {
-                self.db
-                    .incr_credit(uid, changes.sum(), "CostRefund")
-                    .await?;
-            };
-        }
-
-        /// Three in one.
-        macro_rules! traffic_time_refund {
-            ($s: expr) => {
-                traffic!($s);
-                time!();
-                refund!();
-            };
-        }
+        cost_macros!(self, uid, changes, deadline);
 
         match query {
             Query::GeneMeta { head: _, gid } => {

@@ -71,3 +71,56 @@ impl Cost {
         }
     }
 }
+
+pub mod macros {
+    #[macro_export]
+    macro_rules! cost_macros {
+        ($self: expr, $uid: expr, $changes: expr, $deadline: expr) => {
+            /// Subtract traffic from changes based on $s.len().
+            macro_rules! traffic {
+                ($s: expr) => {
+                    // Traffic cost is server-to-client for now.
+                    let traffic = $s.len() as i64 * $self.traffic_cost;
+                    if traffic > $changes.traffic {
+                        return Err(Error::CostTraffic);
+                    } else {
+                        $changes.traffic -= traffic;
+                    }
+                };
+            }
+
+            /// Update changes.time by the closeness to deadline.
+            macro_rules! time {
+                () => {
+                    let now = Instant::now();
+                    if now > $deadline {
+                        $changes.time = 0;
+                        return Err(Error::CostTime);
+                    } else {
+                        let remaining: Duration = $deadline - now;
+                        $changes.time = remaining.as_millis() as i64 * $self.time_cost;
+                    }
+                };
+            }
+
+            /// Refund current changes.
+            macro_rules! refund {
+                () => {
+                    $self
+                        .db
+                        .incr_credit($uid, $changes.sum(), "CostRefund")
+                        .await?;
+                };
+            }
+
+            /// Three in one.
+            macro_rules! traffic_time_refund {
+                ($s: expr) => {
+                    traffic!($s);
+                    time!();
+                    refund!();
+                };
+            }
+        };
+    }
+}
