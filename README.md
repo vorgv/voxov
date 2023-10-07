@@ -11,7 +11,6 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
-- TTL for db.cl
 - Move the client code here
 - Integration tests
 - Improve bounds checking

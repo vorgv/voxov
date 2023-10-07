@@ -67,6 +67,9 @@ pub struct Config {
     /// Minimum credit.
     pub credit_limit: i64,
 
+    /// Credit retention
+    pub credit_retention: u64,
+
     /// Cost per millisecond.
     pub time_cost: i64,
 
@@ -160,6 +163,8 @@ impl Config {
             user_ttl: env_or!("USER_TTL", 60 * 60 * 24 * 365 * 5_i64), // five years
 
             credit_limit: env_or!("CREDIT_LIMIT", -10_000_000_000_i64), // one USD
+
+            credit_retention: env_or!("CREDIT_RETENTION", 60 * 60 * 24 * 365 * 5_u64), // five years
 
             time_cost: env_or!("TIME_COST", 1_000_i64), // per millisecond
 

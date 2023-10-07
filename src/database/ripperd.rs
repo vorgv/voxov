@@ -11,6 +11,7 @@ pub struct Ripperd {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
+    credit_retention: u64,
 }
 
 impl Ripperd {
@@ -19,6 +20,7 @@ impl Ripperd {
             db,
             ripperd_disabled: config.ripperd_disabled,
             ripperd_interval: config.ripperd_interval,
+            credit_retention: config.credit_retention,
         }
     }
     /// Ripper Daemon periodically deletes memes by the EOL field.
@@ -71,13 +73,47 @@ impl Ripperd {
 
     /// Rip map database.
     async fn rip_map1(&self) -> Result<()> {
-        // Get all maps with EOL < now
-        todo!()
+        // Get all maps with EOL < now.
+        let options = FindOptions::builder()
+            .projection(doc! { "_id": 1, "_eol": 1 })
+            .sort(doc! { "_eol": 1 })
+            .build();
+        let map1 = &self.db.map1;
+        let mut cursor = map1
+            .find(
+                doc! {
+                    "_eol": { "$lt": Utc::now() }
+                },
+                options,
+            )
+            .await?;
+        while let Some(map) = cursor.try_next().await? {
+            let id = map.get_object_id("_id")?;
+            map1.find_one_and_delete(doc! { "_id": id }, None).await?;
+        }
+        Ok(())
     }
 
     /// Rip credit log.
     async fn rip_cl(&self) -> Result<()> {
-        // Get all cl with time + retention < now
-        todo!()
+        // Get all cl with time < now - retention.
+        let options = FindOptions::builder()
+            .projection(doc! { "_id": 1, "time": 1 })
+            .sort(doc! { "time": 1 })
+            .build();
+        let cl = &self.db.cl;
+        let mut cursor = cl
+            .find(
+                doc! {
+                    "_eol": { "$lt": Utc::now() - Duration::from_secs(self.credit_retention) }
+                },
+                options,
+            )
+            .await?;
+        while let Some(log) = cursor.try_next().await? {
+            let id = log.get_object_id("_id")?;
+            cl.find_one_and_delete(doc! { "_id": id }, None).await?;
+        }
+        Ok(())
     }
 }
