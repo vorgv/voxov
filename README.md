@@ -13,7 +13,6 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 - Move the client code here
 - Integration tests
-- Improve bounds checking
 - Impl gene: notify
 - Impl gene: human
 - Impl gene: censor

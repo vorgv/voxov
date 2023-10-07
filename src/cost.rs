@@ -62,7 +62,7 @@ impl Cost {
                 // Entry-refund to prevent double pay.
                 let costs = query.get_costs();
                 self.db
-                    .decr_credit(uid, None, costs.sum(), "CostEntry")
+                    .decr_credit(uid, None, costs.sum().ok_or(Error::NumCheck)?, "CostEntry")
                     .await?;
 
                 // Set limits.
@@ -110,7 +110,12 @@ pub mod macros {
                 () => {
                     $self
                         .db
-                        .incr_credit($uid, None, $changes.sum(), "CostRefund")
+                        .incr_credit(
+                            $uid,
+                            None,
+                            $changes.sum().ok_or(Error::NumCheck)?,
+                            "CostRefund",
+                        )
                         .await?;
                 };
             }

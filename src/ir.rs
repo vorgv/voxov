@@ -32,8 +32,11 @@ pub struct Head {
 }
 
 impl Costs {
-    pub fn sum(&self) -> i64 {
-        self.time + self.space + self.traffic + self.tip
+    pub fn sum(&self) -> Option<i64> {
+        self.time
+            .checked_add(self.space)?
+            .checked_add(self.traffic)?
+            .checked_add(self.tip)
     }
     pub fn try_get(req: &Request<Incoming>) -> Result<Self> {
         Ok(Costs {
