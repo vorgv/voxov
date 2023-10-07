@@ -140,7 +140,8 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                 return Err(Error::CostTip);
             }
 
-            db.incr_credit(&to, request.tip, "GeneMsg1Tip").await?;
+            db.incr_credit(&to, Some(cx.uid), request.tip, "GeneMsg1Tip")
+                .await?;
 
             let arg = json!({
                 "_type": "Put",

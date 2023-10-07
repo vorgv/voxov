@@ -362,7 +362,7 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
                 }
                 cx.changes.tip -= tip;
                 cx.db
-                    .incr_credit(&Id::from_str(doc_uid)?, tip, "GemeMap1Tip")
+                    .incr_credit(&Id::from_str(doc_uid)?, Some(cx.uid), tip, "GemeMap1Tip")
                     .await?;
 
                 b.insert(i.to_string(), d);

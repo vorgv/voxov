@@ -48,7 +48,7 @@ impl Cost {
                 match last_check_in {
                     1 => {
                         self.db
-                            .incr_credit(uid, self.check_in_award, "CostCheckIn")
+                            .incr_credit(uid, None, self.check_in_award, "CostCheckIn")
                             .await?;
                         Ok(Reply::CostCheckIn {
                             award: self.check_in_award,
@@ -61,7 +61,9 @@ impl Cost {
             _ => {
                 // Entry-refund to prevent double pay.
                 let costs = query.get_costs();
-                self.db.decr_credit(uid, costs.sum(), "CostEntry").await?;
+                self.db
+                    .decr_credit(uid, None, costs.sum(), "CostEntry")
+                    .await?;
 
                 // Set limits.
                 let deadline = Instant::now()
@@ -108,7 +110,7 @@ pub mod macros {
                 () => {
                     $self
                         .db
-                        .incr_credit($uid, $changes.sum(), "CostRefund")
+                        .incr_credit($uid, None, $changes.sum(), "CostRefund")
                         .await?;
                 };
             }

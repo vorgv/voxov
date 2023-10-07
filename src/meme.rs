@@ -43,14 +43,14 @@ impl Meme {
         }
         loop {
             sleep(Duration::from_secs(self.ripperd_interval)).await;
-            if let Err(error) = self.rip().await {
+            if let Err(error) = self.rip_meme().await {
                 println!("Ripperd error: {}", error);
             }
         }
     }
 
     /// Fallible wrapper for a rip operation.
-    async fn rip(&self) -> Result<()> {
+    async fn rip_meme(&self) -> Result<()> {
         // Get all memes with EOL < now
         let options = FindOptions::builder()
             .projection(doc! { "_id": 1, "eol": 1, "oid": 1 })
@@ -270,10 +270,12 @@ impl Meme {
                 return Err(Error::CostTip);
             }
             changes.tip -= tip;
-            let uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
+            let meme_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
             use std::str::FromStr;
-            let uid = Id::from_str(uid)?;
-            self.db.incr_credit(&uid, tip, "MemeTip").await?;
+            let meme_uid = Id::from_str(meme_uid)?;
+            self.db
+                .incr_credit(&meme_uid, Some(uid), tip, "MemeTip")
+                .await?;
         }
         // Stream object
         let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
