@@ -4,10 +4,10 @@
 use crate::auth::Auth;
 use crate::body::ResponseBody as RB;
 use crate::config::Config;
-use crate::ir::Query;
+use crate::ir::{Query, Reply};
 use http_body_util::{BodyExt, Empty, Full};
 use hyper::server::conn::http1;
-use hyper::{body::Bytes, service::service_fn, Method, Request, Response, StatusCode};
+use hyper::{body::Bytes, service::service_fn, Method, Request, Response};
 use hyper_util::rt::TokioIo;
 use std::convert::Infallible;
 use std::error::Error;
@@ -60,14 +60,17 @@ async fn handle_http(
         Method::GET => Ok(Response::new(full("PONG"))),
         // Everything has side effect, so this is POST-only.
         Method::POST => match Query::try_from(req) {
-            Ok(q) => Ok(auth
-                .handle(q)
+            Ok(query) => Ok(auth
+                .handle(query)
                 .await
-                .unwrap_or_else(|error| crate::ir::Reply::Error { error })
+                .unwrap_or_else(|error| Reply::Error { error })
                 .to_response()),
-            Err(_) => Ok(bad_request()),
+            Err(error) => Ok(Reply::Error { error }.to_response()),
         },
-        _ => Ok(not_found()),
+        _ => Ok(Reply::Error {
+            error: crate::Error::ApiMethod,
+        }
+        .to_response()),
     }
 }
 
@@ -87,24 +90,4 @@ pub fn full<T: Into<Bytes>>(chunk: T) -> RB {
             .map_err(|never| match never {})
             .boxed(),
     )
-}
-
-// Empty bodies with status code.
-
-fn empty_with_code(status_code: StatusCode) -> Response<RB> {
-    let mut response = Response::new(empty());
-    *response.status_mut() = status_code;
-    response
-}
-
-fn not_found() -> Response<RB> {
-    empty_with_code(StatusCode::NOT_FOUND)
-}
-
-pub fn not_implemented() -> Response<RB> {
-    empty_with_code(StatusCode::NOT_IMPLEMENTED)
-}
-
-pub fn bad_request() -> Response<RB> {
-    empty_with_code(StatusCode::BAD_REQUEST)
 }

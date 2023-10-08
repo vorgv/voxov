@@ -12,6 +12,7 @@ Waiting for upstreams to fix security issues from Dependabot.
 ## Todos
 
 - Integration tests
+- Meme deduplication
 - Impl gene: notify
 - Impl gene: human
 - Impl gene: censor

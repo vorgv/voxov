@@ -6,6 +6,7 @@ pub enum Error {
     ApiParseId,
     ApiParseNum,
     ApiParseHash,
+    ApiMethod,
     ApiMissingEntry,
     ApiUnknownQueryType,
     ApiMissingQueryType,

@@ -4,7 +4,7 @@
 use crate::config::Config;
 use crate::gene::Gene;
 use crate::ir::{Costs, Id, Query, Reply};
-use crate::Result;
+use crate::{Error, Result};
 
 pub struct Fed {
     gene: &'static Gene,
@@ -22,7 +22,7 @@ impl Fed {
         deadline: tokio::time::Instant,
     ) -> Result<Reply> {
         match query.get_fed() {
-            Some(_) => Ok(Reply::Unimplemented),
+            Some(_) => Ok(Reply::Error { error: Error::Fed }),
             None => self.gene.handle(query, uid, changes, deadline).await,
         }
     }

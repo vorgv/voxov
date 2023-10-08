@@ -45,7 +45,7 @@ impl Client {
             .header("time", self.config.plan.time.to_string())
             .header("space", self.config.plan.space.to_string())
             .header("traffic", self.config.plan.traffic.to_string())
-            .header("tips", self.config.plan.tips.to_string());
+            .header("tip", self.config.plan.tip.to_string());
         if let Some(f) = fed {
             builder = builder.header("fed", f);
         }
@@ -184,15 +184,15 @@ impl Client {
             time: get!("time"),
             space: get!("space"),
             traffic: get!("traffic"),
-            tips: get!("tips"),
+            tip: get!("tip"),
         };
         let plan = &self.config.plan;
         println!(
-            "time {} space {} traffic {} tips {}",
+            "time {} space {} traffic {} tip {}",
             plan.time - changes.time,
             plan.space - changes.space,
             plan.traffic - changes.traffic,
-            plan.tips - changes.tips
+            plan.tip - changes.tip
         );
         Ok(())
     }
@@ -264,12 +264,7 @@ impl Client {
     }
 
     /// Download a file.
-    pub fn meme_get(
-        &self,
-        public: bool,
-        hash: String,
-        file: Option<String>,
-    ) -> Result<String> {
+    pub fn meme_get(&self, public: bool, hash: String, file: Option<String>) -> Result<String> {
         let mut builder = self
             .post_head(None)
             .header("type", "MemeGet")
@@ -297,19 +292,19 @@ impl Client {
     }
 
     /// Map operations.
-    pub fn gene_map(&self, file: Option<String>) -> Result<String> {
+    pub fn gene_map_1(&self, file: Option<String>) -> Result<String> {
         match file {
             Some(file) => {
                 let mut file = File::open(file)?;
                 let mut buf = String::new();
                 file.read_to_string(&mut buf)?;
-                self.gene_call(None, "1".into(), Some(buf))
+                self.gene_call(None, "map_1".into(), Some(buf))
             }
             None => {
                 let mut buf = Vec::<u8>::new();
                 std::io::stdin().read_to_end(&mut buf)?;
                 let buf = String::from_utf8(buf)?;
-                self.gene_call(None, "1".into(), Some(buf))
+                self.gene_call(None, "map_1".into(), Some(buf))
             }
         }
     }

@@ -57,7 +57,7 @@ pub struct Plan {
     pub time: u64,
     pub space: u64,
     pub traffic: u64,
-    pub tips: u64,
+    pub tip: u64,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -124,7 +124,7 @@ impl Default for Config {
                 time: default_cost,
                 space: default_cost,
                 traffic: default_cost,
-                tips: default_cost,
+                tip: default_cost,
             },
         }
     }

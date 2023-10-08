@@ -1,5 +1,5 @@
 use super::{Costs, Hash, Id};
-use crate::api::{empty, full, not_implemented};
+use crate::api::{empty, full};
 use crate::body::ResponseBody as RB;
 use crate::body::S3StreamItem;
 use crate::Error;
@@ -13,7 +13,6 @@ use std::pin::Pin;
 type BoxS3Stream = Pin<Box<ResponseDataStream>>;
 
 pub enum Reply {
-    Unimplemented,
     Error { error: Error },
     AuthSessionStart { access: Id, refresh: Id },
     AuthSessionRefresh { access: Id },
@@ -57,7 +56,6 @@ impl Reply {
         }
 
         match self {
-            Reply::Unimplemented => not_implemented(),
             Reply::Error { error } => Response::builder()
                 .header("type", "Error")
                 .header("error", error.to_string())
@@ -122,7 +120,7 @@ impl Reply {
                 .header("hash", hex::encode(hash))
                 .body(empty())
                 .unwrap(),
-            _ => not_implemented(),
+            Reply::MemeGet { .. } => unreachable!(),
         }
     }
 }
