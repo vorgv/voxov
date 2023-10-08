@@ -34,7 +34,7 @@ async fn execute(cli: Cli) -> Result<()> {
             db.incrby(&u2c[..], credit).await
         }
 
-        Command::DropIndexes => Ok(db.map.drop_indexes(None).await?),
+        Command::DropIndexes => Ok(db.map1.drop_indexes(None).await?),
     }
 }
 

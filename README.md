@@ -11,7 +11,6 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
-- Move the client code here
 - Integration tests
 - Impl gene: notify
 - Impl gene: human

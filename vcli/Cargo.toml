@@ -1,4 +1,11 @@
 [package]
-name = "vcti"
+name = "vcli"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+reqwest = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true}
+toml = { version = "0.7.5", features = ["parse", "display"] }
