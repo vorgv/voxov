@@ -74,13 +74,19 @@ impl Client {
     }
 
     /// Authenticate interactively.
-    pub fn auth(&self) -> Result<String> {
+    pub fn auth_sms(&self) -> Result<String> {
         let (phone, message) = self.auth_sms_send_to()?;
         println!("Send SMS message {} to {}.", message, phone);
         println!("Press enter after sent.");
         let mut s = "".to_string();
         let _ = stdin().read_line(&mut s);
         let uid = self.auth_sms_sent(&phone, &message)?;
+        Ok(format!("Your user ID is {}", uid))
+    }
+
+    /// Skip authentication.
+    pub fn auth_skip(&self, phone: &str) -> Result<String> {
+        let uid = self.auth_sms_sent(phone, "")?;
         Ok(format!("Your user ID is {}", uid))
     }
 

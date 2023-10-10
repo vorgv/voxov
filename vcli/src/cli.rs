@@ -11,8 +11,11 @@ pub struct Cli {
 pub enum Command {
     /// Ping the server.
     Ping,
-    /// Interactively authenticate with SMS.
-    Auth,
+    /// Authenticate
+    Auth {
+        #[command(subcommand)]
+        command: AuthCommand,
+    },
     /// Balance related subcommands.
     Cost {
         #[command(subcommand)]
@@ -33,6 +36,14 @@ pub enum Command {
     },
     /// Gene map.
     Map { file: Option<String> },
+}
+
+#[derive(Subcommand)]
+pub enum AuthCommand {
+    /// Interactively authenticate with SMS
+    Sms,
+    /// Skip authentication, and set phone.
+    Skip { phone: String },
 }
 
 #[derive(Subcommand)]

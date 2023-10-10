@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::process::exit;
 use vcli::{
-    cli::{Cli, Command, CostCommand, GeneCommand, MemeCommand},
+    cli::{AuthCommand, Cli, Command, CostCommand, GeneCommand, MemeCommand},
     client::Client,
 };
 
@@ -11,7 +11,10 @@ fn main() {
 
     let result = match cli.command {
         Command::Ping => client.ping(),
-        Command::Auth => client.auth(),
+        Command::Auth { command } => match command {
+            AuthCommand::Sms => client.auth_sms(),
+            AuthCommand::Skip { phone } => client.auth_skip(&phone),
+        },
         Command::Cost { command } => match command {
             CostCommand::Pay => client.cost_pay(),
             CostCommand::Get => client.cost_get(),
