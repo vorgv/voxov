@@ -13,6 +13,7 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 - Integration tests
 - Meme deduplication
+- Impl gene: geo
 - Impl gene: notify
 - Impl gene: human
 - Impl gene: censor
@@ -27,29 +28,28 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Layers
 
-- api (stateless)
+- api
     - static: large files
-    - TODO graphql: nested metadata
-- auth (redis)
+    - TODO graphql: nested requests
+- auth
     - user
-        - signup, login/logout, pay
     - TODO fed
         - graphql: reduce trips
     - TODO alien
         - static: reduce inter-cluster traffic
-- cost (redis, TODO log to mongodb)
+- cost
     - time cost
     - traffic cost
     - space cost
     - tip
-- TODO fed (static only)
+- TODO fed
     - optional jwt (for untrusted nodes)
     - exchange rate (static range, local currency)
         - stay stable to avoid financialization
         - changing rate
             - extend range and wait for adaption
             - shrink to complete shift
-- gene (static, mostly TODOs)
+- gene
     - info
     - map
         - document database
@@ -57,8 +57,8 @@ Waiting for upstreams to fix security issues from Dependabot.
         - chat
     - human
     - censor
-        - publish: at least 6 months remaining
-        - argue/report: do expensive publish
+        - publish
+        - argue/report
         - human verification
     - notify
     - like
@@ -78,4 +78,4 @@ Waiting for upstreams to fix security issues from Dependabot.
         - ai powered meme stream
 - meme
     - metadata (mongodb)
-    - static data (s3)
+    - blobs (s3)
