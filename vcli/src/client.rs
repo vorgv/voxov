@@ -1,6 +1,6 @@
 use crate::config::{Config, Plan, Session};
 use crate::Result;
-use reqwest::blocking::{get, Client as ReqwestClient, RequestBuilder, Response};
+use reqwest::{get, Client as ReqwestClient, RequestBuilder, Response};
 use std::{
     fs::File,
     io::{stdin, Read, Write},
@@ -27,8 +27,8 @@ macro_rules! handle_error {
 
 impl Client {
     /// Check connectivity.
-    pub fn ping(&self) -> Result<String> {
-        Ok(get(&self.config.url)?.text()?)
+    pub async fn ping(&self) -> Result<String> {
+        Ok(get(&self.config.url).await?.text().await?)
     }
 
     /// The http POST method.
@@ -53,11 +53,11 @@ impl Client {
     }
 
     /// Refresh or remake session.
-    fn update_session(&mut self) {
+    async fn update_session(&mut self) {
         match &self.config.session {
             Some(s) if !s.refresh_expired() => {
                 if s.needs_refresh() {
-                    let access = self.auth_session_refresh().unwrap();
+                    let access = self.auth_session_refresh().await.unwrap();
                     self.config.session.as_mut().unwrap().set_access(&access);
                     self.config.save();
                 }
@@ -66,7 +66,7 @@ impl Client {
                 if x.is_some() {
                     eprintln!("Refresh token expired. Session is reset for re-authentication.");
                 }
-                let (access, refresh) = self.auth_session_start().unwrap();
+                let (access, refresh) = self.auth_session_start().await.unwrap();
                 self.config.session = Some(Session::new(&access, &refresh));
                 self.config.save();
             }
@@ -74,25 +74,29 @@ impl Client {
     }
 
     /// Authenticate interactively.
-    pub fn auth_sms(&self) -> Result<String> {
-        let (phone, message) = self.auth_sms_send_to()?;
+    pub async fn auth_sms(&self) -> Result<String> {
+        let (phone, message) = self.auth_sms_send_to().await?;
         println!("Send SMS message {} to {}.", message, phone);
         println!("Press enter after sent.");
         let mut s = "".to_string();
         let _ = stdin().read_line(&mut s);
-        let uid = self.auth_sms_sent(&phone, &message)?;
+        let uid = self.auth_sms_sent(&phone, &message).await?;
         Ok(format!("Your user ID is {}", uid))
     }
 
     /// Skip authentication.
-    pub fn auth_skip(&self, phone: &str) -> Result<String> {
-        let uid = self.auth_sms_sent(phone, "")?;
+    pub async fn auth_skip(&self, phone: &str) -> Result<String> {
+        let uid = self.auth_sms_sent(phone, "").await?;
         Ok(format!("Your user ID is {}", uid))
     }
 
     /// Get access and refresh tokens.
-    pub fn auth_session_start(&self) -> Result<(String, String)> {
-        let response = self.post().header("type", "AuthSessionStart").send()?;
+    pub async fn auth_session_start(&self) -> Result<(String, String)> {
+        let response = self
+            .post()
+            .header("type", "AuthSessionStart")
+            .send()
+            .await?;
         handle_error!(response);
         let access = get_header(&response, "access");
         let refresh = get_header(&response, "refresh");
@@ -100,19 +104,20 @@ impl Client {
     }
 
     /// Get a new access with refresh token.
-    pub fn auth_session_refresh(&self) -> Result<String> {
+    pub async fn auth_session_refresh(&self) -> Result<String> {
         let response = self
             .post()
             .header("type", "AuthSessionRefresh")
             .header("refresh", &self.config.session.as_ref().unwrap().refresh)
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         let access = get_header(&response, "access");
         Ok(access)
     }
 
     /// Deactivate tokens.
-    pub fn auth_session_end(&self, drop_refresh: bool) -> Result<()> {
+    pub async fn auth_session_end(&self, drop_refresh: bool) -> Result<()> {
         let mut builder = self
             .post()
             .header("type", "AuthSessionEnd")
@@ -120,19 +125,20 @@ impl Client {
         if drop_refresh {
             builder = builder.header("refresh", &self.config.session.as_ref().unwrap().refresh);
         }
-        let response = builder.send()?;
+        let response = builder.send().await?;
         handle_error!(response);
         Ok(())
     }
 
     /// Get where to send SMS.
-    pub fn auth_sms_send_to(&self) -> Result<(String, String)> {
+    pub async fn auth_sms_send_to(&self) -> Result<(String, String)> {
         let response = self
             .post()
             .header("type", "AuthSmsSendTo")
             .header("access", &self.config.session.as_ref().unwrap().access)
             .header("refresh", &self.config.session.as_ref().unwrap().refresh)
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         let phone = get_header(&response, "phone");
         let message = get_header(&response, "message");
@@ -140,7 +146,7 @@ impl Client {
     }
 
     /// Notify the server that SMS is sent.
-    pub fn auth_sms_sent(&self, phone: &str, message: &str) -> Result<String> {
+    pub async fn auth_sms_sent(&self, phone: &str, message: &str) -> Result<String> {
         let response = self
             .post()
             .header("type", "AuthSmsSent")
@@ -148,32 +154,35 @@ impl Client {
             .header("refresh", &self.config.session.as_ref().unwrap().refresh)
             .header("phone", phone)
             .header("message", message)
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         let uid = get_header(&response, "uid");
         Ok(uid)
     }
 
     /// Get the link to pay.
-    pub fn cost_pay(&self) -> Result<String> {
+    pub async fn cost_pay(&self) -> Result<String> {
         let response = self
             .post()
             .header("type", "CostPay")
             .header("access", &self.config.session.as_ref().unwrap().access)
             .header("vendor", "00000000000000000000000000000000")
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         let uri = get_header(&response, "uri");
         Ok(uri)
     }
 
     /// Get user balance.
-    pub fn cost_get(&self) -> Result<String> {
+    pub async fn cost_get(&self) -> Result<String> {
         let response = self
             .post()
             .header("type", "CostGet")
             .header("access", &self.config.session.as_ref().unwrap().access)
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         let credit = get_header(&response, "credit");
         Ok(credit)
@@ -204,19 +213,20 @@ impl Client {
     }
 
     /// Get functions metadata.
-    pub fn gene_meta(&self, fed: Option<String>, gid: String) -> Result<String> {
+    pub async fn gene_meta(&self, fed: Option<String>, gid: String) -> Result<String> {
         let response = self
             .post_head(fed)
             .header("type", "GeneMeta")
             .header("gid", gid)
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         self.print_cost(&response)?;
-        Ok(response.text()?)
+        Ok(response.text().await?)
     }
 
     /// Call function.
-    pub fn gene_call(
+    pub async fn gene_call(
         &self,
         fed: Option<String>,
         gid: String,
@@ -227,34 +237,38 @@ impl Client {
             .header("type", "GeneCall")
             .header("gid", gid)
             .header("arg", arg.unwrap_or_default())
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         self.print_cost(&response)?;
-        Ok(response.text()?)
+        Ok(response.text().await?)
     }
 
     /// Get metadata of a meme.
-    pub fn meme_meta(&self, hash: String) -> Result<String> {
+    pub async fn meme_meta(&self, hash: String) -> Result<String> {
         let response = self
             .post_head(None)
             .header("type", "MemeMeta")
             .header("hash", hash)
-            .send()?;
+            .send()
+            .await?;
         handle_error!(response);
         self.print_cost(&response)?;
-        Ok(response.text()?)
+        Ok(response.text().await?)
     }
 
     /// Upload a file.
-    pub fn meme_put(&self, days: u32, file: Option<String>) -> Result<String> {
+    pub async fn meme_put(&self, days: u32, file: Option<String>) -> Result<String> {
         let mut builder = self
             .post_head(None)
             .header("type", "MemePut")
             .header("days", days);
         builder = match file {
             Some(file) => {
-                let file = File::open(file)?;
-                builder.body(file)
+                let mut file = File::open(file)?;
+                let mut buf = Vec::<u8>::new();
+                file.read_to_end(&mut buf)?;
+                builder.body(buf)
             }
             None => builder.body({
                 let mut buf = Vec::<u8>::new();
@@ -262,7 +276,7 @@ impl Client {
                 buf
             }),
         };
-        let response = builder.send()?;
+        let response = builder.send().await?;
         handle_error!(response);
         self.print_cost(&response)?;
         let hash = get_header(&response, "hash");
@@ -270,7 +284,7 @@ impl Client {
     }
 
     /// Download a file.
-    pub fn meme_get(&self, public: bool, hash: String, file: Option<String>) -> Result<String> {
+    pub async fn meme_get(&self, public: bool, hash: String, file: Option<String>) -> Result<String> {
         let mut builder = self
             .post_head(None)
             .header("type", "MemeGet")
@@ -279,7 +293,7 @@ impl Client {
             true => builder.header("public", "true"),
             false => builder.header("public", "false"),
         };
-        let response = builder.send()?;
+        let response = builder.send().await?;
         handle_error!(response);
         if file.is_some() {
             self.print_cost(&response)?;
@@ -287,40 +301,40 @@ impl Client {
         match file {
             Some(file) => {
                 let mut file = File::create(file)?;
-                file.write_all(&response.bytes()?)?;
+                file.write_all(&response.bytes().await?)?;
                 Ok("".into())
             }
             None => {
-                std::io::stdout().write_all(&response.bytes()?)?;
+                std::io::stdout().write_all(&response.bytes().await?)?;
                 exit(0);
             }
         }
     }
 
     /// Map operations.
-    pub fn gene_map_1(&self, file: Option<String>) -> Result<String> {
+    pub async fn gene_map_1(&self, file: Option<String>) -> Result<String> {
         match file {
             Some(file) => {
                 let mut file = File::open(file)?;
                 let mut buf = String::new();
                 file.read_to_string(&mut buf)?;
-                self.gene_call(None, "map_1".into(), Some(buf))
+                self.gene_call(None, "map_1".into(), Some(buf)).await
             }
             None => {
                 let mut buf = Vec::<u8>::new();
                 std::io::stdin().read_to_end(&mut buf)?;
                 let buf = String::from_utf8(buf)?;
-                self.gene_call(None, "map_1".into(), Some(buf))
+                self.gene_call(None, "map_1".into(), Some(buf)).await
             }
         }
     }
 }
 
-impl Default for Client {
-    fn default() -> Self {
+impl Client {
+    pub async fn default() -> Self {
         let config = Config::load();
         let mut client = Client { config };
-        client.update_session();
+        client.update_session().await;
         client
     }
 }
