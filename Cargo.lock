@@ -2972,6 +2972,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "vcli",
 ]
 
 [[package]]

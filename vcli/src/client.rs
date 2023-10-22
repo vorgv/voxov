@@ -284,7 +284,12 @@ impl Client {
     }
 
     /// Download a file.
-    pub async fn meme_get(&self, public: bool, hash: String, file: Option<String>) -> Result<String> {
+    pub async fn meme_get(
+        &self,
+        public: bool,
+        hash: String,
+        file: Option<String>,
+    ) -> Result<String> {
         let mut builder = self
             .post_head(None)
             .header("type", "MemeGet")

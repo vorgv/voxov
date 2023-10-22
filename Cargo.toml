@@ -27,6 +27,9 @@ categories = ["web-programming"]
 console = ["dep:console-subscriber"]
 
 [dependencies]
+# Workspace
+vcli = { path = 'vcli' }
+
 # Tokio
 tokio = { workspace = true }
 tokio-util = "0.7.8"
