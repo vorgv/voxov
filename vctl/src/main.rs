@@ -1,9 +1,8 @@
 use clap::{Parser, Subcommand};
 use std::process::exit;
 use std::str::FromStr;
-use voxov::auth::nspm;
 use voxov::config::Config;
-use voxov::database::namespace::{SMSSENT, UID2CREDIT};
+use voxov::database::namespace::UID2CREDIT;
 use voxov::database::{ns, Database};
 use voxov::ir::Id;
 use voxov::to_static;
@@ -23,11 +22,7 @@ async fn execute(cli: Cli) -> Result<()> {
     let db: &Database = to_static!(Database::new(c, false).await);
 
     match cli.command {
-        Command::Sent { from, to, message } => {
-            let message = Id::from_str(format!("{:0>32}", message).as_str())?;
-            let s = nspm(SMSSENT, &to, &message);
-            db.set(&s[..], from, c.access_ttl).await
-        }
+        Command::Sent { from, to, message } => db.sms_sent(&from, &to, &message).await,
 
         Command::AddCredit { uid, credit } => {
             let u2c = ns(UID2CREDIT, &Id::from_str(&uid)?);

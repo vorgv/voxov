@@ -203,7 +203,7 @@ impl Auth {
 }
 
 /// Build namespaced key from phone and message.
-pub fn nspm(n: u8, phone: &String, message: &Id) -> Bytes {
+pub fn nspm(n: u8, phone: &str, message: &Id) -> Bytes {
     let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES + IDL);
     buf.put(&[n][..]);
     buf.put(phone.as_bytes());

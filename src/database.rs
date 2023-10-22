@@ -1,6 +1,7 @@
 mod credit;
 pub mod ripperd;
 
+use crate::auth::nspm;
 use crate::config::Config;
 use crate::Result;
 use bson::doc;
@@ -11,6 +12,7 @@ use s3::creds::Credentials;
 use s3::region::Region;
 use s3::Bucket;
 use std::result::Result as StdResult;
+use std::str::FromStr;
 use std::time::Duration;
 use sysinfo::{DiskExt, System, SystemExt};
 
@@ -19,6 +21,7 @@ pub struct Database {
     cm: ConnectionManager,
 
     credit_limit: i64,
+    access_ttl: i64,
 
     /// Map_v1 collection
     pub map1: mongodb::Collection<Document>,
@@ -51,7 +54,7 @@ async fn connect_mongo(addr: &str) -> StdResult<mongodb::Database, mongodb::erro
 use redis::{cmd, FromRedisValue, ToRedisArgs};
 
 impl Database {
-    /// Connect to Redis, panic on failure.
+    /// Connect to databases, panic on failure.
     pub async fn new(config: &Config, create_index: bool) -> Database {
         let mdb = connect_mongo(&config.mongo_addr)
             .await
@@ -63,6 +66,7 @@ impl Database {
                 .expect("Redis offline?"),
 
             credit_limit: config.credit_limit,
+            access_ttl: config.access_ttl,
 
             mm: mdb.collection::<Document>("mm"),
 
@@ -202,6 +206,13 @@ impl Database {
             .await?)
     }
 
+    /// Sent SMS.
+    pub async fn sms_sent(&self, from: &str, to: &str, message: &str) -> Result<()> {
+        let message = Id::from_str(format!("{:0>32}", message).as_str())?;
+        let s = nspm(SMSSENT, to, &message);
+        self.set(&s[..], from, self.access_ttl).await
+    }
+
     /// Index MongoDB.
     async fn create_index(&self) -> Result<()> {
         self.mm
@@ -316,6 +327,8 @@ pub mod namespace {
 
 use crate::ir::id::{Id, IDL};
 use bytes::{Buf, Bytes};
+
+use self::namespace::SMSSENT;
 
 /// Prepend namespace tag before Id.
 pub fn ns(n: u8, id: &Id) -> Bytes {

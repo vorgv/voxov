@@ -10,7 +10,7 @@ use std::{
 
 /// Client state struct.
 pub struct Client {
-    config: Config,
+    pub config: Config,
 }
 
 /// If response is error type, print error message and exit.
@@ -53,7 +53,7 @@ impl Client {
     }
 
     /// Refresh or remake session.
-    async fn update_session(&mut self) {
+    pub async fn update_session(&mut self) {
         match &self.config.session {
             Some(s) if !s.refresh_expired() => {
                 if s.needs_refresh() {
@@ -336,6 +336,11 @@ impl Client {
 }
 
 impl Client {
+    pub async fn zero() -> Self {
+        Client {
+            config: Config::default(),
+        }
+    }
     pub async fn default() -> Self {
         let config = Config::load();
         let mut client = Client { config };
