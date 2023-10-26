@@ -64,7 +64,7 @@ impl Client {
             }
             x => {
                 if x.is_some() {
-                    eprintln!("Refresh token expired. Session is reset for re-authentication.");
+                    eprintln!("Refresh token expired. Please re-authentication.");
                 }
                 let (access, refresh) = self.auth_session_start().await.unwrap();
                 self.config.session = Some(Session::new(&access, &refresh));

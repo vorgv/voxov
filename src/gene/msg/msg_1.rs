@@ -132,7 +132,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let to = Id::try_from(&request.to)?;
             let u2c = ns(UID2CREDIT, &to);
 
-            if db.exits(&u2c[..]).await? < 1 {
+            if db.exists(&u2c[..]).await? < 1 {
                 return Err(Error::AuthInvalidUid);
             }
 

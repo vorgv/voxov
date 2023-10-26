@@ -150,7 +150,7 @@ impl Auth {
         &self,
         access: &Id,
         refresh: &Id,
-        phone: &String,
+        phone: &str,
         message: &Id,
     ) -> Result<Reply> {
         self.authenticate(access).await?;
@@ -158,7 +158,7 @@ impl Auth {
 
         // Find user's phone in SMSSENT, phone, message.
         let user_phone = match self.skip_auth {
-            true => phone.clone(),
+            true => phone.to_owned(),
             false => {
                 let key = nspm(SMSSENT, phone, message);
                 db.get::<&[u8], Option<String>>(&key[..])

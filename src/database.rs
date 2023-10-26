@@ -108,6 +108,12 @@ impl Database {
         db
     }
 
+    /// Database with the default config and no samsara.
+    pub async fn default() -> Database {
+        let config = Config::new();
+        Database::new(&config, false).await
+    }
+
     /// Set key-value pair with TTL by seconds.
     pub async fn set<K: ToRedisArgs, V: ToRedisArgs>(
         &self,
@@ -191,7 +197,7 @@ impl Database {
     }
 
     /// Returns if key exists.
-    pub async fn exits<K: ToRedisArgs>(&self, key: K) -> Result<i64> {
+    pub async fn exists<K: ToRedisArgs>(&self, key: K) -> Result<i64> {
         Ok(cmd("EXISTS")
             .arg(key)
             .query_async::<ConnectionManager, i64>(&mut self.cm.clone())
@@ -206,7 +212,7 @@ impl Database {
             .await?)
     }
 
-    /// Sent SMS.
+    /// Add a SMS record.
     pub async fn sms_sent(&self, from: &str, to: &str, message: &str) -> Result<()> {
         let message = Id::from_str(format!("{:0>32}", message).as_str())?;
         let s = nspm(SMSSENT, to, &message);
@@ -313,7 +319,7 @@ impl Database {
 /// Namespace for keys.
 pub mod namespace {
     /// Never use the _HIDDEN namespace.
-    pub const _HIDDEN: u8 = 0;
+    const _HIDDEN: u8 = 0;
 
     pub const ACCESS: u8 = 1;
     pub const REFRESH: u8 = 2;

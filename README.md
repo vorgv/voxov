@@ -11,20 +11,23 @@ Waiting for upstreams to fix security issues from Dependabot.
 
 ## Todos
 
-- Integration tests
-- Meme deduplication
-- Impl gene: geo
-- Impl gene: notify
-- Impl gene: human
-- Impl gene: censor
-- Impl gene: like
-- Impl gene: auto
-- Impl gene: xr
-- Impl gene: wiki
-- Impl gene: ai
-- Impl fed with jwt
-- GraphQL API
-- GUI client (Flutter? Svelte?)
+- Integration tests     0.0.1
+- Meme deduplication    0.0.2
+- Impl gene: geo        0.0.3
+
+- Impl gene: notify     0.1.0
+- Impl gene: human      0.1.1
+- Impl gene: censor     0.1.2
+- Impl gene: like       0.1.3
+- Impl gene: wiki       0.2.2
+
+- Impl gene: auto       0.2.0
+- Impl gene: rpc        0.2.3
+- Impl gene: xr         0.2.1
+
+- Impl fed with jwt     0.3.0
+
+- GraphQL API           1.0.0
 
 ## Layers
 
@@ -72,8 +75,8 @@ Waiting for upstreams to fix security issues from Dependabot.
         - social
     - wiki
         - 1:1 server-author likes
-    - ai
-        - model rpc
+    - rpc
+        - AI model rpc
     - feed
         - ai powered meme stream
 - meme
