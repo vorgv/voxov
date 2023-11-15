@@ -6,6 +6,7 @@ mod meme;
 use crate::config::{Config, Plan, Session};
 use crate::Result;
 use reqwest::{get, Client as ReqwestClient, RequestBuilder, Response};
+use std::{error, fmt};
 use std::{io::stdin, time::Duration};
 
 #[macro_use]
@@ -45,7 +46,7 @@ impl Client {
         let mut builder = self
             .post()
             .timeout(Duration::from_secs(60 * 60 * 24 * 30))
-            .header("access", &self.config.session.as_ref().unwrap().access)
+            .header("access", &self.get_access().unwrap())
             .header("time", self.config.plan.time.to_string())
             .header("space", self.config.plan.space.to_string())
             .header("traffic", self.config.plan.traffic.to_string())
@@ -54,6 +55,28 @@ impl Client {
             builder = builder.header("fed", f);
         }
         builder
+    }
+
+    /// Get the access token.
+    fn get_access(&self) -> Result<String> {
+        Ok(self
+            .config
+            .session
+            .as_ref()
+            .ok_or(VcliError)?
+            .access
+            .clone())
+    }
+
+    /// Get the refresh token.
+    fn get_refresh(&self) -> Result<String> {
+        Ok(self
+            .config
+            .session
+            .as_ref()
+            .ok_or(VcliError)?
+            .refresh
+            .clone())
     }
 
     /// Refresh or remake session.
@@ -140,3 +163,14 @@ fn get_header(response: &Response, key: &str) -> String {
         .unwrap_or_default()
         .to_string()
 }
+
+#[derive(Debug, Clone)]
+struct VcliError;
+
+impl fmt::Display for VcliError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "VcliError")
+    }
+}
+
+impl error::Error for VcliError {}

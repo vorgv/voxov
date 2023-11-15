@@ -7,7 +7,7 @@ impl Client {
         let response = self
             .post()
             .header("type", "CostPay")
-            .header("access", &self.config.session.as_ref().unwrap().access)
+            .header("access", &self.get_access()?)
             .header("vendor", "00000000000000000000000000000000")
             .send()
             .await?;
@@ -21,11 +21,24 @@ impl Client {
         let response = self
             .post()
             .header("type", "CostGet")
-            .header("access", &self.config.session.as_ref().unwrap().access)
+            .header("access", &self.get_access()?)
             .send()
             .await?;
         handle_error!(response);
         let credit = get_header(&response, "credit");
         Ok(credit)
+    }
+
+    /// Check in.
+    pub async fn cost_check_in(&self) -> Result<String> {
+        let response = self
+            .post()
+            .header("type", "CostCheckIn")
+            .header("access", &self.get_access()?)
+            .send()
+            .await?;
+        handle_error!(response);
+        let award = get_header(&response, "award");
+        Ok(award)
     }
 }

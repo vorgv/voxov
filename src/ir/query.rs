@@ -67,7 +67,8 @@ impl Query {
     pub fn get_access(&self) -> &Id {
         match self {
             Query::CostPay { access, .. } => access,
-            Query::CostGet { access, .. } => access,
+            Query::CostGet { access } => access,
+            Query::CostCheckIn { access, .. } => access,
             Query::MemeMeta { head, .. } => &head.access,
             Query::MemePut { head, .. } => &head.access,
             Query::MemeGet { head, .. } => &head.access,

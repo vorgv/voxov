@@ -6,6 +6,8 @@ use voxov::database::{
 };
 use voxov::ir::Id;
 
+mod common;
+
 async fn token_exists(db: &Database, k: u8, id: &str) -> bool {
     db.exists(&ns(k, &Id::from_str(id).unwrap())[..])
         .await
@@ -66,12 +68,7 @@ async fn session_end() {
 
 #[tokio::test]
 async fn session_sms() {
-    let mut client = Client::zero().await;
-    client.update_session().await;
-    let (phone, message) = client.auth_sms_send_to().await.unwrap();
-    let db = Database::default().await;
-    db.sms_sent("7357", &phone, &message).await.unwrap();
-    let uid = client.auth_sms_sent(&phone, &message).await.unwrap();
+    let (client, uid) = common::new_user("1000").await;
     let (access_uid, refresh_uid) = get_tokens(client).await;
     if uid != access_uid || uid != refresh_uid {
         panic!()

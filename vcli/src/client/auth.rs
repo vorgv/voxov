@@ -20,7 +20,7 @@ impl Client {
         let response = self
             .post()
             .header("type", "AuthSessionRefresh")
-            .header("refresh", &self.config.session.as_ref().unwrap().refresh)
+            .header("refresh", &self.get_refresh()?)
             .send()
             .await?;
         handle_error!(response);
@@ -33,7 +33,7 @@ impl Client {
         let mut builder = self
             .post()
             .header("type", "AuthSessionEnd")
-            .header("access", &self.config.session.as_ref().unwrap().access);
+            .header("access", &self.get_access()?);
         if drop_refresh {
             builder = builder.header("refresh", &self.config.session.as_ref().unwrap().refresh);
         }
@@ -47,8 +47,8 @@ impl Client {
         let response = self
             .post()
             .header("type", "AuthSmsSendTo")
-            .header("access", &self.config.session.as_ref().unwrap().access)
-            .header("refresh", &self.config.session.as_ref().unwrap().refresh)
+            .header("access", &self.get_access()?)
+            .header("refresh", &self.get_refresh()?)
             .send()
             .await?;
         handle_error!(response);
@@ -62,8 +62,8 @@ impl Client {
         let response = self
             .post()
             .header("type", "AuthSmsSent")
-            .header("access", &self.config.session.as_ref().unwrap().access)
-            .header("refresh", &self.config.session.as_ref().unwrap().refresh)
+            .header("access", &self.get_access()?)
+            .header("refresh", &self.get_refresh()?)
             .header("phone", phone)
             .header("message", message)
             .send()
