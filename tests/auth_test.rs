@@ -68,7 +68,7 @@ async fn session_end() {
 
 #[tokio::test]
 async fn session_sms() {
-    let (client, uid) = common::new_user("1000").await;
+    let (client, uid) = common::new_user().await;
     let (access_uid, refresh_uid) = get_tokens(client).await;
     if uid != access_uid || uid != refresh_uid {
         panic!()
