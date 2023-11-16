@@ -21,8 +21,8 @@ async fn main() {
             CostCommand::Get => client.cost_get().await,
         },
         Command::Gene { fed, command } => match command {
-            GeneCommand::Meta { gid } => client.gene_meta(fed, gid).await,
-            GeneCommand::Call { gid, arg } => client.gene_call(fed, gid, arg).await,
+            GeneCommand::Meta { gid } => client.gene_meta(fed, &gid).await,
+            GeneCommand::Call { gid, arg } => client.gene_call(fed, &gid, arg).await,
         },
         Command::Meme { command } => match command {
             MemeCommand::Meta { hash } => client.meme_meta(hash).await,

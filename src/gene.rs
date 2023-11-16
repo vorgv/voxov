@@ -92,9 +92,9 @@ impl Gene {
                 }
 
                 let result = match gid.as_str() {
-                    "info_v1" => info::v1(uid, &arg, self.config_json.clone()).await,
-                    "map_v1" => map::v1(map_1_cx!(), false).await?,
-                    "msg_v1" => msg::v1(map_1_cx!()).await?,
+                    "info_1" => info::v1(uid, &arg, self.config_json.clone()).await,
+                    "map_1" => map::v1(map_1_cx!(), false).await?,
+                    "msg_1" => msg::v1(map_1_cx!()).await?,
                     _ => {
                         return Err(Error::GeneInvalidId);
                     }

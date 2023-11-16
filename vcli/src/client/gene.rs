@@ -4,7 +4,7 @@ use std::{fs::File, io::Read};
 
 impl Client {
     /// Get functions metadata.
-    pub async fn gene_meta(&self, fed: Option<String>, gid: String) -> Result<String> {
+    pub async fn gene_meta(&self, fed: Option<String>, gid: &str) -> Result<String> {
         let response = self
             .post_head(fed)
             .header("type", "GeneMeta")
@@ -20,7 +20,7 @@ impl Client {
     pub async fn gene_call(
         &self,
         fed: Option<String>,
-        gid: String,
+        gid: &str,
         arg: Option<String>,
     ) -> Result<String> {
         let response = self
