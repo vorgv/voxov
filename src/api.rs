@@ -29,6 +29,7 @@ impl Api {
 
     /// Open endpoints.
     pub async fn serve(&'static self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        println!("Serving");
         self.serve_http().await
         //TODO tokio::spawn serve_graphql.
     }
