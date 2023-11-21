@@ -7,8 +7,6 @@ Not ready for production.
 Testing server with `$SKIP_AUTH` and `$SAMSARA`
 - http://c31.io:8080
 
-Waiting for upstreams to fix security issues from Dependabot.
-
 ## Todos
 
 - Integration tests     0.0.1
@@ -28,6 +26,18 @@ Waiting for upstreams to fix security issues from Dependabot.
 - Impl fed with jwt     0.3.0
 
 - GraphQL API           1.0.0
+
+## Tests
+
+Start databases: Redis, MongoDB, MinIO.
+
+Build and start the server.
+
+    cargo run
+
+Run tests in another shell.
+
+    cargo test
 
 ## Layers
 
