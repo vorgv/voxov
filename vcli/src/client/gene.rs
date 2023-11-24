@@ -42,13 +42,13 @@ impl Client {
                 let mut file = File::open(file)?;
                 let mut buf = String::new();
                 file.read_to_string(&mut buf)?;
-                self.gene_call(None, "map_1".into(), Some(buf)).await
+                self.gene_call(None, "map_1", Some(buf)).await
             }
             None => {
                 let mut buf = Vec::<u8>::new();
                 std::io::stdin().read_to_end(&mut buf)?;
                 let buf = String::from_utf8(buf)?;
-                self.gene_call(None, "map_1".into(), Some(buf)).await
+                self.gene_call(None, "map_1", Some(buf)).await
             }
         }
     }
