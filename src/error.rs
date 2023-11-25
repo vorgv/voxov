@@ -39,7 +39,8 @@ pub enum Error {
 
     Redis(redis::RedisError),
     MongoDB(mongodb::error::Error),
-    Bson(bson::ser::Error),
+    BsonSer(bson::ser::Error),
+    BsonDe(bson::de::Error),
     BsonValueAccess(bson::document::ValueAccessError),
     S3(s3::error::S3Error),
 
@@ -89,7 +90,13 @@ impl From<hyper::Error> for Error {
 
 impl From<bson::ser::Error> for Error {
     fn from(error: bson::ser::Error) -> Self {
-        Self::Bson(error)
+        Self::BsonSer(error)
+    }
+}
+
+impl From<bson::de::Error> for Error {
+    fn from(error: bson::de::Error) -> Self {
+        Self::BsonDe(error)
     }
 }
 

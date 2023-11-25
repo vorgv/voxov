@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { workspace = true }
+bytes = { workspace = true }
 reqwest = { workspace = true }
 clap = { workspace = true }
 chrono = { workspace = true }

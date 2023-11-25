@@ -26,8 +26,10 @@ async fn main() {
         },
         Command::Meme { command } => match command {
             MemeCommand::Meta { hash } => client.meme_meta(hash).await,
-            MemeCommand::Put { days, file } => client.meme_put(days, file).await,
-            MemeCommand::Get { public, hash, file } => client.meme_get(public, hash, file).await,
+            MemeCommand::Put { days, file } => client.meme_put_file(days, file).await,
+            MemeCommand::Get { public, hash, file } => {
+                client.meme_get_file(public, hash, file).await
+            }
         },
         Command::Map { file } => client.gene_map_1(file).await,
     };

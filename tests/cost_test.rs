@@ -4,16 +4,17 @@ use voxov::{
 };
 
 mod common;
+use common::new_user;
 
 #[tokio::test]
 async fn cost_pay() {
-    let (client, _) = common::new_user().await;
+    let (client, _) = new_user().await;
     client.cost_pay().await.unwrap();
 }
 
 #[tokio::test]
 async fn cost_get() {
-    let (client, uid) = common::new_user().await;
+    let (client, uid) = new_user().await;
     let credit: i64 = client.cost_get().await.unwrap().parse().unwrap();
     let credit_in_db = get_credit(&uid).await;
     assert_eq!(credit, credit_in_db);
@@ -21,7 +22,7 @@ async fn cost_get() {
 
 #[tokio::test]
 async fn cost_check_in() {
-    let (client, uid) = common::new_user().await;
+    let (client, uid) = new_user().await;
     let credit_before = get_credit(&uid).await;
     let award: i64 = client.cost_check_in().await.unwrap().parse().unwrap();
     let credit_after = get_credit(&uid).await;

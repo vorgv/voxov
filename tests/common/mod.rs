@@ -9,12 +9,17 @@ pub async fn new_user() -> (Client, String) {
     client.config.session = Some(Session::new(&access, &refresh));
     let (phone, message) = client.auth_sms_send_to().await.unwrap();
     let db = Database::default().await;
-    let number: String = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(16)
-        .map(char::from)
-        .collect();
+    let number = random_string(16);
     db.sms_sent(&number, &phone, &message).await.unwrap();
     let uid = client.auth_sms_sent(&phone, &message).await.unwrap();
     (client, uid)
+}
+
+/// Generate a random String with length n.
+pub fn random_string(n: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(n)
+        .map(char::from)
+        .collect()
 }

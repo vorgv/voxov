@@ -12,7 +12,7 @@ impl Client {
             .send()
             .await?;
         handle_error!(response);
-        self.print_cost(&response)?;
+        self.eprint_cost(&response)?;
         Ok(response.text().await?)
     }
 
@@ -31,7 +31,7 @@ impl Client {
             .send()
             .await?;
         handle_error!(response);
-        self.print_cost(&response)?;
+        self.eprint_cost(&response)?;
         Ok(response.text().await?)
     }
 

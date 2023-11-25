@@ -43,11 +43,11 @@ impl Meme {
             .map_err(|_| Error::CostTime)??;
         if let Some(meta) = option_meta {
             if meta.get_bool("pub").map_err(|_| Error::Logical)? {
-                return Ok(meta.to_string());
+                return Ok(serde_json::to_string(&meta)?);
             }
             let m_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
             if m_uid == uid.to_string() {
-                return Ok(meta.to_string());
+                return Ok(serde_json::to_string(&meta)?);
             }
         }
         Err(Error::MemeNotFound)

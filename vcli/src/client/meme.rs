@@ -1,5 +1,6 @@
 use super::{get_header, Client, Result};
 use crate::handle_error;
+use bytes::Bytes;
 use std::{
     fs::File,
     io::{Read, Write},
@@ -16,12 +17,26 @@ impl Client {
             .send()
             .await?;
         handle_error!(response);
-        self.print_cost(&response)?;
+        self.eprint_cost(&response)?;
         Ok(response.text().await?)
     }
 
+    /// Upload bytes.
+    pub async fn meme_put(&self, days: u32, bytes: Bytes) -> Result<String> {
+        let builder = self
+            .post_head(None)
+            .header("type", "MemePut")
+            .header("days", days)
+            .body(bytes);
+        let response = builder.send().await?;
+        handle_error!(response);
+        self.eprint_cost(&response)?;
+        let hash = get_header(&response, "hash");
+        Ok(hash)
+    }
+
     /// Upload a file.
-    pub async fn meme_put(&self, days: u32, file: Option<String>) -> Result<String> {
+    pub async fn meme_put_file(&self, days: u32, file: Option<String>) -> Result<String> {
         let mut builder = self
             .post_head(None)
             .header("type", "MemePut")
@@ -41,13 +56,29 @@ impl Client {
         };
         let response = builder.send().await?;
         handle_error!(response);
-        self.print_cost(&response)?;
+        self.eprint_cost(&response)?;
         let hash = get_header(&response, "hash");
         Ok(hash)
     }
 
+    /// Download bytes.
+    pub async fn meme_get(&self, public: bool, hash: String) -> Result<Bytes> {
+        let mut builder = self
+            .post_head(None)
+            .header("type", "MemeGet")
+            .header("hash", hash);
+        builder = match public {
+            true => builder.header("public", "true"),
+            false => builder.header("public", "false"),
+        };
+        let response = builder.send().await?;
+        handle_error!(response);
+        self.eprint_cost(&response)?;
+        Ok(response.bytes().await?)
+    }
+
     /// Download a file.
-    pub async fn meme_get(
+    pub async fn meme_get_file(
         &self,
         public: bool,
         hash: String,
@@ -63,9 +94,7 @@ impl Client {
         };
         let response = builder.send().await?;
         handle_error!(response);
-        if file.is_some() {
-            self.print_cost(&response)?;
-        }
+        self.eprint_cost(&response)?;
         match file {
             Some(file) => {
                 let mut file = File::create(file)?;

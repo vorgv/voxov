@@ -118,7 +118,7 @@ impl Client {
     }
 
     /// Print cost based on plan and returned changes.
-    pub fn print_cost(&self, response: &Response) -> Result<()> {
+    pub fn eprint_cost(&self, response: &Response) -> Result<()> {
         macro_rules! get {
             ($s:expr) => {
                 get_header(response, $s).parse()?
@@ -131,7 +131,7 @@ impl Client {
             tip: get!("tip"),
         };
         let plan = &self.config.plan;
-        println!(
+        eprintln!(
             "time {} space {} traffic {} tip {}",
             plan.time - changes.time,
             plan.space - changes.space,
