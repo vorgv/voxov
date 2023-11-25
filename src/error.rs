@@ -41,6 +41,7 @@ pub enum Error {
     MongoDB(mongodb::error::Error),
     BsonSer(bson::ser::Error),
     BsonDe(bson::de::Error),
+    BsonDatetime(bson::datetime::Error),
     BsonValueAccess(bson::document::ValueAccessError),
     S3(s3::error::S3Error),
 
@@ -97,6 +98,12 @@ impl From<bson::ser::Error> for Error {
 impl From<bson::de::Error> for Error {
     fn from(error: bson::de::Error) -> Self {
         Self::BsonDe(error)
+    }
+}
+
+impl From<bson::datetime::Error> for Error {
+    fn from(error: bson::datetime::Error) -> Self {
+        Self::BsonDatetime(error)
     }
 }
 

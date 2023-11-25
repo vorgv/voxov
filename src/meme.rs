@@ -3,11 +3,13 @@ use crate::database::Database;
 use crate::ir::query::QueryBody;
 use crate::ir::{Costs, Hash, Id, Reply};
 use crate::{Error, Result};
+use bson::Document;
 use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
 use mongodb::bson::doc;
 use mongodb::options::FindOneOptions;
 use s3::bucket::CHUNK_SIZE;
+use serde_json::json;
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -43,14 +45,28 @@ impl Meme {
             .map_err(|_| Error::CostTime)??;
         if let Some(meta) = option_meta {
             if meta.get_bool("pub").map_err(|_| Error::Logical)? {
-                return Ok(serde_json::to_string(&meta)?);
+                return Self::format_meta(&meta);
             }
             let m_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
             if m_uid == uid.to_string() {
-                return Ok(serde_json::to_string(&meta)?);
+                return Self::format_meta(&meta);
             }
         }
         Err(Error::MemeNotFound)
+    }
+
+    fn format_meta(meta: &Document) -> Result<String> {
+        let json = json!({
+            "_id": meta.get_object_id("_id")?.to_hex(),
+            "uid": meta.get_str("uid")?,
+            "oid": meta.get_str("oid")?,
+            "hash": meta.get_str("hash")?,
+            "size": meta.get_i64("size")?,
+            "pub": meta.get_bool("pub")?,
+            "tip": meta.get_i64("tip")?,
+            "eol": meta.get_datetime("eol")?.try_to_rfc3339_string()?,
+        });
+        Ok(json.to_string())
     }
 
     /// Stream version didn't work.
@@ -152,7 +168,7 @@ impl Meme {
             "hash": hex::encode(hash.as_bytes()),
             "size": size as i64,
             "pub": false,
-            "tip": 0,
+            "tip": 0_i64,
             "eol": eol,
         };
         let cost = self.space_cost_doc * days as i64;
