@@ -4,6 +4,10 @@ A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
 
 Not ready for production.
 
+Docker image: c31io/voxov
+
+Docker compose: coming soon
+
 Testing server with `$SKIP_AUTH` and `$SAMSARA`
 - http://c31.io:8080
 
