@@ -4,7 +4,7 @@ RUN apt-get update -y
 RUN apt-get install -y libssl-dev pkg-config
 
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --bin voxov
 
 FROM debian:bookworm-slim
 
