@@ -6,10 +6,14 @@ Not ready for production.
 
 Docker image: c31io/voxov
 
-Docker compose: coming soon
-
 Testing server with `$SKIP_AUTH` and `$SAMSARA`
 - http://c31.io:8080
+
+To setup your own server,
+
+    git clone --depth=1 https://github.com/vorgv/voxov
+    cd voxov
+    docker compose up
 
 ## Todos
 
