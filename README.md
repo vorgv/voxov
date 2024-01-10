@@ -1,10 +1,10 @@
-# VOxOV Shell
+# VOxOV - the universal thin server
 
-A federated monolithic pay-as-you-go backend-as-a-service cloud-retail project.
+![Matrix](https://img.shields.io/matrix/voxov%3Amatrix.org)
+![Docker Pulls](https://img.shields.io/docker/pulls/c31io/voxov.svg)
+![Docker Image Size](https://img.shields.io/docker/image-size/c31io/voxov.svg)
 
-Not ready for production.
-
-Docker image: c31io/voxov
+A federated monolithic pay-as-you-go backend-as-a-service project.
 
 Testing server with `$SKIP_AUTH` and `$SAMSARA`
 - http://c31.io:8080
@@ -35,15 +35,18 @@ To setup your own server,
 
 - GraphQL API           1.0.0
 
-## Tests
+## Testing
 
-Start databases: Redis, MongoDB, MinIO.
+Start the databases.
+
+    cd ./deploy/docker/databases
+    docker compose up
 
 Build and start the server.
 
     cargo run
 
-Run tests in another shell.
+Run tests.
 
     cargo test
 
