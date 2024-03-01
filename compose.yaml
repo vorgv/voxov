@@ -14,7 +14,7 @@ services:
       S3_SECRET_KEY: "example-password"
       SAMSARA: "1"
       HTTP_ADDR: "0.0.0.0:8080"
-      # Comment SKIP_AUTH if testing.
+      # Comment SKIP_AUTH before cargo test.
       SKIP_AUTH: "1"
     depends_on:
       - redis
