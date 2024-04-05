@@ -17,6 +17,9 @@ To setup your own server,
 
 ## Todos
 
+I am planning a major design change.
+This road map is deprecated.
+
 - Integration tests     0.0.1
 - Meme deduplication    0.0.2
 - Impl gene: geo        0.0.3
