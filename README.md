@@ -1,8 +1,19 @@
-# VOxOV - the universal thin server
+# VOxOV - the universal server
 
 ![Matrix](https://img.shields.io/matrix/voxov%3Amatrix.org)
 ![Docker Pulls](https://img.shields.io/docker/pulls/c31io/voxov.svg)
 ![Docker Image Size](https://img.shields.io/docker/image-size/c31io/voxov.svg)
+
+## Databases
+
+- Fast: CQL, ScyllaDB
+- Hash: BLAKE3, S3, CDN
+- Sync: SQL, CockroachDB
+
+## Deprecated
+
+I am planning a major design change.
+All of the following is deprecated.
 
 A federated monolithic pay-as-you-go backend-as-a-service project.
 
@@ -16,9 +27,6 @@ To setup your own server,
     docker compose up
 
 ## Todos
-
-I am planning a major design change.
-This road map is deprecated.
 
 - Integration tests     0.0.1
 - Meme deduplication    0.0.2
