@@ -18,7 +18,7 @@ pub struct Id(pub [u8; IDL]);
 impl FromStr for Id {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        match <[u8; 16]>::from_hex(s) {
+        match <[u8; IDL]>::from_hex(s) {
             Ok(u) => Ok(Id(u)),
             Err(_) => Err(Error::ApiParseId),
         }
@@ -41,7 +41,7 @@ impl fmt::Display for Id {
 impl TryFrom<Vec<u8>> for Id {
     type Error = Error;
     fn try_from(v: Vec<u8>) -> Result<Self> {
-        let _: [u8; 16] = match v.try_into() {
+        let _: [u8; IDL] = match v.try_into() {
             Ok(a) => return Ok(Id(a)),
             Err(_) => return Err(Error::Logical),
         };
