@@ -17,8 +17,7 @@ All of the following is deprecated.
 
 A federated monolithic pay-as-you-go backend-as-a-service project.
 
-Testing server with `$SKIP_AUTH` and `$SAMSARA`
-- http://c31.io:8080
+Testing server is offline.
 
 To setup your own server,
 
