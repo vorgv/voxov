@@ -1,29 +1,33 @@
-# VOxOV - the universal server
+# VOxOV - Vacuum Computing
 
 ![Matrix](https://img.shields.io/matrix/voxov%3Amatrix.org)
 ![Docker Pulls](https://img.shields.io/docker/pulls/c31io/voxov.svg)
 ![Docker Image Size](https://img.shields.io/docker/image-size/c31io/voxov.svg)
 
+## Rationale
+
+Information remains unmeasured, but everything has a cost.
+Here is the vacuum, where energy is conserved and physics starts to play.
+
 ## Databases
 
+- Cost: TigerBeetle
 - Fast: CQL, ScyllaDB
-- Hash: BLAKE3, S3, CDN
+- Hash: BLAKE3, S3
 - Sync: SQL, CockroachDB
 
-## Deprecated
-
-I am planning a major design change.
-All of the following is deprecated.
-
-A federated monolithic pay-as-you-go backend-as-a-service project.
-
-Testing server is offline.
+## Serve
 
 To setup your own server,
 
     git clone --depth=1 https://github.com/vorgv/voxov
     cd voxov
     docker compose up
+
+## Deprecated
+
+I am planning a major design change.
+All of the following is deprecated.
 
 ## Todos
 
