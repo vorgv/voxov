@@ -1,26 +1,36 @@
 use std::str::FromStr;
 use vcli::{client::Client, config::Session};
-use voxov::database::{
-    namespace::{ACCESS, REFRESH},
-    ns, Database,
-};
+use voxov::database::Database;
 use voxov::ir::Id;
 
 mod common;
 
-async fn token_exists(db: &Database, k: u8, id: &str) -> bool {
-    db.exists(&ns(k, &Id::from_str(id).unwrap())[..])
-        .await
-        .unwrap()
-        > 0
+async fn token_exists(db: &Database, token: &[u8], is_access: bool) -> bool {
+    if is_access {
+        db.get_access(token).await.unwrap().is_some()
+    } else {
+        // For refresh, we can't check without extending TTL, so query directly
+        let result = db
+            .scylla
+            .execute(&db.stmts.select_session, (token,))
+            .await
+            .unwrap();
+        if let Some(row) = result.rows_typed::<(Vec<u8>, i8)>().unwrap().next() {
+            let (_, kind) = row.unwrap();
+            return kind == 1; // refresh token
+        }
+        false
+    }
 }
 
 async fn tokens_exist(access: &str, refresh: &str) -> (bool, bool) {
     let db = Database::default().await;
+    let access_bytes = Id::from_str(access).unwrap().0;
+    let refresh_bytes = Id::from_str(refresh).unwrap().0;
 
     (
-        token_exists(&db, ACCESS, access).await,
-        token_exists(&db, REFRESH, refresh).await,
+        token_exists(&db, &access_bytes, true).await,
+        token_exists(&db, &refresh_bytes, false).await,
     )
 }
 
@@ -78,16 +88,25 @@ async fn session_sms() {
 async fn get_tokens(client: Client) -> (String, String) {
     let db = Database::default().await;
     let session = &client.config.session.unwrap();
-    let access_uid: Vec<u8> = db
-        .get(&ns(ACCESS, &Id::from_str(&session.access).unwrap())[..])
+    let access_bytes = Id::from_str(&session.access).unwrap().0;
+    let refresh_bytes = Id::from_str(&session.refresh).unwrap().0;
+
+    let access_uid = db.get_access(&access_bytes).await.unwrap().unwrap();
+
+    // Query refresh token directly from ScyllaDB
+    let result = db
+        .scylla
+        .execute(&db.stmts.select_session, (&refresh_bytes[..],))
         .await
         .unwrap();
-    let refresh_uid: Vec<u8> = db
-        .get(&ns(REFRESH, &Id::from_str(&session.refresh).unwrap())[..])
-        .await
+    let (uid_bytes, _): (Vec<u8>, i8) = result
+        .rows_typed::<(Vec<u8>, i8)>()
+        .unwrap()
+        .next()
+        .unwrap()
         .unwrap();
-    (
-        Id::try_from(access_uid).unwrap().to_string(),
-        Id::try_from(refresh_uid).unwrap().to_string(),
-    )
+    let mut refresh_uid = Id::zero();
+    refresh_uid.0.copy_from_slice(&uid_bytes);
+
+    (access_uid.to_string(), refresh_uid.to_string())
 }

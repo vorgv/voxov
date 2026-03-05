@@ -1,32 +1,39 @@
 services:
-  redis:
-    image: "redis"
+  scylla:
+    image: "scylladb/scylla:5.4"
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:9042:9042"
+    command: --smp 1 --memory 512M --overprovisioned 1
 
-  mongo:
-    image: "mongo"
+  cockroachdb:
+    image: "cockroachdb/cockroach:v23.2.0"
     ports:
-      - "127.0.0.1:27017:27017"
+      - "127.0.0.1:26257:26257"
+      - "127.0.0.1:8081:8080"
+    command: start-single-node --insecure --store=type=mem,size=1GB
 
-  minio:
-    image: "minio/minio"
-    command: minio server --console-address ":9001" /data
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
-    environment:
-      MINIO_ROOT_USER: "example-user"
-      MINIO_ROOT_PASSWORD: "example-password"
-
-  minio-create-bucket:
-    image: minio/mc
+  cockroachdb-init:
+    image: "cockroachdb/cockroach:v23.2.0"
     depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 example-user example-password;
-      /usr/bin/mc mb myminio/voxov;
-      /usr/bin/mc policy set public myminio/voxov;
+      - cockroachdb
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      sleep 5;
+      /cockroach/cockroach sql --insecure --host=cockroachdb:26257 -e 'CREATE DATABASE IF NOT EXISTS voxov';
       exit 0;
       "
+
+  garage:
+    image: "dxflrs/garage:v2.2.0"
+    ports:
+      - "127.0.0.1:3900:3900"
+      - "127.0.0.1:3903:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+
+volumes:
+  garage-meta:
+  garage-data:

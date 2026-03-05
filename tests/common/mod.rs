@@ -1,4 +1,5 @@
 use rand::{distributions::Alphanumeric, Rng};
+use std::str::FromStr;
 use vcli::{client::Client, config::Session};
 use voxov::database::Database;
 
@@ -10,7 +11,9 @@ pub async fn new_user() -> (Client, String) {
     let (phone, message) = client.auth_sms_send_to().await.unwrap();
     let db = Database::default().await;
     let number = random_string(16);
-    db.sms_sent(&number, &phone, &message).await.unwrap();
+    // Simulate carrier callback: record that user's phone sent the SMS
+    let message_id = voxov::ir::Id::from_str(&message).unwrap();
+    db.sms_sent(&number, &phone, &message_id.0).await.unwrap();
     let uid = client.auth_sms_sent(&phone, &message).await.unwrap();
     (client, uid)
 }

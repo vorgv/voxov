@@ -1,17 +1,13 @@
 use super::Database;
 use crate::{config::Config, Result};
-use chrono::Utc;
-use mongodb::bson::doc;
-use mongodb::options::FindOptions;
+use sqlx::Row;
 use std::time::Duration;
 use tokio::time::sleep;
-use tokio_stream::StreamExt;
 
 pub struct Ripperd {
     db: &'static Database,
     ripperd_disabled: bool,
     ripperd_interval: u64,
-    credit_retention: u64,
 }
 
 impl Ripperd {
@@ -20,10 +16,10 @@ impl Ripperd {
             db,
             ripperd_disabled: config.ripperd_disabled,
             ripperd_interval: config.ripperd_interval,
-            credit_retention: config.credit_retention,
         }
     }
-    /// Ripper Daemon periodically deletes memes by the EOL field.
+
+    /// Ripper Daemon periodically deletes expired data.
     /// Enable this on one and only one instance in the cluster.
     pub async fn ripperd(&self) {
         if self.ripperd_disabled {
@@ -37,83 +33,55 @@ impl Ripperd {
             if let Err(error) = self.rip_map1().await {
                 println!("Rip map1 error: {}", error);
             }
-            if let Err(error) = self.rip_cl().await {
-                println!("Rip cl error: {}", error);
+            // Note: Credit log cleanup is no longer needed.
+            // TigerBeetle's transfer log is the audit trail.
+        }
+    }
+
+    /// Rip expired meme metadata and blob data.
+    async fn rip_meme(&self) -> Result<()> {
+        // Get all memes with EOL < now
+        let rows = sqlx::query("SELECT id, oid FROM meme_meta WHERE eol < now()")
+            .fetch_all(&self.db.crdb)
+            .await?;
+
+        let mr = &self.db.mr;
+        for row in rows {
+            let id: uuid::Uuid = row.get("id");
+            let oid: Vec<u8> = row.get("oid");
+
+            // Remove from S3 first to prevent data leakage
+            let oid_hex = hex::encode(&oid);
+            if let Err(e) = mr.delete_object(&oid_hex).await {
+                println!("Rip meme S3 error for {}: {}", oid_hex, e);
+                continue;
+            }
+
+            // Remove from CockroachDB
+            if let Err(e) = sqlx::query("DELETE FROM meme_meta WHERE id = $1")
+                .bind(id)
+                .execute(&self.db.crdb)
+                .await
+            {
+                println!("Rip meme DB error for {}: {}", id, e);
             }
         }
-    }
 
-    /// Rip meme_meta and meme_raw.
-    async fn rip_meme(&self) -> Result<()> {
-        // Get all memes with EOL < now.
-        let options = FindOptions::builder()
-            .projection(doc! { "_id": 1, "eol": 1, "oid": 1 })
-            .sort(doc! { "eol": 1 })
-            .build();
-        let mm = &self.db.mm;
-        let mut cursor = mm
-            .find(
-                doc! {
-                    "eol": { "$lt": Utc::now() }
-                },
-                options,
-            )
-            .await?;
-        let mr = &self.db.mr;
-        while let Some(meta) = cursor.try_next().await? {
-            // Remove them on S3 first to prevent leakage.
-            let oid = meta.get_str("oid")?;
-            mr.delete_object(oid).await?;
-            // Remove them on MongoDB
-            let id = meta.get_object_id("_id")?;
-            mm.find_one_and_delete(doc! { "_id": id }, None).await?;
-        }
         Ok(())
     }
 
-    /// Rip map database.
+    /// Rip expired map documents.
     async fn rip_map1(&self) -> Result<()> {
-        // Get all maps with EOL < now.
-        let options = FindOptions::builder()
-            .projection(doc! { "_id": 1, "_eol": 1 })
-            .sort(doc! { "_eol": 1 })
-            .build();
-        let map1 = &self.db.map1;
-        let mut cursor = map1
-            .find(
-                doc! {
-                    "_eol": { "$lt": Utc::now() }
-                },
-                options,
-            )
+        // Delete all map documents with EOL < now in a single query
+        let result = sqlx::query("DELETE FROM map_docs WHERE eol < now()")
+            .execute(&self.db.crdb)
             .await?;
-        while let Some(map) = cursor.try_next().await? {
-            let id = map.get_object_id("_id")?;
-            map1.find_one_and_delete(doc! { "_id": id }, None).await?;
-        }
-        Ok(())
-    }
 
-    /// Rip credit log.
-    async fn rip_cl(&self) -> Result<()> {
-        // Get all cl with time < now - retention.
-        let options = FindOptions::builder()
-            .projection(doc! { "_id": 1, "time": 1 })
-            .sort(doc! { "time": 1 })
-            .build();
-        let cl = &self.db.cl;
-        let mut cursor = cl
-            .find(
-                doc! {
-                    "_eol": { "$lt": Utc::now() - Duration::from_secs(self.credit_retention) }
-                },
-                options,
-            )
-            .await?;
-        while let Some(log) = cursor.try_next().await? {
-            let id = log.get_object_id("_id")?;
-            cl.find_one_and_delete(doc! { "_id": id }, None).await?;
+        let deleted = result.rows_affected();
+        if deleted > 0 {
+            println!("Ripped {} expired map documents", deleted);
         }
+
         Ok(())
     }
 }

@@ -5,7 +5,6 @@ use crate::database::Database;
 use crate::ir::{Costs, Id, Query, Reply};
 use crate::meme::Meme;
 use crate::{cost_macros, Error, Result};
-use mongodb::bson::doc;
 use serde::Serialize;
 use std::collections::HashMap;
 use tokio::time::{Duration, Instant};
@@ -83,7 +82,7 @@ impl Gene {
                             uid,
                             arg: &arg,
                             changes: &mut changes,
-                            deadline,
+                            _deadline: deadline,
                             space_cost: self.space_cost_doc,
                             traffic_cost: self.traffic_cost,
                             db: self.db,
@@ -165,7 +164,7 @@ impl GeneMeta {
                 GeneMeta {
                     name: "map".into(),
                     version: 1,
-                    description: "Mapping abstraction backed by MongoDB.".into(),
+                    description: "Mapping abstraction backed by CockroachDB.".into(),
                 },
             ),
             (

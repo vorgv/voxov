@@ -18,13 +18,13 @@ pub struct Config {
     /// Source code. AGPL.
     pub source_code: String,
 
-    /// Redis URI.
+    /// ScyllaDB address.
     #[serde(skip_serializing)]
-    pub redis_addr: String,
+    pub scylla_addr: String,
 
-    /// MongoDB URI.
+    /// CockroachDB URI.
     #[serde(skip_serializing)]
-    pub mongo_addr: String,
+    pub crdb_addr: String,
 
     /// Ripperd handles meme expiration.
     /// 0 or unset for false, others for true.
@@ -73,7 +73,7 @@ pub struct Config {
     /// Cost per millisecond.
     pub time_cost: i64,
 
-    /// Cost per KB per day in MongoDB.
+    /// Cost per KB per day in CockroachDB.
     pub space_cost_doc: i64,
 
     /// Cost per KB per day in S3.
@@ -131,21 +131,24 @@ impl Config {
         Config {
             source_code: env_or!("SOURCE_CODE", "https://github.com/vorgv/voxov"),
 
-            redis_addr: env_or!("REDIS_ADDR", "redis://localhost/"),
+            scylla_addr: env_or!("SCYLLA_ADDR", "127.0.0.1:9042"),
 
-            mongo_addr: env_or!("MONGO_ADDR", "mongodb://127.0.0.1:27017/"),
+            crdb_addr: env_or!("CRDB_ADDR", "postgresql://root@localhost:26257/voxov"),
 
             ripperd_disabled: env_bool!("RIPPERD_DISABLED"),
 
             ripperd_interval: env_or!("RIPPERD_INTERVAL", 60_u64), // seconds
 
-            s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:9000"),
+            s3_addr: env_or!("S3_ADDR", "http://127.0.0.1:3900"),
 
-            s3_region: env_or!("S3_REGION", "develop"),
+            s3_region: env_or!("S3_REGION", "garage"),
 
-            s3_access_key: env_or!("S3_ACCESS_KEY", "example-user"),
+            s3_access_key: env_or!("S3_ACCESS_KEY", "GKc74576f031bf7fe094f5062b"),
 
-            s3_secret_key: env_or!("S3_SECRET_KEY", "example-password"),
+            s3_secret_key: env_or!(
+                "S3_SECRET_KEY",
+                "1d179093ab55ea924459b8374bf5cfd4564c8d772ef857ad555efa6b3446e8d8"
+            ),
 
             samsara: env_bool!("SAMSARA"),
 

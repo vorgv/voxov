@@ -3,13 +3,11 @@ use crate::database::Database;
 use crate::ir::query::QueryBody;
 use crate::ir::{Costs, Hash, Id, Reply};
 use crate::{Error, Result};
-use bson::Document;
 use chrono::{DateTime, Days, Utc};
 use http_body_util::BodyExt;
-use mongodb::bson::doc;
-use mongodb::options::FindOneOptions;
 use s3::bucket::CHUNK_SIZE;
 use serde_json::json;
+use sqlx::Row;
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -33,38 +31,47 @@ impl Meme {
     }
 
     /// Return meme metadata if meme is public or belongs to uid.
-    /// The driver of MongoDB breaks if internal futures are dropped.
-    /// This limitation hinders tokio::select style timeout.
-    pub async fn get_meta(&self, uid: &Id, deadline: Instant, hash: &Hash) -> Result<String> {
-        let mm = &self.db.mm;
-        let filter = doc! { "hash": hex::encode(hash) };
-        let handle = tokio::task::spawn(async move { mm.find_one(filter, None).await });
-        let option_meta = tokio::time::timeout_at(deadline, handle)
-            .await
-            .map_err(|_| Error::CostTime)?
-            .map_err(|_| Error::CostTime)??;
-        if let Some(meta) = option_meta {
-            if meta.get_bool("pub").map_err(|_| Error::Logical)? {
-                return Self::format_meta(&meta);
-            }
-            let m_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
-            if m_uid == uid.to_string() {
-                return Self::format_meta(&meta);
-            }
+    pub async fn get_meta(&self, uid: &Id, _deadline: Instant, hash: &Hash) -> Result<String> {
+        let hash_bytes = hash.as_slice();
+        let uid_bytes = &uid.0[..];
+
+        let row = sqlx::query(
+            "SELECT id, uid, oid, hash, size, pub, tip, eol FROM meme_meta 
+             WHERE hash = $1 AND (pub = true OR uid = $2)
+             LIMIT 1",
+        )
+        .bind(hash_bytes)
+        .bind(uid_bytes)
+        .fetch_optional(&self.db.crdb)
+        .await
+        .map_err(|_| Error::MemeGet)?;
+
+        if let Some(row) = row {
+            return Self::format_meta_row(&row);
         }
+
         Err(Error::MemeNotFound)
     }
 
-    fn format_meta(meta: &Document) -> Result<String> {
+    fn format_meta_row(row: &sqlx::postgres::PgRow) -> Result<String> {
+        let id: uuid::Uuid = row.get("id");
+        let uid: Vec<u8> = row.get("uid");
+        let oid: Vec<u8> = row.get("oid");
+        let hash: Vec<u8> = row.get("hash");
+        let size: i64 = row.get("size");
+        let is_pub: bool = row.get("pub");
+        let tip: i64 = row.get("tip");
+        let eol: DateTime<Utc> = row.get("eol");
+
         let json = json!({
-            "_id": meta.get_object_id("_id")?.to_hex(),
-            "uid": meta.get_str("uid")?,
-            "oid": meta.get_str("oid")?,
-            "hash": meta.get_str("hash")?,
-            "size": meta.get_i64("size")?,
-            "pub": meta.get_bool("pub")?,
-            "tip": meta.get_i64("tip")?,
-            "eol": meta.get_datetime("eol")?.try_to_rfc3339_string()?,
+            "_id": id.to_string(),
+            "uid": hex::encode(&uid),
+            "oid": hex::encode(&oid),
+            "hash": hex::encode(&hash),
+            "size": size,
+            "pub": is_pub,
+            "tip": tip,
+            "eol": eol.to_rfc3339(),
         });
         Ok(json.to_string())
     }
@@ -158,19 +165,14 @@ impl Meme {
         // Complete chunk upload.
         mr.complete_multipart_upload(&path, &upload_id, parts)
             .await?;
+
         // Create metadata
         let hash = hasher.finalize();
         let now: DateTime<Utc> = Utc::now();
-        let eol = now.checked_add_days(Days::new(days));
-        let doc = doc! {
-            "uid": uid.to_string(),
-            "oid": oid.to_string(),
-            "hash": hex::encode(hash.as_bytes()),
-            "size": size as i64,
-            "pub": false,
-            "tip": 0_i64,
-            "eol": eol,
-        };
+        let eol = now
+            .checked_add_days(Days::new(days))
+            .ok_or(Error::Logical)?;
+
         let cost = self.space_cost_doc * days as i64;
         if cost > changes.space {
             changes.space = 0;
@@ -178,8 +180,22 @@ impl Meme {
         } else {
             changes.space -= cost;
         }
-        let mm = &self.db.mm;
-        mm.insert_one(doc, None).await?;
+
+        // Insert into CockroachDB
+        sqlx::query(
+            "INSERT INTO meme_meta (uid, oid, hash, size, pub, tip, eol) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(&uid.0[..])
+        .bind(&oid.0[..])
+        .bind(hash.as_bytes().as_slice())
+        .bind(size as i64)
+        .bind(false)
+        .bind(0_i64)
+        .bind(eol)
+        .execute(&self.db.crdb)
+        .await?;
+
         let now = Instant::now();
         let remaining: Duration = deadline - now;
         changes.time = remaining.as_millis() as i64 * self.time_cost;
@@ -200,56 +216,68 @@ impl Meme {
         hash: Hash,
         public: bool,
     ) -> Result<Reply> {
-        let hash = hex::encode(hash);
-        // Filter
-        let filter = match public {
-            true => doc! {
-                "pub": true,
-                "hash": hash.clone(),
-            },
-            false => doc! {
-                "uid": uid.to_string(),
-                "hash": hash.clone(),
-            },
-        };
-        // Sort by tip
-        let options = FindOneOptions::builder()
-            .projection(doc! { "oid": 1, "uid": 1, "hash": 1, "size": 1, "tip": 1, "_id": 0 })
-            .sort(doc! { "tip": 1 })
-            .build();
-        let mm = &self.db.mm;
-        let meta = mm
-            .find_one(filter, options)
+        let hash_bytes = hash.as_slice();
+        let uid_bytes = &uid.0[..];
+
+        // Query with appropriate filter
+        let row = if public {
+            sqlx::query(
+                "SELECT oid, uid, size, tip FROM meme_meta 
+                 WHERE pub = true AND hash = $1 
+                 ORDER BY tip ASC 
+                 LIMIT 1",
+            )
+            .bind(hash_bytes)
+            .fetch_optional(&self.db.crdb)
             .await
-            .map_err(|_| Error::MemeGet)?;
-        if meta.is_none() {
-            return Err(Error::MemeNotFound);
-        }
-        let meta = meta.unwrap();
+            .map_err(|_| Error::MemeGet)?
+        } else {
+            sqlx::query(
+                "SELECT oid, uid, size, tip FROM meme_meta 
+                 WHERE uid = $1 AND hash = $2 
+                 ORDER BY tip ASC 
+                 LIMIT 1",
+            )
+            .bind(uid_bytes)
+            .bind(hash_bytes)
+            .fetch_optional(&self.db.crdb)
+            .await
+            .map_err(|_| Error::MemeGet)?
+        };
+
+        let row = row.ok_or(Error::MemeNotFound)?;
+
+        let oid: Vec<u8> = row.get("oid");
+        let meme_uid_bytes: Vec<u8> = row.get("uid");
+        let size: i64 = row.get("size");
+        let tip: i64 = row.get("tip");
+
         // Is fund enough for the file size
-        let cost = self.traffic_cost * meta.get_i64("size").map_err(|_| Error::Logical)?;
+        let cost = self.traffic_cost * size;
         if cost > changes.traffic {
             return Err(Error::CostTraffic);
         }
         changes.traffic -= cost;
+
         // Pay tip
         if public {
-            let tip = meta.get_i64("tip").map_err(|_| Error::Logical)?;
             if tip > changes.tip {
                 return Err(Error::CostTip);
             }
             changes.tip -= tip;
-            let meme_uid = meta.get_str("uid").map_err(|_| Error::Logical)?;
-            use std::str::FromStr;
-            let meme_uid = Id::from_str(meme_uid)?;
+
+            let mut meme_uid = Id::zero();
+            meme_uid.0.copy_from_slice(&meme_uid_bytes);
+
             self.db
                 .incr_credit(&meme_uid, Some(uid), tip, "MemeTip")
                 .await?;
         }
+
         // Stream object
-        let oid = meta.get_str("oid").map_err(|_| Error::Logical)?;
+        let oid_hex = hex::encode(&oid);
         let mr = &self.db.mr;
-        let stream = Box::pin(mr.get_object_stream(oid).await?);
+        let stream = Box::pin(mr.get_object_stream(&oid_hex).await?);
         let now = Instant::now();
         let remaining: Duration = deadline - now;
         changes.time = remaining.as_millis() as i64 * self.time_cost;

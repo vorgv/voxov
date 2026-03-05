@@ -1,26 +1,15 @@
 //! Authentication and session management.
 
 use crate::config::Config;
-use crate::config::PHONE_MAX_BYTES;
 use crate::cost::Cost;
-use crate::database::namespace::ACCESS;
-use crate::database::namespace::PHONE2UID;
-use crate::database::namespace::REFRESH;
-use crate::database::namespace::SMSSENDTO;
-use crate::database::namespace::SMSSENT;
-use crate::database::namespace::UID2CREDIT;
-use crate::database::namespace::UID2PHONE;
-use crate::database::{ns, Database};
-use crate::ir::{Id, Query, Reply, IDL};
+use crate::database::Database;
+use crate::ir::{Id, Query, Reply};
 use crate::{Error, Result};
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub struct Auth {
     cost: &'static Cost,
     db: &'static Database,
-    access_ttl: i64,
-    refresh_ttl: i64,
-    user_ttl: i64,
     skip_auth: bool,
     phones: &'static Vec<String>,
 }
@@ -30,9 +19,6 @@ impl Auth {
         Auth {
             cost,
             db,
-            access_ttl: config.access_ttl,
-            refresh_ttl: config.refresh_ttl,
-            user_ttl: config.user_ttl,
             skip_auth: config.skip_auth,
             phones: config.auth_phones,
         }
@@ -77,61 +63,65 @@ impl Auth {
             (Id::rand(&mut rng)?, Id::rand(&mut rng)?)
         }; // drop rng before await
         let uid = Id::zero();
-        let a = ns(ACCESS, &access);
-        self.db.set(&a[..], &uid.0, self.access_ttl).await?;
-        let r = ns(REFRESH, &refresh);
-        self.db.set(&r[..], &uid.0, self.refresh_ttl).await?;
+
+        // Store tokens in ScyllaDB
+        self.db.set_access(&access.0, &uid).await?;
+        self.db.set_refresh(&refresh.0, &uid).await?;
+
         Ok(Reply::AuthSessionStart { access, refresh })
     }
 
-    /// If refresh exists, reset its TTL, then gengerate a new access.
+    /// If refresh exists, reset its TTL, then generate a new access.
     async fn handle_session_refresh(&self, refresh: &Id) -> Result<Reply> {
-        let r = ns(REFRESH, refresh);
-        let uid: Vec<u8> = match self.db.getex(&r[..], self.refresh_ttl).await? {
-            Some(v) => v,
-            None => return Err(Error::AuthInvalidRefreshToken),
-        };
+        let uid = self
+            .db
+            .get_refresh_and_extend(&refresh.0)
+            .await?
+            .ok_or(Error::AuthInvalidRefreshToken)?;
+
         let access = {
             let mut rng = rand::thread_rng();
             Id::rand(&mut rng)?
         };
-        let a = ns(ACCESS, &access);
-        self.db.set(&a[..], &uid, self.access_ttl).await?;
+
+        self.db.set_access(&access.0, &uid).await?;
+
         Ok(Reply::AuthSessionRefresh { access })
     }
 
     /// If access is valid, delete access and optionally refresh.
     async fn handle_session_end(&self, access: &Id, option_refresh: &Option<Id>) -> Result<Reply> {
         let access_uid = self.authenticate(access).await?;
-        let a = ns(ACCESS, access);
-        self.db.del(&a[..]).await?;
+
+        self.db.del_session(&access.0).await?;
+
         if let Some(refresh) = option_refresh {
             // Check if uid matches
-            let r = ns(REFRESH, refresh);
-            if let Some(refresh_uid) = self.db.get::<_, Option<Vec<u8>>>(&r[..]).await? {
-                if Id::try_from(refresh_uid)? != access_uid {
+            if let Some(refresh_uid) = self.db.get_refresh_and_extend(&refresh.0).await? {
+                if refresh_uid != access_uid {
                     return Err(Error::AuthTokensMismatch);
                 }
             } else {
                 return Err(Error::AuthInvalidRefreshToken);
             }
-            self.db.del(&r[..]).await?;
+            self.db.del_session(&refresh.0).await?;
         }
+
         Ok(Reply::AuthSessionEnd)
     }
 
     /// Query UID from access token, zero is anonymous.
     async fn authenticate(&self, access: &Id) -> Result<Id> {
-        let a = ns(ACCESS, access);
-        match self.db.get::<_, Option<Vec<u8>>>(&a[..]).await? {
-            Some(uid) => Ok(Id::try_from(uid)?),
-            None => Err(Error::AuthInvalidAccessToken),
-        }
+        self.db
+            .get_access(&access.0)
+            .await?
+            .ok_or(Error::AuthInvalidAccessToken)
     }
 
     /// Send what to who to authenticate.
     async fn handle_sms_send_to(&self, access: &Id) -> Result<Reply> {
         self.authenticate(access).await?;
+
         let (phone, message): (&'static _, _) = {
             let mut rng = rand::thread_rng();
             use rand::seq::SliceRandom;
@@ -140,8 +130,9 @@ impl Auth {
                 Id::rand(&mut rng)?,
             )
         };
-        let key = nspm(SMSSENDTO, phone, &message);
-        self.db.set(&key[..], &access.0, self.access_ttl).await?;
+
+        self.db.set_sms_sendto(phone, &message.0).await?;
+
         Ok(Reply::AuthSmsSendTo { phone, message })
     }
 
@@ -156,22 +147,19 @@ impl Auth {
         self.authenticate(access).await?;
         let db = self.db;
 
-        // Find user's phone in SMSSENT, phone, message.
+        // Find user's phone from SMS sent records
         let user_phone = match self.skip_auth {
             true => phone.to_owned(),
-            false => {
-                let key = nspm(SMSSENT, phone, message);
-                db.get::<&[u8], Option<String>>(&key[..])
-                    .await?
-                    .ok_or(Error::AuthInvalidPhone)?
-            }
+            false => db
+                .get_sms_sent(phone, &message.0)
+                .await?
+                .ok_or(Error::AuthInvalidPhone)?,
         };
 
-        // Find user's uid by phone in PHONE2UID.
-        let p2u = nsp(PHONE2UID, &user_phone);
+        // Find user's uid by phone
         let mut is_new_user = false;
-        let uid = match db.get::<&[u8], Option<Vec<u8>>>(&p2u[..]).await? {
-            Some(uid) => Id::try_from(uid)?,
+        let uid = match db.get_phone_to_uid(&user_phone).await? {
+            Some(uid) => uid,
             None => {
                 is_new_user = true;
                 let mut rng = rand::thread_rng();
@@ -179,31 +167,28 @@ impl Auth {
             }
         };
 
-        // Create one in or refresh UID2PHONE & PHONE2UID.
-        let u2p = ns(UID2PHONE, &uid);
-        db.set(&u2p[..], user_phone, self.user_ttl).await?;
-        db.set(&p2u[..], &uid.0, self.user_ttl).await?;
+        // Create or refresh UID <-> Phone mappings
+        db.set_uid_to_phone(&uid, &user_phone).await?;
+        db.set_phone_to_uid(&user_phone, &uid).await?;
 
-        // Create user account.
-        let u2c = ns(UID2CREDIT, &uid);
+        // Create user account in TigerBeetle if new
         if is_new_user {
-            db.set(&u2c[..], 0, self.user_ttl).await?;
-        } else {
-            db.expire(&u2c[..], self.user_ttl).await?;
+            db.create_user_account(&uid).await?;
         }
 
-        // Set uid of auth tokens.
-        let a = ns(ACCESS, access);
-        let r = ns(REFRESH, refresh);
-        db.set(&a[..], &uid.0, self.access_ttl).await?;
-        db.set(&r[..], &uid.0, self.refresh_ttl).await?;
+        // Set uid of auth tokens
+        db.set_access(&access.0, &uid).await?;
+        db.set_refresh(&refresh.0, &uid).await?;
 
         Ok(Reply::AuthSmsSent { uid })
     }
 }
 
-/// Build namespaced key from phone and message.
+/// Build namespaced key from phone and message (kept for compatibility).
 pub fn nspm(n: u8, phone: &str, message: &Id) -> Bytes {
+    use crate::config::PHONE_MAX_BYTES;
+    use crate::ir::IDL;
+
     let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES + IDL);
     buf.put(&[n][..]);
     buf.put(phone.as_bytes());
@@ -211,8 +196,10 @@ pub fn nspm(n: u8, phone: &str, message: &Id) -> Bytes {
     buf.into()
 }
 
-/// Namespacing phone.
+/// Namespacing phone (kept for compatibility).
 pub fn nsp(n: u8, phone: &String) -> Bytes {
+    use crate::config::PHONE_MAX_BYTES;
+
     let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES);
     buf.put(&[n][..]);
     buf.put(phone.as_bytes());

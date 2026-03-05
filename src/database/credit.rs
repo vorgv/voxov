@@ -1,34 +1,35 @@
 use super::Database;
-use crate::database::namespace::UID2CREDIT;
-use crate::database::ns;
 use crate::ir::Id;
 use crate::{Error, Result};
-use bson::doc;
-use chrono::Utc;
+use sqlx::Row;
 
 impl Database {
-    /// Non-blocking credit logging to MongoDB.
-    fn spawn_log(&self, uid: &Id, other: Option<&Id>, n: i64, note: &str) {
-        let cl = self.cl.clone();
-        let uid = uid.to_string();
-        let other = other.map(|uid| uid.to_string());
-        let note = note.to_string();
-        tokio::spawn(async move {
-            let _ = cl
-                .insert_one(
-                    doc! {
-                        "uid": uid,
-                        "other": other,
-                        "n": n,
-                        "note": note,
-                        "time": Utc::now(),
-                    },
-                    None,
-                )
-                .await;
-        });
+    /// Get user's credit balance from CockroachDB.
+    pub async fn get_credit(&self, uid: &Id) -> Result<i64> {
+        let result = sqlx::query("SELECT credit FROM user_accounts WHERE uid = $1")
+            .bind(&uid.0[..])
+            .fetch_optional(&self.crdb)
+            .await?;
+
+        match result {
+            Some(row) => Ok(row.get("credit")),
+            None => Ok(0),
+        }
     }
 
+    /// Create a new user account in CockroachDB.
+    pub async fn create_user_account(&self, uid: &Id) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO user_accounts (uid, credit) VALUES ($1, 0) 
+             ON CONFLICT (uid) DO NOTHING",
+        )
+        .bind(&uid.0[..])
+        .execute(&self.crdb)
+        .await?;
+        Ok(())
+    }
+
+    /// Increment user's credit.
     pub async fn incr_credit(
         &self,
         uid: &Id,
@@ -40,14 +41,23 @@ impl Database {
             return Err(Error::NumCheck);
         }
 
-        // Log after credit gain.
-        let u2c = ns(UID2CREDIT, uid);
-        self.incrby(&u2c[..], n).await?;
-        self.spawn_log(uid, other, n, note);
+        // Update credit balance
+        sqlx::query(
+            "INSERT INTO user_accounts (uid, credit) VALUES ($1, $2)
+             ON CONFLICT (uid) DO UPDATE SET credit = user_accounts.credit + $2, updated_at = now()",
+        )
+        .bind(&uid.0[..])
+        .bind(n)
+        .execute(&self.crdb)
+        .await?;
+
+        // Log the transaction
+        self.log_credit_transaction(uid, other, n, note).await;
 
         Ok(())
     }
 
+    /// Decrement user's credit.
     pub async fn decr_credit(
         &self,
         uid: &Id,
@@ -59,21 +69,44 @@ impl Database {
             return Err(Error::NumCheck);
         }
 
-        // Log before credit loss.
-        self.spawn_log(uid, other, -n, note);
-        let u2p = ns(UID2CREDIT, uid);
-        let credit = self.get::<&[u8], i64>(&u2p).await?;
-
-        if n > credit - self.credit_limit {
+        // Check balance first
+        let current_balance = self.get_credit(uid).await?;
+        if n > current_balance - self.credit_limit {
             return Err(Error::CostInsufficientCredit);
-        } else {
-            let u2c = ns(UID2CREDIT, uid);
-            self.decrby(&u2c[..], n).await?;
         }
 
-        let u2c = ns(UID2CREDIT, uid);
-        self.decrby(&u2c[..], n).await?;
+        // Update credit balance
+        sqlx::query(
+            "UPDATE user_accounts SET credit = credit - $1, updated_at = now() WHERE uid = $2",
+        )
+        .bind(n)
+        .bind(&uid.0[..])
+        .execute(&self.crdb)
+        .await?;
+
+        // Log the transaction
+        self.log_credit_transaction(uid, other, -n, note).await;
 
         Ok(())
+    }
+
+    /// Log credit transaction (non-blocking).
+    async fn log_credit_transaction(&self, uid: &Id, other: Option<&Id>, amount: i64, note: &str) {
+        let crdb = self.crdb.clone();
+        let uid = uid.0.to_vec();
+        let other = other.map(|id| id.0.to_vec());
+        let note = note.to_string();
+
+        tokio::spawn(async move {
+            let _ = sqlx::query(
+                "INSERT INTO credit_log (uid, other_uid, amount, note) VALUES ($1, $2, $3, $4)",
+            )
+            .bind(&uid)
+            .bind(&other)
+            .bind(amount)
+            .bind(&note)
+            .execute(&crdb)
+            .await;
+        });
     }
 }

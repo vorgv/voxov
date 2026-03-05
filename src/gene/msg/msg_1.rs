@@ -3,18 +3,11 @@
 //! Both FROM and TO can delete the message.
 //! No public flag needed, but TO can report.
 
-use crate::{
-    database::{namespace::UID2CREDIT, ns},
-    gene::map,
-    ir::Id,
-    Error, Result,
-};
-use bson::{doc, oid::ObjectId};
+use crate::{gene::map, ir::Id, Error, Result};
 use chrono::{DateTime, Utc};
-use mongodb::options::FindOneOptions;
 use serde::Deserialize;
 use serde_json::json;
-use tokio::time::Instant;
+use uuid::Uuid;
 
 const NS: &str = "_chan";
 const FROM: &str = "_0";
@@ -30,7 +23,7 @@ const VALUE: &str = "value";
 
 #[derive(Deserialize, Debug)]
 struct Send {
-    id: Option<ObjectId>,
+    id: Option<String>, // UUID string
     eol: DateTime<Utc>,
     to: String,
     tip: i64,
@@ -40,7 +33,7 @@ struct Send {
 
 #[derive(Deserialize, Debug)]
 struct Sent {
-    id: Option<ObjectId>,
+    id: Option<String>,
     eol: DateTime<Utc>,
     eol_: DateTime<Utc>,
     to: Option<String>,
@@ -58,7 +51,7 @@ struct Sent {
 
 #[derive(Deserialize, Debug)]
 struct Receive {
-    id: Option<ObjectId>,
+    id: Option<String>,
     eol: DateTime<Utc>,
     eol_: DateTime<Utc>,
     from: Option<String>,
@@ -76,22 +69,22 @@ struct Receive {
 
 #[derive(Deserialize, Debug)]
 struct Read {
-    id: ObjectId,
+    id: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct Unread {
-    id: ObjectId,
+    id: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct Delete {
-    id: ObjectId,
+    id: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct Report {
-    _id: ObjectId,
+    _id: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -108,35 +101,34 @@ enum Request {
 
 pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
     let db = &cx.db;
-    let map1 = &db.map1;
 
     let request: Request = serde_json::from_str(cx.arg)?;
     match request {
         Request::Send(request) => {
-            if let Some(doc_id) = request.id {
-                let filter = doc! {
-                    "_id": doc_id,
-                    "_uid": cx.uid.to_string(),
-                    "_ns": NS,
-                };
+            if let Some(doc_id) = &request.id {
+                let id = Uuid::parse_str(doc_id).map_err(|_| Error::GeneInvalidId)?;
 
-                let options = FindOneOptions::builder()
-                    .max_time(cx.deadline - Instant::now())
-                    .build();
+                let exists =
+                    sqlx::query("SELECT 1 FROM map_docs WHERE id = $1 AND uid = $2 AND ns = $3")
+                        .bind(id)
+                        .bind(&cx.uid.0[..])
+                        .bind(NS)
+                        .fetch_optional(&db.crdb)
+                        .await?;
 
-                if map1.find_one(filter, options).await?.is_none() {
+                if exists.is_none() {
                     return Err(Error::GeneInvalidId);
                 }
             }
 
             let to = Id::try_from(&request.to)?;
-            let u2c = ns(UID2CREDIT, &to);
 
-            if db.exists(&u2c[..]).await? < 1 {
+            // Check if recipient user exists in TigerBeetle
+            if !db.user_exists(&to).await? {
                 return Err(Error::AuthInvalidUid);
             }
 
-            if 0 < request.tip || request.tip < cx.changes.tip {
+            if request.tip < 0 || request.tip > cx.changes.tip {
                 return Err(Error::CostTip);
             }
 
@@ -146,11 +138,11 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let arg = json!({
                 "_type": "Put",
                 "_id": request.id,
-                "_eol": request.eol,
+                "_eol": request.eol.timestamp(),
                 "_ns": NS,
                 FROM: cx.uid.to_string(),
                 TO: request.to,
-                SENT: Utc::now(),
+                SENT: Utc::now().timestamp(),
                 TIP: request.tip,
                 TYPE: request.r#type,
                 VALUE: request.value,
@@ -165,15 +157,15 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let arg = json!({
                 "_type": "Get",
                 "_id": request.id,
-                "_eol": request.eol,
-                "_eol_": request.eol_,
+                "_eol": request.eol.timestamp(),
+                "_eol_": request.eol_.timestamp(),
                 "_ns": NS,
                 FROM: cx.uid.to_string(),
                 TO: request.to,
-                SENT: request.sent,
-                SENT_: request.sent_,
-                READ: request.read,
-                READ_: request.read_,
+                SENT: request.sent.map(|t| t.timestamp()),
+                SENT_: request.sent_.map(|t| t.timestamp()),
+                READ: request.read.map(|t| t.timestamp()),
+                READ_: request.read_.map(|t| t.timestamp()),
                 TIP: request.tip,
                 TIP_: request.tip_,
                 "_size": request.size,
@@ -191,15 +183,15 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
             let arg = json!({
                 "_type": "Get",
                 "_id": request.id,
-                "_eol": request.eol,
-                "_eol_": request.eol_,
+                "_eol": request.eol.timestamp(),
+                "_eol_": request.eol_.timestamp(),
                 "_ns": NS,
                 FROM: request.from,
                 TO: cx.uid.to_string(),
-                SENT: request.sent,
-                SENT_: request.sent_,
-                READ: request.read,
-                READ_: request.read_,
+                SENT: request.sent.map(|t| t.timestamp()),
+                SENT_: request.sent_.map(|t| t.timestamp()),
+                READ: request.read.map(|t| t.timestamp()),
+                READ_: request.read_.map(|t| t.timestamp()),
                 TIP: request.tip,
                 TIP_: request.tip_,
                 "_size": request.size,
@@ -214,11 +206,22 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
         }
 
         Request::Read(request) => {
-            let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
-            let update = doc! { READ: Utc::now() };
-            let update_result = map1.update_one(query, update, None).await?;
+            let id = Uuid::parse_str(&request.id).map_err(|_| Error::GeneMapNotFound)?;
+            let uid_str = cx.uid.to_string();
 
-            if update_result.matched_count == 0 {
+            // Update the body JSONB to set _3 (READ) timestamp
+            let result = sqlx::query(
+                "UPDATE map_docs SET body = jsonb_set(COALESCE(body, '{}'::jsonb), '{_3}', to_jsonb($1::bigint))
+                 WHERE id = $2 AND ns = $3 AND body->>'_1' = $4",
+            )
+            .bind(Utc::now().timestamp())
+            .bind(id)
+            .bind(NS)
+            .bind(&uid_str)
+            .execute(&db.crdb)
+            .await?;
+
+            if result.rows_affected() == 0 {
                 return Err(Error::GeneMapNotFound);
             }
 
@@ -226,11 +229,21 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
         }
 
         Request::Unread(request) => {
-            let query = doc! { "_id": request.id, TO: cx.uid.to_string() };
-            let update = doc! { "$unset": { READ: "" } };
-            let update_result = map1.update_one(query, update, None).await?;
+            let id = Uuid::parse_str(&request.id).map_err(|_| Error::GeneMapNotFound)?;
+            let uid_str = cx.uid.to_string();
 
-            if update_result.matched_count == 0 {
+            // Remove _3 (READ) from body JSONB
+            let result = sqlx::query(
+                "UPDATE map_docs SET body = body - '_3'
+                 WHERE id = $1 AND ns = $2 AND body->>'_1' = $3",
+            )
+            .bind(id)
+            .bind(NS)
+            .bind(&uid_str)
+            .execute(&db.crdb)
+            .await?;
+
+            if result.rows_affected() == 0 {
                 return Err(Error::GeneMapNotFound);
             }
 
@@ -238,16 +251,21 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
         }
 
         Request::Delete(request) => {
-            let query = doc! {
-                "_id": request.id,
-                "$or": [
-                    { FROM: cx.uid.to_string() },
-                    { TO: cx.uid.to_string() },
-                ],
-            };
-            let delete_result = map1.delete_one(query, None).await?;
+            let id = Uuid::parse_str(&request.id).map_err(|_| Error::GeneMapNotFound)?;
+            let uid_str = cx.uid.to_string();
 
-            if delete_result.deleted_count == 0 {
+            // Delete if user is either FROM or TO
+            let result = sqlx::query(
+                "DELETE FROM map_docs 
+                 WHERE id = $1 AND ns = $2 AND (body->>'_0' = $3 OR body->>'_1' = $3)",
+            )
+            .bind(id)
+            .bind(NS)
+            .bind(&uid_str)
+            .execute(&db.crdb)
+            .await?;
+
+            if result.rows_affected() == 0 {
                 return Err(Error::GeneMapNotFound);
             }
 

@@ -37,12 +37,10 @@ pub enum Error {
     MemePut,
     MemeGet,
 
-    Redis(redis::RedisError),
-    MongoDB(mongodb::error::Error),
-    BsonSer(bson::ser::Error),
-    BsonDe(bson::de::Error),
-    BsonDatetime(bson::datetime::Error),
-    BsonValueAccess(bson::document::ValueAccessError),
+    ScyllaQuery(scylla::transport::errors::QueryError),
+    ScyllaRows(scylla::transport::query_result::RowsExpectedError),
+    ScyllaFromRow(scylla::cql_to_rust::FromRowError),
+    Sqlx(sqlx::Error),
     S3(s3::error::S3Error),
 
     Rand(rand::Error),
@@ -65,15 +63,28 @@ impl From<rand::Error> for Error {
         Self::Rand(error)
     }
 }
-impl From<redis::RedisError> for Error {
-    fn from(error: redis::RedisError) -> Self {
-        Self::Redis(error)
+
+impl From<scylla::transport::errors::QueryError> for Error {
+    fn from(error: scylla::transport::errors::QueryError) -> Self {
+        Self::ScyllaQuery(error)
     }
 }
 
-impl From<mongodb::error::Error> for Error {
-    fn from(error: mongodb::error::Error) -> Self {
-        Self::MongoDB(error)
+impl From<scylla::transport::query_result::RowsExpectedError> for Error {
+    fn from(error: scylla::transport::query_result::RowsExpectedError) -> Self {
+        Self::ScyllaRows(error)
+    }
+}
+
+impl From<scylla::cql_to_rust::FromRowError> for Error {
+    fn from(error: scylla::cql_to_rust::FromRowError) -> Self {
+        Self::ScyllaFromRow(error)
+    }
+}
+
+impl From<sqlx::Error> for Error {
+    fn from(error: sqlx::Error) -> Self {
+        Self::Sqlx(error)
     }
 }
 
@@ -86,30 +97,6 @@ impl From<s3::error::S3Error> for Error {
 impl From<hyper::Error> for Error {
     fn from(error: hyper::Error) -> Self {
         Self::Hyper(error)
-    }
-}
-
-impl From<bson::ser::Error> for Error {
-    fn from(error: bson::ser::Error) -> Self {
-        Self::BsonSer(error)
-    }
-}
-
-impl From<bson::de::Error> for Error {
-    fn from(error: bson::de::Error) -> Self {
-        Self::BsonDe(error)
-    }
-}
-
-impl From<bson::datetime::Error> for Error {
-    fn from(error: bson::datetime::Error) -> Self {
-        Self::BsonDatetime(error)
-    }
-}
-
-impl From<bson::document::ValueAccessError> for Error {
-    fn from(error: bson::document::ValueAccessError) -> Self {
-        Self::BsonValueAccess(error)
     }
 }
 

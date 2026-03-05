@@ -2,8 +2,7 @@ use clap::{Parser, Subcommand};
 use std::process::exit;
 use std::str::FromStr;
 use voxov::config::Config;
-use voxov::database::namespace::UID2CREDIT;
-use voxov::database::{ns, Database};
+use voxov::database::Database;
 use voxov::ir::Id;
 use voxov::to_static;
 use voxov::Result;
@@ -22,14 +21,16 @@ async fn execute(cli: Cli) -> Result<()> {
     let db: &Database = to_static!(Database::new(c, false).await);
 
     match cli.command {
-        Command::Sent { from, to, message } => db.sms_sent(&from, &to, &message).await,
-
-        Command::AddCredit { uid, credit } => {
-            let u2c = ns(UID2CREDIT, &Id::from_str(&uid)?);
-            db.incrby(&u2c[..], credit).await
+        Command::Sent { from, to, message } => {
+            let message_id = Id::from_str(&message)?;
+            db.sms_sent(&from, &to, &message_id.0).await
         }
 
-        Command::DropIndexes => Ok(db.map1.drop_indexes(None).await?),
+        Command::AddCredit { uid, credit } => {
+            let uid_id = Id::from_str(&uid)?;
+            db.incr_credit(&uid_id, None, credit, "vctl add-credit")
+                .await
+        }
     }
 }
 
@@ -51,7 +52,4 @@ pub enum Command {
 
     /// Add credit to UID.
     AddCredit { uid: String, credit: i64 },
-
-    /// Clear indexes of MongoDB,
-    DropIndexes,
 }

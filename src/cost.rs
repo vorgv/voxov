@@ -2,11 +2,11 @@
 //! Payment is also handled here. Anything behind this is paid.
 
 use crate::config::Config;
-use crate::database::namespace::{UID2CHECKIN, UID2CREDIT};
-use crate::database::{ns, Database};
+use crate::database::Database;
 use crate::fed::Fed;
 use crate::ir::{Id, Query, Reply};
 use crate::{Error, Result};
+use chrono::{Duration as ChronoDuration, Utc};
 use tokio::time::{Duration, Instant};
 
 pub struct Cost {
@@ -35,27 +35,33 @@ impl Cost {
             }),
 
             Query::CostGet { access: _ } => {
-                let u2p = ns(UID2CREDIT, uid);
-                let credit = self.db.get::<&[u8], i64>(&u2p).await?;
+                let credit = self.db.get_credit(uid).await?;
                 Ok(Reply::CostGet { credit })
             }
 
             Query::CostCheckIn { access: _ } => {
-                // checked in today?
-                let u2ci = ns(UID2CHECKIN, uid);
-                let last_check_in = self.db.incr(&u2ci[..]).await?;
-                self.db.expire_xx(&u2ci[..], self.check_in_refresh).await?;
-                match last_check_in {
-                    1 => {
-                        self.db
-                            .incr_credit(uid, None, self.check_in_award, "CostCheckIn")
-                            .await?;
-                        Ok(Reply::CostCheckIn {
-                            award: self.check_in_award,
-                        })
+                // Check if already checked in today
+                let last_checkin = self.db.get_last_checkin(uid).await?;
+                let now = Utc::now();
+                let refresh_duration = ChronoDuration::seconds(self.check_in_refresh);
+
+                if let Some(last) = last_checkin {
+                    if now - last < refresh_duration {
+                        return Err(Error::CostCheckInTooEarly);
                     }
-                    _ => Err(Error::CostCheckInTooEarly),
                 }
+
+                // Update check-in time
+                self.db.set_checkin(uid).await?;
+
+                // Award credits
+                self.db
+                    .incr_credit(uid, None, self.check_in_award, "CostCheckIn")
+                    .await?;
+
+                Ok(Reply::CostCheckIn {
+                    award: self.check_in_award,
+                })
             }
 
             _ => {
@@ -96,7 +102,6 @@ pub mod macros {
                 () => {
                     let now = Instant::now();
                     if now > $deadline {
-                        $changes.time = 0;
                         return Err(Error::CostTime);
                     } else {
                         let remaining: Duration = $deadline - now;

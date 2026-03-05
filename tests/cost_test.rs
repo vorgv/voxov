@@ -1,7 +1,5 @@
-use voxov::{
-    database::{namespace::UID2CREDIT, ns, Database},
-    ir::Id,
-};
+use voxov::database::Database;
+use voxov::ir::Id;
 
 mod common;
 use common::new_user;
@@ -31,7 +29,6 @@ async fn cost_check_in() {
 
 async fn get_credit(uid: &String) -> i64 {
     let db = Database::default().await;
-    db.get::<&[u8], i64>(&ns(UID2CREDIT, &Id::try_from(uid).unwrap())[..])
-        .await
-        .unwrap()
+    let uid_id = Id::try_from(uid).unwrap();
+    db.get_credit(&uid_id).await.unwrap()
 }

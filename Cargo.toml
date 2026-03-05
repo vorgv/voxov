@@ -44,10 +44,12 @@ http = "1.0.0"
 http-body-util = "0.1.0"
 
 # Database
-redis = { version = "0.23.3", features = ["tokio-comp", "connection-manager"] }
-mongodb = "2.7.1"
-bson = { version = "2.7.0", features = ["chrono-0_4"] }
+scylla = "0.13"
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "uuid", "chrono", "json"] }
 rust-s3 = { version = "0.34.0-rc4", features = ["with-tokio"] }
+
+# UUID
+uuid = { version = "1.6", features = ["v4"] }
 
 # Tool
 blake3 = "1.5.0"
