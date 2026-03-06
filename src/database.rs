@@ -1,21 +1,21 @@
 mod credit;
 pub mod ripperd;
 
+use crate::Result;
 use crate::config::Config;
 use crate::ir::id::Id;
-use crate::Result;
 use chrono::{DateTime, Utc};
+use s3::Bucket;
 use s3::creds::Credentials;
 use s3::region::Region;
-use s3::Bucket;
-use scylla::prepared_statement::PreparedStatement;
-use scylla::transport::session::Session;
-use scylla::SessionBuilder;
-use sqlx::postgres::PgPoolOptions;
+use scylla::client::session::Session;
+use scylla::client::session_builder::SessionBuilder;
+use scylla::statement::prepared::PreparedStatement;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
-use sysinfo::{DiskExt, System, SystemExt};
+use sysinfo::{Disks, System};
 
 /// Prepared statements for ScyllaDB operations.
 pub struct ScyllaPreparedStatements {
@@ -45,10 +45,10 @@ pub struct Database {
     pub crdb: PgPool,
 
     /// S3 bucket for meme data
-    pub mr: Bucket,
+    pub mr: Box<Bucket>,
 
     /// Prepared statements
-    pub stmts: ScyllaPreparedStatements,
+    pub stmts: Box<ScyllaPreparedStatements>,
 
     pub credit_limit: i64,
     pub access_ttl: i64,
@@ -75,7 +75,7 @@ impl Database {
         let scylla = Arc::new(scylla);
 
         // Create S3 bucket handle
-        let mr = Bucket::new(
+        let mr = *Bucket::new(
             "voxov",
             Region::Custom {
                 region: config.s3_region.clone(),
@@ -100,12 +100,12 @@ impl Database {
         }
 
         // Prepare ScyllaDB statements
-        let stmts = Self::prepare_statements(&scylla).await;
+        let stmts = Box::new(Self::prepare_statements(&scylla).await);
 
         let db = Database {
             scylla,
             crdb,
-            mr,
+            mr: Box::new(mr),
             stmts,
             credit_limit: config.credit_limit,
             access_ttl: config.access_ttl,
@@ -130,7 +130,7 @@ impl Database {
     async fn create_scylla_schema(scylla: &Session) {
         // Create keyspace
         scylla
-            .query(
+            .query_unpaged(
                 "CREATE KEYSPACE IF NOT EXISTS voxov WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}",
                 &[],
             )
@@ -139,7 +139,7 @@ impl Database {
 
         // Sessions table
         scylla
-            .query(
+            .query_unpaged(
                 "CREATE TABLE IF NOT EXISTS voxov.sessions (
                     sid BLOB PRIMARY KEY,
                     uid BLOB,
@@ -152,7 +152,7 @@ impl Database {
 
         // SMS codes table (tracks SMS verification)
         scylla
-            .query(
+            .query_unpaged(
                 "CREATE TABLE IF NOT EXISTS voxov.sms_codes (
                     phone TEXT,
                     message BLOB,
@@ -166,7 +166,7 @@ impl Database {
 
         // Phone to UID mapping
         scylla
-            .query(
+            .query_unpaged(
                 "CREATE TABLE IF NOT EXISTS voxov.phone_to_uid (
                     phone TEXT PRIMARY KEY,
                     uid BLOB
@@ -178,7 +178,7 @@ impl Database {
 
         // UID to phone mapping
         scylla
-            .query(
+            .query_unpaged(
                 "CREATE TABLE IF NOT EXISTS voxov.uid_to_phone (
                     uid BLOB PRIMARY KEY,
                     phone TEXT
@@ -190,7 +190,7 @@ impl Database {
 
         // Check-ins table
         scylla
-            .query(
+            .query_unpaged(
                 "CREATE TABLE IF NOT EXISTS voxov.checkins (
                     uid BLOB PRIMARY KEY,
                     last_checkin TIMESTAMP
@@ -375,7 +375,7 @@ impl Database {
     /// Insert access token.
     pub async fn set_access(&self, token: &[u8], uid: &Id) -> Result<()> {
         self.scylla
-            .execute(
+            .execute_unpaged(
                 &self.stmts.insert_session,
                 (token, &uid.0[..], 0_i8, self.access_ttl as i32),
             )
@@ -386,7 +386,7 @@ impl Database {
     /// Insert refresh token.
     pub async fn set_refresh(&self, token: &[u8], uid: &Id) -> Result<()> {
         self.scylla
-            .execute(
+            .execute_unpaged(
                 &self.stmts.insert_session,
                 (token, &uid.0[..], 1_i8, self.refresh_ttl as i32),
             )
@@ -398,10 +398,10 @@ impl Database {
     pub async fn get_access(&self, token: &[u8]) -> Result<Option<Id>> {
         let result = self
             .scylla
-            .execute(&self.stmts.select_session, (token,))
+            .execute_unpaged(&self.stmts.select_session, (token,))
             .await?;
 
-        if let Some(row) = result.rows_typed::<(Vec<u8>, i8)>()?.next() {
+        if let Some(row) = result.into_rows_result()?.rows::<(Vec<u8>, i8)>()?.next() {
             let (uid_bytes, kind) = row?;
             if kind == 0 {
                 let mut id = Id::zero();
@@ -416,10 +416,10 @@ impl Database {
     pub async fn get_refresh_and_extend(&self, token: &[u8]) -> Result<Option<Id>> {
         let result = self
             .scylla
-            .execute(&self.stmts.select_session, (token,))
+            .execute_unpaged(&self.stmts.select_session, (token,))
             .await?;
 
-        if let Some(row) = result.rows_typed::<(Vec<u8>, i8)>()?.next() {
+        if let Some(row) = result.into_rows_result()?.rows::<(Vec<u8>, i8)>()?.next() {
             let (uid_bytes, kind) = row?;
             if kind == 1 {
                 // Refresh TTL by re-inserting
@@ -435,7 +435,7 @@ impl Database {
     /// Delete a session token.
     pub async fn del_session(&self, token: &[u8]) -> Result<()> {
         self.scylla
-            .execute(&self.stmts.delete_session, (token,))
+            .execute_unpaged(&self.stmts.delete_session, (token,))
             .await?;
         Ok(())
     }
@@ -445,7 +445,7 @@ impl Database {
     /// Record that we asked the client to send a message to a phone.
     pub async fn set_sms_sendto(&self, phone: &str, message: &[u8]) -> Result<()> {
         self.scylla
-            .execute(
+            .execute_unpaged(
                 &self.stmts.insert_sms_sendto,
                 (phone, message, self.access_ttl as i32),
             )
@@ -456,7 +456,7 @@ impl Database {
     /// Record that user_phone sent the SMS message to server phone.
     pub async fn sms_sent(&self, user_phone: &str, phone: &str, message: &[u8]) -> Result<()> {
         self.scylla
-            .execute(
+            .execute_unpaged(
                 &self.stmts.insert_sms_sent,
                 (self.access_ttl as i32, user_phone, phone, message),
             )
@@ -468,10 +468,14 @@ impl Database {
     pub async fn get_sms_sent(&self, phone: &str, message: &[u8]) -> Result<Option<String>> {
         let result = self
             .scylla
-            .execute(&self.stmts.select_sms_sent, (phone, message))
+            .execute_unpaged(&self.stmts.select_sms_sent, (phone, message))
             .await?;
 
-        if let Some(row) = result.rows_typed::<(Option<String>,)>()?.next() {
+        if let Some(row) = result
+            .into_rows_result()?
+            .rows::<(Option<String>,)>()?
+            .next()
+        {
             let (user_phone,) = row?;
             return Ok(user_phone);
         }
@@ -483,7 +487,7 @@ impl Database {
     /// Set phone to UID mapping.
     pub async fn set_phone_to_uid(&self, phone: &str, uid: &Id) -> Result<()> {
         self.scylla
-            .execute(
+            .execute_unpaged(
                 &self.stmts.insert_phone_to_uid,
                 (phone, &uid.0[..], self.user_ttl as i32),
             )
@@ -495,10 +499,10 @@ impl Database {
     pub async fn get_phone_to_uid(&self, phone: &str) -> Result<Option<Id>> {
         let result = self
             .scylla
-            .execute(&self.stmts.select_phone_to_uid, (phone,))
+            .execute_unpaged(&self.stmts.select_phone_to_uid, (phone,))
             .await?;
 
-        if let Some(row) = result.rows_typed::<(Vec<u8>,)>()?.next() {
+        if let Some(row) = result.into_rows_result()?.rows::<(Vec<u8>,)>()?.next() {
             let (uid_bytes,) = row?;
             let mut id = Id::zero();
             id.0.copy_from_slice(&uid_bytes);
@@ -510,7 +514,7 @@ impl Database {
     /// Set UID to phone mapping.
     pub async fn set_uid_to_phone(&self, uid: &Id, phone: &str) -> Result<()> {
         self.scylla
-            .execute(
+            .execute_unpaged(
                 &self.stmts.insert_uid_to_phone,
                 (&uid.0[..], phone, self.user_ttl as i32),
             )
@@ -522,10 +526,10 @@ impl Database {
     pub async fn get_uid_to_phone(&self, uid: &Id) -> Result<Option<String>> {
         let result = self
             .scylla
-            .execute(&self.stmts.select_uid_to_phone, (&uid.0[..],))
+            .execute_unpaged(&self.stmts.select_uid_to_phone, (&uid.0[..],))
             .await?;
 
-        if let Some(row) = result.rows_typed::<(String,)>()?.next() {
+        if let Some(row) = result.into_rows_result()?.rows::<(String,)>()?.next() {
             let (phone,) = row?;
             return Ok(Some(phone));
         }
@@ -538,11 +542,12 @@ impl Database {
     pub async fn get_last_checkin(&self, uid: &Id) -> Result<Option<DateTime<Utc>>> {
         let result = self
             .scylla
-            .execute(&self.stmts.select_checkin, (&uid.0[..],))
+            .execute_unpaged(&self.stmts.select_checkin, (&uid.0[..],))
             .await?;
 
         if let Some(row) = result
-            .rows_typed::<(scylla::frame::value::CqlTimestamp,)>()?
+            .into_rows_result()?
+            .rows::<(scylla::value::CqlTimestamp,)>()?
             .next()
         {
             let (ts,) = row?;
@@ -555,9 +560,9 @@ impl Database {
 
     /// Set check-in time.
     pub async fn set_checkin(&self, uid: &Id) -> Result<()> {
-        let now = scylla::frame::value::CqlTimestamp(Utc::now().timestamp_millis());
+        let now = scylla::value::CqlTimestamp(Utc::now().timestamp_millis());
         self.scylla
-            .execute(&self.stmts.insert_checkin, (&uid.0[..], now))
+            .execute_unpaged(&self.stmts.insert_checkin, (&uid.0[..], now))
             .await?;
         Ok(())
     }
@@ -585,10 +590,10 @@ impl Database {
                 tokio::time::sleep(StdDuration::from_secs(60)).await;
 
                 let mut draining = false;
-                sys.refresh_all();
+                sys.refresh_memory();
 
-                let maybe_disk = sys
-                    .disks()
+                let disks = Disks::new_with_refreshed_list();
+                let maybe_disk = disks
                     .iter()
                     .map(|d| (d.total_space(), d.available_space()))
                     .max();
@@ -620,7 +625,10 @@ impl Database {
                     "uid_to_phone",
                     "checkins",
                 ] {
-                    if let Err(e) = scylla.query(format!("TRUNCATE voxov.{}", table), &[]).await {
+                    if let Err(e) = scylla
+                        .query_unpaged(format!("TRUNCATE voxov.{}", table), &[])
+                        .await
+                    {
                         println!("Samsara ScyllaDB error truncating {}: {}", table, e);
                     }
                 }

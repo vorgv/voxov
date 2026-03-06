@@ -3,9 +3,9 @@ mod cost;
 mod gene;
 mod meme;
 
-use crate::config::{Config, Plan, Session};
 use crate::Result;
-use reqwest::{get, Client as ReqwestClient, RequestBuilder, Response};
+use crate::config::{Config, Plan, Session};
+use reqwest::{Client as ReqwestClient, RequestBuilder, Response, get};
 use std::{error, fmt};
 use std::{io::stdin, time::Duration};
 

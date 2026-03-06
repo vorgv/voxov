@@ -7,7 +7,7 @@ use crate::config::Config;
 use crate::ir::{Query, Reply};
 use http_body_util::{BodyExt, Empty, Full};
 use hyper::server::conn::http1;
-use hyper::{body::Bytes, service::service_fn, Method, Request, Response};
+use hyper::{Method, Request, Response, body::Bytes, service::service_fn};
 use hyper_util::rt::TokioIo;
 use std::convert::Infallible;
 use std::error::Error;

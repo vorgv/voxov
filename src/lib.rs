@@ -1,5 +1,4 @@
 #![feature(addr_parse_ascii)]
-#![feature(io_error_more)]
 pub mod api;
 pub mod auth;
 pub mod body;

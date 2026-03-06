@@ -2,8 +2,8 @@ use super::Query;
 use crate::{Error, Result};
 use core::fmt;
 use hex::FromHex;
-use hyper::{body::Incoming, Request};
-use rand::{rngs::ThreadRng, Fill};
+use hyper::{Request, body::Incoming};
+use rand::Rng;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::str::FromStr;
@@ -58,10 +58,8 @@ impl Id {
     pub fn is_zero(&self) -> bool {
         self.0 == ID0
     }
-    pub fn rand(rng: &mut ThreadRng) -> Result<Self> {
-        let mut s = ID0;
-        s.try_fill(rng)?;
-        Ok(Id(s))
+    pub fn rand(rng: &mut impl Rng) -> Self {
+        Id(rng.random())
     }
     pub fn try_get(req: &Request<Incoming>, key: &str) -> Result<Self> {
         Id::from_str(Query::retrieve(req, key)?)
@@ -108,8 +106,8 @@ impl<'de> Visitor<'de> for IdVisitor {
 
 #[test]
 fn test_ser_de() {
-    let mut rng = rand::thread_rng();
-    let id = Id::rand(&mut rng).unwrap();
+    let mut rng = rand::rng();
+    let id = Id::rand(&mut rng);
     let id_ser = serde_json::to_string(&id).unwrap();
     let id_ser_de: Id = serde_json::from_str(&id_ser).unwrap();
     assert_eq!(id, id_ser_de);

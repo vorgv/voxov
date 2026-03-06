@@ -29,6 +29,6 @@ async fn cost_check_in() {
 
 async fn get_credit(uid: &String) -> i64 {
     let db = Database::default().await;
-    let uid_id = Id::try_from(uid).unwrap();
+    let uid_id = Id::try_from(uid.as_str()).unwrap();
     db.get_credit(&uid_id).await.unwrap()
 }

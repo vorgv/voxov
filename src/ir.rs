@@ -7,13 +7,13 @@ pub mod id;
 pub mod query;
 pub mod reply;
 
-pub use id::{Id, IDL};
+pub use id::{IDL, Id};
 pub use query::Query;
 pub use reply::Reply;
 
 use crate::{Error, Result};
 use hex::FromHex;
-use hyper::{body::Incoming, Request};
+use hyper::{Request, body::Incoming};
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]

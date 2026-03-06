@@ -88,8 +88,8 @@ impl Meme {
     ) -> Result<Reply> {
         // Create object with a random name.
         let oid = {
-            let mut rng = rand::thread_rng();
-            Id::rand(&mut rng)?
+            let mut rng = rand::rng();
+            Id::rand(&mut rng)
         };
         // Init chunk upload.
         let mr = &self.db.mr;

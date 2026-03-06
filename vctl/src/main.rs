@@ -1,11 +1,11 @@
 use clap::{Parser, Subcommand};
 use std::process::exit;
 use std::str::FromStr;
+use voxov::Result;
 use voxov::config::Config;
 use voxov::database::Database;
 use voxov::ir::Id;
 use voxov::to_static;
-use voxov::Result;
 
 #[tokio::main]
 async fn main() {

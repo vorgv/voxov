@@ -1,4 +1,4 @@
-use http_body_util::{combinators::BoxBody, StreamBody};
+use http_body_util::{StreamBody, combinators::BoxBody};
 use hyper::body::{Body, Bytes, Frame, SizeHint};
 use s3::error::S3Error;
 use std::{

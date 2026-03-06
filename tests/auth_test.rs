@@ -12,10 +12,16 @@ async fn token_exists(db: &Database, token: &[u8], is_access: bool) -> bool {
         // For refresh, we can't check without extending TTL, so query directly
         let result = db
             .scylla
-            .execute(&db.stmts.select_session, (token,))
+            .execute_unpaged(&db.stmts.select_session, (token,))
             .await
             .unwrap();
-        if let Some(row) = result.rows_typed::<(Vec<u8>, i8)>().unwrap().next() {
+        if let Some(row) = result
+            .into_rows_result()
+            .unwrap()
+            .rows::<(Vec<u8>, i8)>()
+            .unwrap()
+            .next()
+        {
             let (_, kind) = row.unwrap();
             return kind == 1; // refresh token
         }
@@ -96,11 +102,13 @@ async fn get_tokens(client: Client) -> (String, String) {
     // Query refresh token directly from ScyllaDB
     let result = db
         .scylla
-        .execute(&db.stmts.select_session, (&refresh_bytes[..],))
+        .execute_unpaged(&db.stmts.select_session, (&refresh_bytes[..],))
         .await
         .unwrap();
     let (uid_bytes, _): (Vec<u8>, i8) = result
-        .rows_typed::<(Vec<u8>, i8)>()
+        .into_rows_result()
+        .unwrap()
+        .rows::<(Vec<u8>, i8)>()
         .unwrap()
         .next()
         .unwrap()

@@ -4,7 +4,7 @@ use crate::config::Config;
 use crate::database::Database;
 use crate::ir::{Costs, Id, Query, Reply};
 use crate::meme::Meme;
-use crate::{cost_macros, Error, Result};
+use crate::{Error, Result, cost_macros};
 use serde::Serialize;
 use std::collections::HashMap;
 use tokio::time::{Duration, Instant};

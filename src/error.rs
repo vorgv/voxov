@@ -37,13 +37,13 @@ pub enum Error {
     MemePut,
     MemeGet,
 
-    ScyllaQuery(scylla::transport::errors::QueryError),
-    ScyllaRows(scylla::transport::query_result::RowsExpectedError),
-    ScyllaFromRow(scylla::cql_to_rust::FromRowError),
+    ScyllaQuery(Box<scylla::errors::ExecutionError>),
+    ScyllaRows(Box<scylla::response::query_result::IntoRowsResultError>),
+    ScyllaRowsDeser(scylla::response::query_result::RowsError),
+    ScyllaDeserialize(scylla::errors::DeserializationError),
     Sqlx(sqlx::Error),
     S3(s3::error::S3Error),
 
-    Rand(rand::Error),
     Hyper(hyper::Error),
     ParseJson(serde_json::error::Error),
 
@@ -58,27 +58,27 @@ pub enum Error {
 
 impl std::error::Error for Error {}
 
-impl From<rand::Error> for Error {
-    fn from(error: rand::Error) -> Self {
-        Self::Rand(error)
+impl From<scylla::errors::ExecutionError> for Error {
+    fn from(error: scylla::errors::ExecutionError) -> Self {
+        Self::ScyllaQuery(Box::new(error))
     }
 }
 
-impl From<scylla::transport::errors::QueryError> for Error {
-    fn from(error: scylla::transport::errors::QueryError) -> Self {
-        Self::ScyllaQuery(error)
+impl From<scylla::response::query_result::IntoRowsResultError> for Error {
+    fn from(error: scylla::response::query_result::IntoRowsResultError) -> Self {
+        Self::ScyllaRows(Box::new(error))
     }
 }
 
-impl From<scylla::transport::query_result::RowsExpectedError> for Error {
-    fn from(error: scylla::transport::query_result::RowsExpectedError) -> Self {
-        Self::ScyllaRows(error)
+impl From<scylla::response::query_result::RowsError> for Error {
+    fn from(error: scylla::response::query_result::RowsError) -> Self {
+        Self::ScyllaRowsDeser(error)
     }
 }
 
-impl From<scylla::cql_to_rust::FromRowError> for Error {
-    fn from(error: scylla::cql_to_rust::FromRowError) -> Self {
-        Self::ScyllaFromRow(error)
+impl From<scylla::errors::DeserializationError> for Error {
+    fn from(error: scylla::errors::DeserializationError) -> Self {
+        Self::ScyllaDeserialize(error)
     }
 }
 

@@ -59,8 +59,8 @@ impl Auth {
     /// Generate two random tokens.
     async fn handle_session_start(&self) -> Result<Reply> {
         let (access, refresh) = {
-            let mut rng = rand::thread_rng();
-            (Id::rand(&mut rng)?, Id::rand(&mut rng)?)
+            let mut rng = rand::rng();
+            (Id::rand(&mut rng), Id::rand(&mut rng))
         }; // drop rng before await
         let uid = Id::zero();
 
@@ -80,8 +80,8 @@ impl Auth {
             .ok_or(Error::AuthInvalidRefreshToken)?;
 
         let access = {
-            let mut rng = rand::thread_rng();
-            Id::rand(&mut rng)?
+            let mut rng = rand::rng();
+            Id::rand(&mut rng)
         };
 
         self.db.set_access(&access.0, &uid).await?;
@@ -123,11 +123,11 @@ impl Auth {
         self.authenticate(access).await?;
 
         let (phone, message): (&'static _, _) = {
-            let mut rng = rand::thread_rng();
-            use rand::seq::SliceRandom;
+            let mut rng = rand::rng();
+            use rand::seq::IndexedRandom;
             (
                 (*self.phones)[..].choose(&mut rng).unwrap(),
-                Id::rand(&mut rng)?,
+                Id::rand(&mut rng),
             )
         };
 
@@ -162,8 +162,8 @@ impl Auth {
             Some(uid) => uid,
             None => {
                 is_new_user = true;
-                let mut rng = rand::thread_rng();
-                Id::rand(&mut rng)?
+                let mut rng = rand::rng();
+                Id::rand(&mut rng)
             }
         };
 

@@ -29,7 +29,7 @@ use crate::{Error, Result};
 use chrono::serde::{ts_seconds, ts_seconds_option};
 use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::Row;
 use std::collections::BTreeMap as Map;
 use tokio::time::Instant;
@@ -283,7 +283,9 @@ async fn handle_put(cx: V1Context<'_>, request: Put, internal: bool) -> Result<S
 
 async fn handle_get(cx: V1Context<'_>, request: Get, internal: bool) -> Result<String> {
     // Build dynamic query
-    let mut query = String::from("SELECT id, uid, pub, eol, tip, ns, size, i0, i1, i2, i3, i4, i5, i6, i7, geo_lon, geo_lat, body FROM map_docs WHERE 1=1");
+    let mut query = String::from(
+        "SELECT id, uid, pub, eol, tip, ns, size, i0, i1, i2, i3, i4, i5, i6, i7, geo_lon, geo_lat, body FROM map_docs WHERE 1=1",
+    );
     let mut param_idx = 1;
 
     if let Some(id_str) = &request._id {

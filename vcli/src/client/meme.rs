@@ -1,4 +1,4 @@
-use super::{get_header, Client, Result};
+use super::{Client, Result, get_header};
 use crate::handle_error;
 use bytes::Bytes;
 use std::{

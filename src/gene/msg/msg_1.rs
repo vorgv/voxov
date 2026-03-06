@@ -3,7 +3,7 @@
 //! Both FROM and TO can delete the message.
 //! No public flag needed, but TO can report.
 
-use crate::{gene::map, ir::Id, Error, Result};
+use crate::{Error, Result, gene::map, ir::Id};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;

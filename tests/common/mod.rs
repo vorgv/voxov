@@ -1,4 +1,4 @@
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{Rng, distr::Alphanumeric};
 use std::str::FromStr;
 use vcli::{client::Client, config::Session};
 use voxov::database::Database;
@@ -20,8 +20,8 @@ pub async fn new_user() -> (Client, String) {
 
 /// Generate a random String with length n.
 pub fn random_string(n: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
+    rand::rng()
+        .sample_iter(Alphanumeric)
         .take(n)
         .map(char::from)
         .collect()

@@ -1,5 +1,5 @@
 use super::Database;
-use crate::{config::Config, Result};
+use crate::{Result, config::Config};
 use sqlx::Row;
 use std::time::Duration;
 use tokio::time::sleep;
