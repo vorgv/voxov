@@ -37,7 +37,7 @@ pub struct Config {
     #[serde(skip_serializing)]
     pub s3_addr: String,
 
-    /// S3 or compativle objest storage region.
+    /// S3 or compatible object storage region.
     pub s3_region: String,
 
     /// S3 access key.
@@ -184,7 +184,7 @@ impl Config {
             auth_phones: to_static!(match env::var("AUTH_PHONES") {
                 Ok(var) => {
                     let ap: Vec<_> = var.split(':').map(String::from).collect();
-                    let max_bytes = ap.iter().map(|s| s.as_bytes().len()).max().unwrap();
+                    let max_bytes = ap.iter().map(|s| s.len()).max().unwrap();
                     if max_bytes > PHONE_MAX_BYTES {
                         panic!("Phone number too long")
                     }

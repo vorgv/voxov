@@ -11,10 +11,7 @@ impl Database {
             .fetch_optional(&self.crdb)
             .await?;
 
-        match result {
-            Some(row) => Ok(row.get("credit")),
-            None => Ok(0),
-        }
+        Ok(result.map_or(0, |row| row.get("credit")))
     }
 
     /// Create a new user account in CockroachDB.

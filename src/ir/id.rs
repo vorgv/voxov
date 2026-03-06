@@ -6,7 +6,6 @@ use hyper::{body::Incoming, Request};
 use rand::{rngs::ThreadRng, Fill};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::convert::TryInto;
 use std::str::FromStr;
 
 pub const IDL: usize = 16;
@@ -25,9 +24,9 @@ impl FromStr for Id {
     }
 }
 
-impl TryFrom<&String> for Id {
+impl TryFrom<&str> for Id {
     type Error = Error;
-    fn try_from(s: &String) -> Result<Self> {
+    fn try_from(s: &str) -> Result<Self> {
         Id::from_str(s)
     }
 }
@@ -41,10 +40,8 @@ impl fmt::Display for Id {
 impl TryFrom<Vec<u8>> for Id {
     type Error = Error;
     fn try_from(v: Vec<u8>) -> Result<Self> {
-        let _: [u8; IDL] = match v.try_into() {
-            Ok(a) => return Ok(Id(a)),
-            Err(_) => return Err(Error::Logical),
-        };
+        let a: [u8; IDL] = v.try_into().map_err(|_| Error::Logical)?;
+        Ok(Id(a))
     }
 }
 
@@ -70,10 +67,7 @@ impl Id {
         Id::from_str(Query::retrieve(req, key)?)
     }
     pub fn opt(req: &Request<Incoming>, key: &str) -> Option<Self> {
-        match Id::try_get(req, key) {
-            Ok(v) => Some(v),
-            Err(_) => None,
-        }
+        Id::try_get(req, key).ok()
     }
 }
 

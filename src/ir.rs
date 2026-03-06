@@ -60,16 +60,10 @@ impl Head {
 
 pub fn try_get<T: FromStr>(req: &Request<Incoming>, key: &str) -> Result<T> {
     let s = Query::retrieve(req, key)?;
-    match s.parse::<T>() {
-        Ok(u) => Ok(u),
-        Err(_) => Err(Error::ApiParseNum),
-    }
+    s.parse::<T>().map_err(|_| Error::ApiParseNum)
 }
 
 fn try_get_hash(req: &Request<Incoming>) -> Result<Hash> {
     let s = Query::retrieve(req, "hash")?;
-    match <[u8; 32]>::from_hex(s) {
-        Ok(u) => Ok(u),
-        Err(_) => Err(Error::ApiParseHash),
-    }
+    <[u8; 32]>::from_hex(s).map_err(|_| Error::ApiParseHash)
 }

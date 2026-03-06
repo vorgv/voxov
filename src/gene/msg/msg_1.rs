@@ -121,7 +121,7 @@ pub async fn v1(mut cx: map::V1Context<'_>) -> Result<String> {
                 }
             }
 
-            let to = Id::try_from(&request.to)?;
+            let to = Id::try_from(request.to.as_str())?;
 
             // Check if recipient user exists in TigerBeetle
             if !db.user_exists(&to).await? {

@@ -26,21 +26,14 @@ impl Body for ResponseBody {
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
             Self::Box(b) => Pin::new(&mut *b).poll_frame(cx),
-            Self::S3Stream(s) => {
-                let error = false;
-                let poll = Pin::new(&mut *s).poll_next(cx).map(|maybe_item| {
-                    maybe_item.map(|item| {
-                        Ok(match item {
-                            Ok(bytes) => Frame::data(bytes),
-                            Err(_) => Frame::data(Bytes::default()),
-                        })
+            Self::S3Stream(s) => Pin::new(&mut *s).poll_next(cx).map(|maybe_item| {
+                maybe_item.map(|item| {
+                    Ok(match item {
+                        Ok(bytes) => Frame::data(bytes),
+                        Err(_) => Frame::data(Bytes::default()),
                     })
-                });
-                if error {
-                    return Poll::Ready(None);
-                }
-                poll
-            }
+                })
+            }),
         }
     }
 

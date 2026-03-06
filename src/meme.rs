@@ -93,7 +93,7 @@ impl Meme {
         };
         // Init chunk upload.
         let mr = &self.db.mr;
-        let content_type = "".to_string();
+        let content_type = String::new();
         let msg = mr
             .initiate_multipart_upload(&oid.to_string(), &content_type)
             .await?;

@@ -97,7 +97,7 @@ impl Query {
             _ => &None,
         }
     }
-    /// Retrive value by key from header map
+    /// Retrieve value by key from header map
     pub fn retrieve<'a>(req: &'a Request<Incoming>, key: &'a str) -> Result<&'a str> {
         if let Some(r) = req.headers().get(key) {
             if let Ok(s) = r.to_str() {

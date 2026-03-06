@@ -156,7 +156,7 @@ impl GeneMeta {
                 GeneMeta {
                     name: "info".into(),
                     version: 1,
-                    description: "Infomantion about this server.".into(),
+                    description: "Information about this server.".into(),
                 },
             ),
             (

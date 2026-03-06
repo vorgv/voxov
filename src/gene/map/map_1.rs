@@ -120,14 +120,14 @@ struct Drop {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "_type")]
 enum Request {
-    Put(Put),
-    Get(Get),
+    Put(Box<Put>),
+    Get(Box<Get>),
     Drop(Drop),
 }
 
 pub struct V1Context<'a> {
     pub uid: &'a Id,
-    pub arg: &'a String,
+    pub arg: &'a str,
     pub changes: &'a mut Costs,
     pub _deadline: Instant,
     pub space_cost: i64,
@@ -139,8 +139,8 @@ pub async fn v1(cx: V1Context<'_>, internal: bool) -> Result<String> {
     let request: Request = serde_json::from_str(cx.arg)?;
 
     match request {
-        Request::Put(request) => handle_put(cx, request, internal).await,
-        Request::Get(request) => handle_get(cx, request, internal).await,
+        Request::Put(request) => handle_put(cx, *request, internal).await,
+        Request::Get(request) => handle_get(cx, *request, internal).await,
         Request::Drop(request) => handle_drop(cx, request).await,
     }
 }
@@ -284,11 +284,10 @@ async fn handle_put(cx: V1Context<'_>, request: Put, internal: bool) -> Result<S
 async fn handle_get(cx: V1Context<'_>, request: Get, internal: bool) -> Result<String> {
     // Build dynamic query
     let mut query = String::from("SELECT id, uid, pub, eol, tip, ns, size, i0, i1, i2, i3, i4, i5, i6, i7, geo_lon, geo_lat, body FROM map_docs WHERE 1=1");
-    let _params: Vec<Box<dyn sqlx::Encode<'_, sqlx::Postgres> + Send + Sync>> = Vec::new();
     let mut param_idx = 1;
 
     if let Some(id_str) = &request._id {
-        if let Ok(_id) = Uuid::parse_str(id_str) {
+        if Uuid::parse_str(id_str).is_ok() {
             query.push_str(&format!(" AND id = ${}", param_idx));
             param_idx += 1;
         }
@@ -297,12 +296,12 @@ async fn handle_get(cx: V1Context<'_>, request: Get, internal: bool) -> Result<S
     if !internal {
         if let Some(doc_uid) = &request._uid {
             if cx.uid.to_string() == *doc_uid {
-                if let Some(_p) = request._pub {
+                if request._pub.is_some() {
                     query.push_str(&format!(" AND pub = ${}", param_idx));
                     param_idx += 1;
                 }
             } else {
-                query.push_str(&format!(" AND pub = true"));
+                query.push_str(" AND pub = true");
             }
             query.push_str(&format!(" AND uid = ${}", param_idx));
             param_idx += 1;
@@ -312,7 +311,7 @@ async fn handle_get(cx: V1Context<'_>, request: Get, internal: bool) -> Result<S
     // Build range filters
     macro_rules! add_range_filter {
         ($col:expr, $begin:expr, $end:expr) => {
-            if let Some(_) = $begin {
+            if $begin.is_some() {
                 if $end.is_some() {
                     query.push_str(&format!(
                         " AND {} > ${} AND {} < ${}",
@@ -335,17 +334,20 @@ async fn handle_get(cx: V1Context<'_>, request: Get, internal: bool) -> Result<S
     add_range_filter!("tip", request._tip, request._tip_);
     add_range_filter!("size", request._size, request._size_);
 
-    if let Some(_ns) = &request._ns {
+    if request._ns.is_some() {
         if request._ns_.is_some() {
             query.push_str(&format!(
                 " AND ns > ${} AND ns < ${}",
                 param_idx,
                 param_idx + 1
             ));
+            param_idx += 2;
         } else {
             query.push_str(&format!(" AND ns = ${}", param_idx));
+            param_idx += 1;
         }
     }
+    let _ = param_idx;
 
     // Add limit
     if let Some(n) = request._n {
@@ -379,7 +381,7 @@ async fn handle_get(cx: V1Context<'_>, request: Get, internal: bool) -> Result<S
         s -= size;
 
         // Skip if document belongs to requesting user
-        if uid_bytes == cx.uid.0.as_slice() {
+        if uid_bytes == cx.uid.0[..] {
             continue;
         }
 

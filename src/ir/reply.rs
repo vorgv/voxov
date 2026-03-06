@@ -17,7 +17,7 @@ pub enum Reply {
     AuthSessionStart { access: Id, refresh: Id },
     AuthSessionRefresh { access: Id },
     AuthSessionEnd,
-    AuthSmsSendTo { phone: &'static String, message: Id },
+    AuthSmsSendTo { phone: &'static str, message: Id },
     AuthSmsSent { uid: Id },
     CostPay { uri: String },
     CostGet { credit: i64 },
@@ -90,7 +90,7 @@ impl Reply {
                 .unwrap(),
             Reply::CostPay { uri } => Response::builder()
                 .header("type", "CostPay")
-                .header("uri", uri.clone())
+                .header("uri", uri)
                 .body(empty())
                 .unwrap(),
             Reply::CostGet { credit } => Response::builder()
@@ -105,15 +105,15 @@ impl Reply {
                 .unwrap(),
             Reply::GeneMeta { changes, meta } => response_changes(changes)
                 .header("type", "GeneMeta")
-                .body(full(meta.clone()))
+                .body(full(meta))
                 .unwrap(),
             Reply::GeneCall { changes, result } => response_changes(changes)
                 .header("type", "GeneCall")
-                .body(full(result.clone()))
+                .body(full(result))
                 .unwrap(),
             Reply::MemeMeta { changes, meta } => response_changes(changes)
                 .header("type", "MemeMeta")
-                .body(full(meta.clone()))
+                .body(full(meta))
                 .unwrap(),
             Reply::MemePut { changes, hash } => response_changes(changes)
                 .header("type", "MemePut")

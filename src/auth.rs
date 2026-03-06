@@ -148,12 +148,12 @@ impl Auth {
         let db = self.db;
 
         // Find user's phone from SMS sent records
-        let user_phone = match self.skip_auth {
-            true => phone.to_owned(),
-            false => db
-                .get_sms_sent(phone, &message.0)
+        let user_phone = if self.skip_auth {
+            phone.to_owned()
+        } else {
+            db.get_sms_sent(phone, &message.0)
                 .await?
-                .ok_or(Error::AuthInvalidPhone)?,
+                .ok_or(Error::AuthInvalidPhone)?
         };
 
         // Find user's uid by phone
@@ -197,7 +197,7 @@ pub fn nspm(n: u8, phone: &str, message: &Id) -> Bytes {
 }
 
 /// Namespacing phone (kept for compatibility).
-pub fn nsp(n: u8, phone: &String) -> Bytes {
+pub fn nsp(n: u8, phone: &str) -> Bytes {
     use crate::config::PHONE_MAX_BYTES;
 
     let mut buf = BytesMut::with_capacity(1 + PHONE_MAX_BYTES);
